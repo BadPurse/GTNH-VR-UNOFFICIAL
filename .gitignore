@@ -1,0 +1,56 @@
+# Gradle
+.gradle/
+build/
+run/
+out/
+bin/
+
+# Temporary / Scratch
+scratch/
+GTNH-Mod-Template/
+CLAUDE_README.md
+*.log
+patching.log
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+.factorypath
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Game / Runtime configs and saves
+saves/
+screenshots/
+crash-reports/
+logs/
+usernamecache.json
+usercache.json
+banned-ips.json
+banned-players.json
+ops.json
+server.properties
+servers.dat
+whitelist.json
+eula.txt
+options.txt
+layout.json
+
+# Local Gradle overrides
+addon.local.gradle
+addon.local.gradle.kts
+addon.late.local.gradle
+addon.late.local.gradle.kts
+
+# Windows batch files except gradlew.bat
+*.bat
+!gradlew.bat

@@ -1,0 +1,198 @@
+package com.gtnhvr.gui;
+
+import com.gtnhvr.OpenXRRuntime;
+import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.shader.Framebuffer;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL30;
+
+/**
+ * Dedicated GUI capture framebuffer for Minecraft 1.7.10.
+ * In 1.7.10, GuiScreens and menus are rendered directly into FBO 0 or mc.getFramebuffer().
+ * This class captures all 2D GUI rendering into an offscreen texture
+ * so VRVirtualScreen can present it as a floating 3D screen in VR.
+ *
+ * It seamlessly redirects Minecraft.framebufferMc to VRGuiFramebuffer during capture,
+ * preventing mods like NEI and BetterQuesting from leaking elements onto the desktop mirror
+ * or causing VR flickering by unbinding the capture target.
+ */
+@Lwjgl3Aware
+public final class VRGuiRenderer {
+    private static int fbo = 0;
+    private static int texture = 0;
+    private static int depthRb = 0;
+    private static int width = 0;
+    private static int height = 0;
+    private static boolean capturing = false;
+    private static int previousFbo = 0;
+    private static long frameId = 0L;
+    private static long clearedFrameId = -1L;
+    private static boolean clearedAsMenu = false;
+
+    private static VRGuiFramebuffer guiFramebuffer = null;
+    private static Framebuffer savedMinecraftFramebuffer = null;
+
+    public static int getCaptureWidth() {
+        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
+            return com.gtnhvr.settings.VRClientSettings.virtualScreenWidth;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        return (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 2388;
+    }
+
+    public static int getCaptureHeight() {
+        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
+            return com.gtnhvr.settings.VRClientSettings.virtualScreenHeight;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 1668;
+    }
+
+    /** Called once at the start of every render tick; allows exactly one clear per frame. */
+    public static void newFrame() {
+        frameId++;
+    }
+
+    private VRGuiRenderer() {}
+
+    public static void checkSize(int w, int h) {
+        if (w <= 0) w = 854;
+        if (h <= 0) h = 480;
+        if (fbo == 0 || width != w || height != h) {
+            destroy();
+            width = w;
+            height = h;
+
+            fbo = GL30.glGenFramebuffers();
+            texture = GL11.glGenTextures();
+            depthRb = GL30.glGenRenderbuffers();
+
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+
+            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
+            GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH24_STENCIL8, width, height);
+
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+            GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
+            GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        }
+
+        if (guiFramebuffer == null) {
+            guiFramebuffer = new VRGuiFramebuffer(width, height);
+        }
+        guiFramebuffer.update(fbo, texture, depthRb, width, height);
+    }
+
+    public static void begin(int w, int h, boolean inMainMenu) {
+        checkSize(w, h);
+        Minecraft mc = Minecraft.getMinecraft();
+        if (!capturing) {
+            previousFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+            if (mc != null) {
+                savedMinecraftFramebuffer = OpenXRRuntime.getMinecraftFramebuffer(mc);
+                OpenXRRuntime.setMinecraftFramebuffer(mc, guiFramebuffer);
+            }
+        }
+        capturing = true;
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GL11.glViewport(0, 0, width, height);
+
+        // A second begin() in the same frame must not wipe what was already drawn
+        // (NEI panels, container slots); the buffer is cleared once per frame only.
+        if (clearedFrameId != frameId || clearedAsMenu != inMainMenu) {
+            boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+            if (scissor) {
+                GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            }
+            // Ensure depth mask and color mask allow full clearing
+            GL11.glDepthMask(true);
+            GL11.glColorMask(true, true, true, true);
+
+            if (inMainMenu) {
+                GL11.glClearColor(0.06F, 0.07F, 0.10F, 1.0F);
+            } else {
+                GL11.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+            }
+            GL11.glClearDepth(1.0D);
+            GL11.glClearStencil(0);
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_STENCIL_BUFFER_BIT);
+            if (scissor) {
+                GL11.glEnable(GL11.GL_SCISSOR_TEST);
+            }
+            clearedFrameId = frameId;
+            clearedAsMenu = inMainMenu;
+        }
+
+        GL11.glColorMask(true, true, true, true);
+        GL11.glEnable(GL11.GL_BLEND);
+        org.lwjgl.opengl.GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    public static void end() {
+        if (!capturing) return;
+        capturing = false;
+
+        // Ensure all color/alpha channels are writable
+        GL11.glColorMask(true, true, true, true);
+
+        // Flush draw commands so GUI texture is completely ready for sampling
+        GL11.glFlush();
+
+        // Restore vanilla Minecraft framebuffer
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc != null && savedMinecraftFramebuffer != null) {
+            OpenXRRuntime.setMinecraftFramebuffer(mc, savedMinecraftFramebuffer);
+            savedMinecraftFramebuffer = null;
+        }
+
+        // Restore previous framebuffer binding
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
+    }
+
+    public static int getTextureId() {
+        return texture;
+    }
+
+    public static int getWidth() {
+        return width;
+    }
+
+    public static int getHeight() {
+        return height;
+    }
+
+    public static boolean isCapturing() {
+        return capturing;
+    }
+
+    public static void destroy() {
+        if (fbo != 0) {
+            GL30.glDeleteFramebuffers(fbo);
+            fbo = 0;
+        }
+        if (texture != 0) {
+            GL11.glDeleteTextures(texture);
+            texture = 0;
+        }
+        if (depthRb != 0) {
+            GL30.glDeleteRenderbuffers(depthRb);
+            depthRb = 0;
+        }
+        if (guiFramebuffer != null) {
+            guiFramebuffer = null;
+        }
+        width = 0;
+        height = 0;
+        capturing = false;
+        previousFbo = 0;
+        savedMinecraftFramebuffer = null;
+    }
+}

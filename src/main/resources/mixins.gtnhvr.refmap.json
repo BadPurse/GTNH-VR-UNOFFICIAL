@@ -1,0 +1,96 @@
+{
+  "mappings": {
+    "com/gtnhvr/mixin/early/MixinEntityRenderer": {
+      "setupCameraTransform": "Lnet/minecraft/client/renderer/EntityRenderer;func_78479_a(FI)V",
+      "renderWorld": "Lnet/minecraft/client/renderer/EntityRenderer;func_78471_a(FJ)V",
+      "updateCameraAndRender": "Lnet/minecraft/client/renderer/EntityRenderer;func_78480_b(F)V",
+      "renderHand": "Lnet/minecraft/client/renderer/EntityRenderer;func_78476_b(FI)V",
+      "getMouseOver": "Lnet/minecraft/client/renderer/EntityRenderer;func_78473_a(F)V",
+      "Lnet/minecraft/client/gui/GuiScreen;drawScreen(IIF)V": "Lnet/minecraft/client/gui/GuiScreen;func_73863_a(IIF)V"
+    },
+    "com/gtnhvr/mixin/early/MixinMinecraft": {
+      "shutdownMinecraftApplet": "Lnet/minecraft/client/Minecraft;func_71400_g()V",
+      "getFramebuffer": "Lnet/minecraft/client/Minecraft;func_147110_a()Lnet/minecraft/client/shader/Framebuffer;",
+      "getLimitFramerate": "Lnet/minecraft/client/Minecraft;func_90020_K()I",
+      "setIngameFocus": "Lnet/minecraft/client/Minecraft;func_71381_h()V",
+      "displayInGameMenu": "Lnet/minecraft/client/Minecraft;func_71385_j()V",
+      "runTick": "Lnet/minecraft/client/Minecraft;func_71407_l()V"
+    },
+    "com/gtnhvr/mixin/early/MixinGuiScreen": {
+      "drawWorldBackground": "Lnet/minecraft/client/gui/GuiScreen;func_146270_b(I)V",
+      "drawDefaultBackground": "Lnet/minecraft/client/gui/GuiScreen;func_146276_q_()V",
+      "drawBackground": "Lnet/minecraft/client/gui/GuiScreen;func_146278_c(I)V",
+      "drawScreen": "Lnet/minecraft/client/gui/GuiScreen;func_73863_a(IIF)V"
+    },
+    "com/gtnhvr/mixin/early/MixinGuiMainMenu": {
+      "renderSkybox": "Lnet/minecraft/client/gui/GuiMainMenu;func_73971_c(IIF)V",
+      "initGui": "Lnet/minecraft/client/gui/GuiMainMenu;func_73866_w_()V",
+      "actionPerformed": "Lnet/minecraft/client/gui/GuiMainMenu;func_146284_a(Lnet/minecraft/client/gui/GuiButton;)V"
+    },
+    "com/gtnhvr/mixin/early/MixinGuiIngame": {
+      "renderVignette": "Lnet/minecraft/client/gui/GuiIngame;func_73829_a(FII)V"
+    },
+    "com/gtnhvr/mixin/early/MixinGui": {
+      "drawGradientRect": "Lnet/minecraft/client/gui/Gui;func_73733_a(IIIIII)V"
+    },
+    "com/gtnhvr/mixin/early/MixinEntity": {
+      "setAngles": "Lnet/minecraft/entity/Entity;func_70082_c(FF)V"
+    },
+    "com/gtnhvr/mixin/early/MixinGuiInventory": {
+      "initGui": "Lnet/minecraft/client/gui/inventory/GuiInventory;func_73866_w_()V",
+      "drawGuiContainerBackgroundLayer": "Lnet/minecraft/client/gui/inventory/GuiInventory;func_146976_a(FII)V",
+      "drawGuiContainerForegroundLayer": "Lnet/minecraft/client/gui/inventory/GuiInventory;func_146979_b(II)V"
+    },
+    "com/gtnhvr/mixin/early/MixinMovementInputFromOptions": {
+      "updatePlayerMoveState": "Lnet/minecraft/util/MovementInputFromOptions;func_78898_a()V"
+    }
+  },
+  "data": {
+    "named:searge": {
+      "com/gtnhvr/mixin/early/MixinEntityRenderer": {
+        "setupCameraTransform": "Lnet/minecraft/client/renderer/EntityRenderer;func_78479_a(FI)V",
+        "renderWorld": "Lnet/minecraft/client/renderer/EntityRenderer;func_78471_a(FJ)V",
+        "updateCameraAndRender": "Lnet/minecraft/client/renderer/EntityRenderer;func_78480_b(F)V",
+        "renderHand": "Lnet/minecraft/client/renderer/EntityRenderer;func_78476_b(FI)V",
+        "getMouseOver": "Lnet/minecraft/client/renderer/EntityRenderer;func_78473_a(F)V",
+        "Lnet/minecraft/client/gui/GuiScreen;drawScreen(IIF)V": "Lnet/minecraft/client/gui/GuiScreen;func_73863_a(IIF)V"
+      },
+      "com/gtnhvr/mixin/early/MixinMinecraft": {
+        "shutdownMinecraftApplet": "Lnet/minecraft/client/Minecraft;func_71400_g()V",
+        "getFramebuffer": "Lnet/minecraft/client/Minecraft;func_147110_a()Lnet/minecraft/client/shader/Framebuffer;",
+        "getLimitFramerate": "Lnet/minecraft/client/Minecraft;func_90020_K()I",
+        "setIngameFocus": "Lnet/minecraft/client/Minecraft;func_71381_h()V",
+        "displayInGameMenu": "Lnet/minecraft/client/Minecraft;func_71385_j()V",
+        "runTick": "Lnet/minecraft/client/Minecraft;func_71407_l()V"
+      },
+      "com/gtnhvr/mixin/early/MixinGuiScreen": {
+        "drawWorldBackground": "Lnet/minecraft/client/gui/GuiScreen;func_146270_b(I)V",
+        "drawDefaultBackground": "Lnet/minecraft/client/gui/GuiScreen;func_146276_q_()V",
+        "drawBackground": "Lnet/minecraft/client/gui/GuiScreen;func_146278_c(I)V",
+        "drawScreen": "Lnet/minecraft/client/gui/GuiScreen;func_73863_a(IIF)V"
+      },
+      "com/gtnhvr/mixin/early/MixinGuiMainMenu": {
+        "renderSkybox": "Lnet/minecraft/client/gui/GuiMainMenu;func_73971_c(IIF)V",
+        "initGui": "Lnet/minecraft/client/gui/GuiMainMenu;func_73866_w_()V",
+        "actionPerformed": "Lnet/minecraft/client/gui/GuiMainMenu;func_146284_a(Lnet/minecraft/client/gui/GuiButton;)V"
+      },
+      "com/gtnhvr/mixin/early/MixinGuiIngame": {
+        "renderVignette": "Lnet/minecraft/client/gui/GuiIngame;func_73829_a(FII)V"
+      },
+      "com/gtnhvr/mixin/early/MixinGui": {
+        "drawGradientRect": "Lnet/minecraft/client/gui/Gui;func_73733_a(IIIIII)V"
+      },
+      "com/gtnhvr/mixin/early/MixinEntity": {
+        "setAngles": "Lnet/minecraft/entity/Entity;func_70082_c(FF)V"
+      },
+      "com/gtnhvr/mixin/early/MixinGuiInventory": {
+        "initGui": "Lnet/minecraft/client/gui/inventory/GuiInventory;func_73866_w_()V",
+        "drawGuiContainerBackgroundLayer": "Lnet/minecraft/client/gui/inventory/GuiInventory;func_146976_a(FII)V",
+        "drawGuiContainerForegroundLayer": "Lnet/minecraft/client/gui/inventory/GuiInventory;func_146979_b(II)V"
+      },
+      "com/gtnhvr/mixin/early/MixinMovementInputFromOptions": {
+        "updatePlayerMoveState": "Lnet/minecraft/util/MovementInputFromOptions;func_78898_a()V"
+      }
+    }
+  }
+}

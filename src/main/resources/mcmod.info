@@ -1,0 +1,21 @@
+{
+	"modListVersion": 2,
+	"modList": [{
+		"modid": "${modId}",
+		"name": "${modName}",
+		"description": "GTNH VR Mod - OpenXR VR support for GT: New Horizons on Java 17-25 & LWJGL 3, based on Visor.",
+		"version": "${modVersion}",
+		"mcversion": "${minecraftVersion}",
+		"url": "https://github.com/BadPurse/GTNH-VR-UNOFFICIAL",
+		"updateUrl": "",
+		"authorList": ["Phoenix-Ra", "Visor Developers", "GTNH VR Contributors"],
+		"credits": "Phoenix-Ra (original author of Visor VR mod), VisorModStudio, GT New Horizons team, Angelica, lwjgl3ify",
+		"logoFile": "",
+		"screenshots": [],
+		"parent": "",
+		"requiredMods": ["lwjgl3ify"],
+		"dependencies": [],
+		"dependants": [],
+		"useDependencyInformation": true
+	}]
+}
