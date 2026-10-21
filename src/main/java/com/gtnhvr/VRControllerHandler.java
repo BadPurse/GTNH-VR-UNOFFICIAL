@@ -826,19 +826,18 @@ public final class VRControllerHandler {
             // In OpenGL/LWJGL2, Y=0 is the bottom and Y=displayHeight-1 is the top.
             // In SDL2 (SDL_WarpMouseInWindow), Y=0 is the top and Y=displayHeight-1 is the bottom!
             // Passing glY directly to SDL_WarpMouseInWindow caused the Y-axis to be inverted.
-            // Use autonomous resolution when enabled to decouple cursor from monitor window size.
-            int cursorW = com.gtnhvr.gui.VRGuiRenderer.getCaptureWidth();
-            int cursorH = com.gtnhvr.gui.VRGuiRenderer.getCaptureHeight();
+            // Minecraft/LWJGL mouse events are in actual window framebuffer pixels;
+            // GUI layout uses the fixed logical capture resolution. Keep pointer input
+            // normalized to the window so Minecraft's ScaledResolution maps it to the
+            // matching logical GUI coordinates, independent of DPI scaling.
+            Minecraft mc = Minecraft.getMinecraft();
+            int cursorW = (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 1;
+            int cursorH = (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 1;
             float curU = Math.max(0.0F, Math.min(1.0F, screenUV.x));
             float curV = Math.max(0.0F, Math.min(1.0F, screenUV.y));
             int screenX = (int) (curU * Math.max(1, cursorW - 1));
             int glY = (int) (curV * Math.max(1, cursorH - 1));
-            int sdlY = Math.max(0, Math.min(cursorH - 1, (cursorH - 1) - glY));
-
             updateLwjglMousePosition(screenX, glY);
-            try {
-                org.lwjglx.input.Mouse.setCursorPosition(screenX, sdlY);
-            } catch (Throwable ignored) {}
 
             // Left Click from active hand: TRIGGER ONLY (hysteresis: squeeze > 0.45F, release < 0.25F)
             boolean isLeftClicking = (activeTrigger > 0.45F);
