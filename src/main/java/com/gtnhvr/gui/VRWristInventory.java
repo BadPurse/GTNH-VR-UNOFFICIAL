@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.OpenXRRuntime;
 import com.gtnhvr.VRControllerHandler;
 import com.gtnhvr.gameplay.tasks.VRTaskBow;
@@ -801,18 +802,18 @@ public final class VRWristInventory {
             // Items are rendered before this pass. Keep the ring blit on the normal GUI texture
             // unit instead of inheriting any lightmap/additional texture-unit state from RenderItem.
             for (int unit = 1; unit < textureUnitCount; unit++) {
-                GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+                GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
                 extraTextureUnitsEnabled[unit] = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
-                GL11.glDisable(GL11.GL_TEXTURE_2D);
+                GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
             }
-            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GLStateManager.glActiveTexture(GL13.GL_TEXTURE0);
             GL11.glDisable(GL11.GL_DEPTH_TEST);
             GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             GL11.glEnable(GL11.GL_BLEND);
             GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
                     GL11.GL_ONE, GL11.GL_ONE);
-            GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
+            GLStateManager.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
             mc.getTextureManager().bindTexture(new ResourceLocation(
                     "gtnhvr", "textures/gui/overlays/hotbar/" + textureName));
             // The PNG itself is cyan/orange; keep the vertex colour white instead of tinting it again.
@@ -821,14 +822,14 @@ public final class VRWristInventory {
         } finally {
             GL11.glPopAttrib();
             for (int unit = 1; unit < textureUnitCount; unit++) {
-                GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+                GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
                 if (extraTextureUnitsEnabled[unit]) {
-                    GL11.glEnable(GL11.GL_TEXTURE_2D);
+                    GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
                 } else {
-                    GL11.glDisable(GL11.GL_TEXTURE_2D);
+                    GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
                 }
             }
-            GL13.glActiveTexture(previousActiveTexture);
+            GLStateManager.glActiveTexture(previousActiveTexture);
         }
     }
 
