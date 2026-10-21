@@ -39,33 +39,24 @@ public final class VRGuiRenderer {
     private static Framebuffer savedMinecraftFramebuffer = null;
     private static int savedDisplayWidth = -1;
     private static int savedDisplayHeight = -1;
+    private static int savedScaledGuiWidth = -1;
+    private static int savedScaledGuiHeight = -1;
 
-    // One logical canvas is used by all VR screens and the HUD. If autonomous resolution
-    // is enabled, use that fixed configured canvas; otherwise use a stable 16:9 VR canvas
-    // instead of inheriting the desktop window dimensions.
-    private static final int FALLBACK_VR_GUI_WIDTH = 1920;
-    private static final int FALLBACK_VR_GUI_HEIGHT = 1080;
+    // Same fixed GUI target as Visor's VRGuiManagerImpl. The screen canvas must not
+    // inherit the desktop aspect ratio or the custom 2388x1668 default, which is not 16:9.
+    private static final int VR_GUI_WIDTH = 1920;
+    private static final int VR_GUI_HEIGHT = 1080;
 
     public static int getCaptureWidth() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (com.gtnhvr.OpenXRRuntime.isSessionRunning()) {
-            if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
-                return Math.max(320, com.gtnhvr.settings.VRClientSettings.virtualScreenWidth);
-            }
-            return FALLBACK_VR_GUI_WIDTH;
-        }
-        return (mc != null && mc.displayWidth > 0) ? mc.displayWidth : FALLBACK_VR_GUI_WIDTH;
+        if (com.gtnhvr.OpenXRRuntime.isSessionRunning()) return VR_GUI_WIDTH;
+        return (mc != null && mc.displayWidth > 0) ? mc.displayWidth : VR_GUI_WIDTH;
     }
 
     public static int getCaptureHeight() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (com.gtnhvr.OpenXRRuntime.isSessionRunning()) {
-            if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
-                return Math.max(240, com.gtnhvr.settings.VRClientSettings.virtualScreenHeight);
-            }
-            return FALLBACK_VR_GUI_HEIGHT;
-        }
-        return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : FALLBACK_VR_GUI_HEIGHT;
+        if (com.gtnhvr.OpenXRRuntime.isSessionRunning()) return VR_GUI_HEIGHT;
+        return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : VR_GUI_HEIGHT;
     }
 
     private static void useLogicalGuiResolution(Minecraft mc) {
@@ -75,6 +66,10 @@ public final class VRGuiRenderer {
         if (savedDisplayWidth < 0 || savedDisplayHeight < 0) {
             savedDisplayWidth = mc.displayWidth;
             savedDisplayHeight = mc.displayHeight;
+            net.minecraft.client.gui.ScaledResolution sourceScaled =
+                    new net.minecraft.client.gui.ScaledResolution(mc, savedDisplayWidth, savedDisplayHeight);
+            savedScaledGuiWidth = sourceScaled.getScaledWidth();
+            savedScaledGuiHeight = sourceScaled.getScaledHeight();
         }
         mc.displayWidth = width;
         mc.displayHeight = height;
@@ -110,12 +105,29 @@ public final class VRGuiRenderer {
         }
         savedDisplayWidth = -1;
         savedDisplayHeight = -1;
+        savedScaledGuiWidth = -1;
+        savedScaledGuiHeight = -1;
         logicalGuiResolutionActive = false;
     }
 
     /** Used by the separate HUD capture to share the same scoped Display dimensions. */
     public static void setLogicalGuiResolutionActive(boolean active) {
         logicalGuiResolutionActive = active;
+    }
+
+    /**
+     * Minecraft computes drawScreen's hover coordinates before our FBO capture starts.
+     * Scale those already-GUI-space coordinates from the desktop's old ScaledResolution
+     * to the logical VR screen dimensions, without touching the input event queue.
+     */
+    public static int mapMouseXToLogicalScreen(int mouseX, int logicalWidth) {
+        if (!capturing || savedScaledGuiWidth <= 0 || logicalWidth <= 0) return mouseX;
+        return Math.round(mouseX * (logicalWidth / (float) savedScaledGuiWidth));
+    }
+
+    public static int mapMouseYToLogicalScreen(int mouseY, int logicalHeight) {
+        if (!capturing || savedScaledGuiHeight <= 0 || logicalHeight <= 0) return mouseY;
+        return Math.round(mouseY * (logicalHeight / (float) savedScaledGuiHeight));
     }
 
     /** Called once at the start of every render tick; allows exactly one clear per frame. */

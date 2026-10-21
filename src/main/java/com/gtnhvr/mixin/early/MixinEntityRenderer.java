@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.FloatBuffer;
@@ -80,22 +81,27 @@ public abstract class MixinEntityRenderer {
     }
 
     /**
-     * Start the virtual canvas immediately before Minecraft draws the active 2D screen.
-     * Starting at updateCameraAndRender HEAD kept logical Display dimensions active during the
-     * stereo world/menu pass; starting here scopes the override to GUI rendering only.
+     * Interpose on the actual screen draw so capture setup and mouse-coordinate conversion
+     * happen in a single ordered path, independent of the desktop window dimensions.
      */
-    @Inject(method = {"updateCameraAndRender", "func_78480_b"},
+    @Redirect(method = {"updateCameraAndRender", "func_78480_b"},
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;drawScreen(IIF)V"),
             require = 0)
-    private void gtnhvr$beginGuiCapture(float partialTicks, CallbackInfo ci) {
+    private void gtnhvr$drawVirtualGuiScreen(net.minecraft.client.gui.GuiScreen screen,
+                                               int mouseX, int mouseY, float partialTicks) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (OpenXRRuntime.isSessionRunning() && mc != null && mc.currentScreen != null
+        if (OpenXRRuntime.isSessionRunning() && mc != null && mc.currentScreen == screen
                 && !VRGuiRenderer.isCapturing()) {
-            // GTNH's CustomMainMenu need not extend GuiMainMenu; before a world loads,
-            // every screen is part of the title-menu flow (including Angelica settings).
+            // This catches GTNH's CustomMainMenu too; its implementation need not extend GuiMainMenu.
             boolean mainMenu = mc.theWorld == null;
             VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), mainMenu);
         }
+
+        if (OpenXRRuntime.isSessionRunning() && VRGuiRenderer.isCapturing() && screen != null) {
+            mouseX = VRGuiRenderer.mapMouseXToLogicalScreen(mouseX, screen.width);
+            mouseY = VRGuiRenderer.mapMouseYToLogicalScreen(mouseY, screen.height);
+        }
+        screen.drawScreen(mouseX, mouseY, partialTicks);
     }
 
     // Keep the capture open until updateCameraAndRender TAIL: NEI and other Forge GUI listeners
