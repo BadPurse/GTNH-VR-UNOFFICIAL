@@ -264,8 +264,10 @@ public final class GuiEventHandler {
     public void onDrawScreenPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
         if (!com.gtnhvr.OpenXRRuntime.isSessionRunning()) return;
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc != null && mc.theWorld != null && !VRGuiRenderer.isCapturing()) {
-            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), false);
+        if (mc != null && mc.currentScreen != null && !VRGuiRenderer.isCapturing()) {
+            boolean mainMenu = mc.theWorld == null
+                    && mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu;
+            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), mainMenu);
         }
     }
 
@@ -296,7 +298,8 @@ public final class GuiEventHandler {
 
         if (event.type == net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType.ALL) {
             Minecraft mc = Minecraft.getMinecraft();
-            if (mc != null && mc.theWorld != null) {
+            if (mc != null && mc.theWorld != null && !VRHudRenderer.isCapturing()) {
+                // Fallback only. MixinGuiIngame normally starts capture before ScaledResolution is created.
                 VRHudRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight());
             }
             return;
@@ -339,10 +342,11 @@ public final class GuiEventHandler {
             if (VRHudRenderer.isCapturing()) {
                 if (mc != null && mc.thePlayer != null) {
                     net.minecraft.client.gui.ScaledResolution scaled =
-                            new net.minecraft.client.gui.ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+                            new net.minecraft.client.gui.ScaledResolution(
+                                    mc, VRHudRenderer.getWidth(), VRHudRenderer.getHeight());
                     VRScreenEffects.render(scaled.getScaledWidth(), scaled.getScaledHeight());
                 }
-                VRHudRenderer.end();
+                // MixinGuiIngame closes capture at TAIL after all HUD elements draw.
             }
         }
     }

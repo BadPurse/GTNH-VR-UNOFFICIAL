@@ -114,7 +114,7 @@ public final class VRWristMapOverlay {
     }
 
     private static float[] getJourneyMapUV(Minecraft mc) {
-        ScaledResolution scaled = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        ScaledResolution scaled = new ScaledResolution(mc, VRHudRenderer.getWidth(), VRHudRenderer.getHeight());
         int sw = scaled.getScaledWidth();
         int sh = scaled.getScaledHeight();
 

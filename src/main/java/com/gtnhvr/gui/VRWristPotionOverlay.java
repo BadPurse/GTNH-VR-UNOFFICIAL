@@ -131,7 +131,7 @@ public final class VRWristPotionOverlay {
         int hudTex = VRHudRenderer.getTextureId();
         if (hudTex <= 0) return;
 
-        ScaledResolution scaled = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        ScaledResolution scaled = new ScaledResolution(mc, VRHudRenderer.getWidth(), VRHudRenderer.getHeight());
         int sw = scaled.getScaledWidth();
         int sh = scaled.getScaledHeight();
         if (sw <= 0 || sh <= 0) return;

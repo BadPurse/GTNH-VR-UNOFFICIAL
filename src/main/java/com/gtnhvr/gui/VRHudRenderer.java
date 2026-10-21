@@ -27,13 +27,27 @@ public final class VRHudRenderer {
     private static int width = 0;
     private static int height = 0;
     private static boolean capturing = false;
+    private static boolean glStatePushed = false;
+    private static int previousFbo = 0;
+    private static int previousMatrixMode = GL11.GL_MODELVIEW;
+    private static int savedDisplayWidth = -1;
+    private static int savedDisplayHeight = -1;
+    private static boolean previousLogicalResolutionActive = false;
 
     private VRHudRenderer() {}
 
     public static void checkSize(int w, int h) {
         if (w <= 0) w = 854;
         if (h <= 0) h = 480;
+        if (capturing && (width != w || height != h)) end();
         if (fbo == 0 || width != w || height != h) {
+            int oldFbo = fbo;
+            int oldTexture = texture;
+            int oldDepthRb = depthRb;
+            int restoreFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+            int restoreTexture = GLStateManager.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            int restoreRenderbuffer = GLStateManager.glGetInteger(GL30.GL_RENDERBUFFER_BINDING);
+
             destroy();
             width = w;
             height = h;
@@ -55,30 +69,90 @@ public final class VRHudRenderer {
             GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
             GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
             GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
-            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, restoreFbo == oldFbo ? 0 : restoreFbo);
+            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, restoreRenderbuffer == oldDepthRb ? 0 : restoreRenderbuffer);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, restoreTexture == oldTexture ? 0 : restoreTexture);
         }
     }
 
+    /** Capture the HUD on the same logical canvas as GUI screens with its own scoped render state. */
     public static void begin(int w, int h) {
+        if (capturing) return;
         checkSize(w, h);
+
+        Minecraft mc = Minecraft.getMinecraft();
+        previousFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        previousMatrixMode = GLStateManager.glGetInteger(GL11.GL_MATRIX_MODE);
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        glStatePushed = true;
+
+        GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+        GLStateManager.glPushMatrix();
+        GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+        GLStateManager.glPushMatrix();
+
+        if (mc != null) {
+            savedDisplayWidth = mc.displayWidth;
+            savedDisplayHeight = mc.displayHeight;
+            previousLogicalResolutionActive = VRGuiRenderer.isLogicalGuiResolutionActive();
+            mc.displayWidth = width;
+            mc.displayHeight = height;
+            VRGuiRenderer.setLogicalGuiResolutionActive(true);
+
+            net.minecraft.client.gui.ScaledResolution scaled =
+                    new net.minecraft.client.gui.ScaledResolution(mc, width, height);
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glLoadIdentity();
+            GLStateManager.glOrtho(
+                    0.0D, scaled.getScaledWidth_double(),
+                    scaled.getScaledHeight_double(), 0.0D,
+                    1000.0D, 3000.0D);
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glLoadIdentity();
+            GLStateManager.glTranslatef(0.0F, 0.0F, -2000.0F);
+        }
+
         capturing = true;
         GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
         GLStateManager.glViewport(0, 0, width, height);
-        // Clear with 100% transparent background so world shows through behind HUD elements
+        GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
+        GLStateManager.glDepthMask(true);
+        GLStateManager.glColorMask(true, true, true, true);
         GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
         GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
         GLStateManager.glEnable(GL11.GL_BLEND);
-        com.gtnewhorizons.angelica.glsm.GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+        GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     public static void end() {
         if (!capturing) return;
         capturing = false;
+        GLStateManager.glFlush();
 
         Minecraft mc = Minecraft.getMinecraft();
-        int targetFbo = (mc != null && mc.getFramebuffer() != null && mc.getFramebuffer().framebufferObject > 0)
-                ? mc.getFramebuffer().framebufferObject : 0;
-        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, targetFbo);
+        if (mc != null && savedDisplayWidth >= 0 && savedDisplayHeight >= 0) {
+            mc.displayWidth = savedDisplayWidth;
+            mc.displayHeight = savedDisplayHeight;
+        }
+        savedDisplayWidth = -1;
+        savedDisplayHeight = -1;
+        VRGuiRenderer.setLogicalGuiResolutionActive(previousLogicalResolutionActive);
+        previousLogicalResolutionActive = false;
+
+        if (glStatePushed) {
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glPopMatrix();
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPopMatrix();
+            GLStateManager.glMatrixMode(previousMatrixMode);
+            GLStateManager.glPopAttrib();
+            glStatePushed = false;
+        }
+
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
+        previousFbo = 0;
     }
 
     private static final Vector3f currentHudPos = new Vector3f();
@@ -232,11 +306,20 @@ public final class VRHudRenderer {
         return texture;
     }
 
+    public static int getWidth() {
+        return width;
+    }
+
+    public static int getHeight() {
+        return height;
+    }
+
     public static boolean isCapturing() {
         return capturing;
     }
 
     public static void destroy() {
+        if (capturing) end();
         if (fbo != 0) {
             GLStateManager.glDeleteFramebuffers(fbo);
             fbo = 0;

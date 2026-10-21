@@ -124,7 +124,7 @@ public final class VRWristStatusOverlay {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc == null || mc.thePlayer == null) return;
 
-        ScaledResolution scaled = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        ScaledResolution scaled = new ScaledResolution(mc, VRHudRenderer.getWidth(), VRHudRenderer.getHeight());
         int sw = scaled.getScaledWidth();
         int sh = scaled.getScaledHeight();
         if (sw <= 0 || sh <= 0) return;

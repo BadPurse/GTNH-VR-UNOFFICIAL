@@ -80,32 +80,25 @@ public abstract class MixinEntityRenderer {
     }
 
     /**
-     * Captures 2D main menu into VRGuiRenderer FBO for floating VR display.
-     * In-game GUIs (Esc menu, inventories, chests) are captured cleanly via
-     * GuiEventHandler (DrawScreenEvent.Pre / Post) so renderWorld is never wrapped!
+     * Start the virtual canvas immediately before Minecraft draws the active 2D screen.
+     * Starting at updateCameraAndRender HEAD kept logical Display dimensions active during the
+     * stereo world/menu pass; starting here scopes the override to GUI rendering only.
      */
-    @Inject(method = {"updateCameraAndRender", "func_78480_b"}, at = @At("HEAD"))
-    private void gtnhvr$onUpdateCameraAndRenderHead(float partialTicks, CallbackInfo ci) {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (OpenXRRuntime.isSessionRunning() && mc != null && mc.theWorld == null) {
-            boolean isMainMenu = mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu;
-            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), isMainMenu);
-        }
-    }
-
     @Inject(method = {"updateCameraAndRender", "func_78480_b"},
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;drawScreen(IIF)V"),
             require = 0)
-    private void gtnhvr$beginInGameGuiCapture(float partialTicks, CallbackInfo ci) {
+    private void gtnhvr$beginGuiCapture(float partialTicks, CallbackInfo ci) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (OpenXRRuntime.isSessionRunning() && mc != null && mc.currentScreen != null && mc.theWorld != null) {
-            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), false);
+        if (OpenXRRuntime.isSessionRunning() && mc != null && mc.currentScreen != null
+                && !VRGuiRenderer.isCapturing()) {
+            boolean mainMenu = mc.theWorld == null
+                    && mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu;
+            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), mainMenu);
         }
     }
 
-
-    // The capture is NOT closed right after drawScreen(): Forge posts DrawScreenEvent.Post afterwards
-    // and NEI (item panel, bookmarks, tooltips) draws from that event. The capture ends at TAIL.
+    // Keep the capture open until updateCameraAndRender TAIL: NEI and other Forge GUI listeners
+    // draw after GuiScreen.drawScreen / DrawScreenEvent.Post.
 
     @Inject(method = {"updateCameraAndRender", "func_78480_b"}, at = @At("TAIL"))
     private void gtnhvr$onUpdateCameraAndRenderTail(float partialTicks, CallbackInfo ci) {
