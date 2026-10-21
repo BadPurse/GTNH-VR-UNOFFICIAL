@@ -501,6 +501,9 @@ public final class OpenXRRuntime {
                 com.gtnhvr.gameplay.tasks.VRTaskTeleport.getInstance().renderTeleportArc();
                 com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance().renderTrajectoryArc();
 
+                // 2.6 Mob Spawn Overlay (F7-style light level crosses in world space)
+                com.gtnhvr.gui.VRMobSpawnOverlay.getInstance().render(partialTicks);
+
                 // 3. Clear depth for HUD and Hotbar
                 GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 

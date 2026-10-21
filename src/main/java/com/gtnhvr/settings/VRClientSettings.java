@@ -248,6 +248,9 @@ public final class VRClientSettings {
     public static int virtualScreenHeight = 1668;
     public static boolean antiXrayVignette = true;
 
+    // Shoulder Gesture Jetpack/Glide Activation
+    public static boolean shoulderJetpackEnabled = true;
+
     private VRClientSettings() {}
 
     public static void init(File configFile) {
@@ -421,6 +424,9 @@ public final class VRClientSettings {
             interactionReach = interactionDistance;
             crosshairLaser = vrCrosshair;
 
+            // Shoulder Gestures
+            shoulderJetpackEnabled = config.getBoolean("shoulderJetpackEnabled", "world", shoulderJetpackEnabled, "Shoulder gesture to toggle jetpacks and gliders");
+
             if (config.hasChanged()) {
                 config.save();
             }
@@ -572,6 +578,7 @@ public final class VRClientSettings {
             config.get("world", "worldRoomClimbing", true).set(worldRoomClimbing);
             config.get("world", "worldSupportedMovement", 0).set(worldSupportedMovement);
             config.get("world", "worldSupportedHeightMode", 0).set(worldSupportedHeightMode);
+            config.get("world", "shoulderJetpackEnabled", true).set(shoulderJetpackEnabled);
 
             // Custom Hand Offsets (Per-Hand & Per-Category)
             saveOffset("tool_right", toolRight, DEFAULT_TOOL_RIGHT);

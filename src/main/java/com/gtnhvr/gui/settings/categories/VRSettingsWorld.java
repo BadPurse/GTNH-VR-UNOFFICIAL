@@ -90,5 +90,25 @@ public class VRSettingsWorld extends VROptionsSet {
                 },
                 I18n.format("visor.options.world.crosshair_laser")
         ));
+
+        // Row 3: Mob Spawn Overlay (F7) & Jetpack Shoulder Gestures
+        widgets.add(new OptionWidget.ToggleWidget(
+                OptionWidgetPosition.LEFT, 3,
+                "Mob Spawn Overlay (F7)",
+                () -> com.gtnhvr.gui.VRMobSpawnOverlay.getInstance().isEnabled(),
+                v -> com.gtnhvr.gui.VRMobSpawnOverlay.getInstance().setEnabled(v),
+                "Shows colored crosses where hostile mobs can spawn. Red = always, Yellow = at night."
+        ));
+
+        widgets.add(new OptionWidget.ToggleWidget(
+                OptionWidgetPosition.RIGHT, 3,
+                "Shoulder Jetpack Gestures",
+                () -> VRClientSettings.shoulderJetpackEnabled,
+                v -> {
+                    VRClientSettings.shoulderJetpackEnabled = v;
+                    VRClientSettings.save();
+                },
+                "Point right hand at left shoulder for 1s to toggle jetpack. Left hand at right shoulder to toggle glide."
+        ));
     }
 }

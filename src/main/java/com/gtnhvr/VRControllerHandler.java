@@ -826,11 +826,14 @@ public final class VRControllerHandler {
             // In OpenGL/LWJGL2, Y=0 is the bottom and Y=displayHeight-1 is the top.
             // In SDL2 (SDL_WarpMouseInWindow), Y=0 is the top and Y=displayHeight-1 is the bottom!
             // Passing glY directly to SDL_WarpMouseInWindow caused the Y-axis to be inverted.
+            // Use autonomous resolution when enabled to decouple cursor from monitor window size.
+            int cursorW = com.gtnhvr.gui.VRGuiRenderer.getCaptureWidth();
+            int cursorH = com.gtnhvr.gui.VRGuiRenderer.getCaptureHeight();
             float curU = Math.max(0.0F, Math.min(1.0F, screenUV.x));
             float curV = Math.max(0.0F, Math.min(1.0F, screenUV.y));
-            int screenX = (int) (curU * Math.max(1, mc.displayWidth - 1));
-            int glY = (int) (curV * Math.max(1, mc.displayHeight - 1));
-            int sdlY = Math.max(0, Math.min(mc.displayHeight - 1, (mc.displayHeight - 1) - glY));
+            int screenX = (int) (curU * Math.max(1, cursorW - 1));
+            int glY = (int) (curV * Math.max(1, cursorH - 1));
+            int sdlY = Math.max(0, Math.min(cursorH - 1, (cursorH - 1) - glY));
 
             updateLwjglMousePosition(screenX, glY);
             try {
@@ -907,6 +910,9 @@ public final class VRControllerHandler {
         com.gtnhvr.gui.VRWristMapOverlay.getInstance().update(mc, this);
         com.gtnhvr.gui.VRWristInfoOverlay.getInstance().update(mc, this);
         com.gtnhvr.gui.VRWristPotionOverlay.getInstance().update(mc, this);
+        com.gtnhvr.gui.VRMobSpawnOverlay.getInstance().update(mc);
+        com.gtnhvr.gameplay.VRShoulderGestures.getInstance().update(mc, this);
+        com.gtnhvr.gameplay.VRShoulderGestures.getInstance().tick();
 
         if (worldLoadGraceTicks > 0) {
             worldLoadGraceTicks--;
@@ -1036,8 +1042,11 @@ public final class VRControllerHandler {
         boolean sneakState = sneakToggled || roomSneakActive;
         KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), sneakState);
         if (mc.thePlayer != null) {
-            if (mc.thePlayer.movementInput != null && sneakState) {
-                mc.thePlayer.movementInput.sneak = true;
+            // Set the entity data watcher sneak flag so mods (Tinkers' Construct, etc.)
+            // properly detect isSneaking() and limit area-of-effect tools to single block.
+            mc.thePlayer.setSneaking(sneakState);
+            if (mc.thePlayer.movementInput != null) {
+                mc.thePlayer.movementInput.sneak = sneakState;
             }
             if (sneakState) {
                 mc.thePlayer.yOffset = 1.34F;
@@ -1623,5 +1632,6 @@ public final class VRControllerHandler {
         com.gtnhvr.gameplay.tasks.VRTaskBoat.getInstance().clear();
         com.gtnhvr.gameplay.tasks.VRTaskTeleport.getInstance().clear();
         com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance().clear();
+        com.gtnhvr.gameplay.VRShoulderGestures.getInstance().clear();
     }
 }

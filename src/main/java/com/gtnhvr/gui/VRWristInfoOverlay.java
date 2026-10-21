@@ -117,7 +117,10 @@ public final class VRWristInfoOverlay {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc == null || mc.thePlayer == null) return;
 
-        ScaledResolution scaled = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        // Use autonomous resolution dimensions for HUD region calculation
+        int dispW = com.gtnhvr.gui.VRGuiRenderer.getCaptureWidth();
+        int dispH = com.gtnhvr.gui.VRGuiRenderer.getCaptureHeight();
+        ScaledResolution scaled = new ScaledResolution(mc, dispW, dispH);
         int sw = scaled.getScaledWidth();
         int sh = scaled.getScaledHeight();
         if (sw <= 0 || sh <= 0) return;

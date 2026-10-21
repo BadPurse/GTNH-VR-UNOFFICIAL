@@ -98,7 +98,7 @@ public abstract class MixinEntityRenderer {
     private void gtnhvr$beginInGameGuiCapture(float partialTicks, CallbackInfo ci) {
         Minecraft mc = Minecraft.getMinecraft();
         if (OpenXRRuntime.isSessionRunning() && mc != null && mc.currentScreen != null && mc.theWorld != null) {
-            VRGuiRenderer.begin(mc.displayWidth, mc.displayHeight, false);
+            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), false);
         }
     }
 

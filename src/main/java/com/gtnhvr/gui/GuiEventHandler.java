@@ -285,7 +285,7 @@ public final class GuiEventHandler {
         if (event.type == net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType.ALL) {
             Minecraft mc = Minecraft.getMinecraft();
             if (mc != null && mc.theWorld != null) {
-                VRHudRenderer.begin(mc.displayWidth, mc.displayHeight);
+                VRHudRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight());
             }
             return;
         }
