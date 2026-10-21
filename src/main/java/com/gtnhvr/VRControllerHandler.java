@@ -833,10 +833,22 @@ public final class VRControllerHandler {
             Minecraft mc = Minecraft.getMinecraft();
             int cursorW = (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 1;
             int cursorH = (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 1;
+            int logicalW = cursorW;
+            int logicalH = cursorH;
+            if (mc != null && mc.currentScreen != null) {
+                logicalW = Math.max(1, mc.currentScreen.width);
+                logicalH = Math.max(1, mc.currentScreen.height);
+            }
+            net.minecraft.client.gui.ScaledResolution windowScaled = mc != null
+                    ? new net.minecraft.client.gui.ScaledResolution(mc, cursorW, cursorH) : null;
+            int scaledW = windowScaled != null ? Math.max(1, windowScaled.getScaledWidth()) : logicalW;
+            int scaledH = windowScaled != null ? Math.max(1, windowScaled.getScaledHeight()) : logicalH;
             float curU = Math.max(0.0F, Math.min(1.0F, screenUV.x));
             float curV = Math.max(0.0F, Math.min(1.0F, screenUV.y));
-            int screenX = (int) (curU * Math.max(1, cursorW - 1));
-            int glY = (int) (curV * Math.max(1, cursorH - 1));
+            // Compensate for Minecraft's window-based ScaledResolution when the active GUI
+            // itself was laid out at the independent virtual capture resolution.
+            int screenX = Math.round(curU * cursorW * logicalW / (float) scaledW);
+            int glY = Math.round(curV * cursorH * logicalH / (float) scaledH);
             updateLwjglMousePosition(screenX, glY);
 
             // Left Click from active hand: TRIGGER ONLY (hysteresis: squeeze > 0.45F, release < 0.25F)
