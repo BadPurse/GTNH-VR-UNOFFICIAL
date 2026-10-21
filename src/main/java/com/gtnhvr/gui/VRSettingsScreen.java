@@ -148,7 +148,7 @@ public class VRSettingsScreen extends GuiScreen {
 
         GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GLStateManager.glEnable(GL11.GL_BLEND);
-        OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         // 1. Draw Visor Background Frame
         this.mc.getTextureManager().bindTexture(BACKGROUND_TEX);
