@@ -1098,15 +1098,26 @@ public final class VRControllerHandler {
         // VRHandAimPicker used last frame's hand, so the first click with the left trigger
         // could be sent to the right-hand target. Vanilla chests often masked this, while
         // AE2 and other modded blocks missed their one-shot activation event.
+        com.gtnhvr.gameplay.tasks.VRTaskBow bowTask = com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance();
+        boolean physicalBowHeld = bowTask.isBowHeld(mc);
+        boolean bowInMainHand = bowTask.isBowInMainHand();
+        boolean bowStringIntent = physicalBowHeld
+                && (bowInMainHand ? leftTriggerValue : rightTriggerValue) > 0.35F;
         boolean mappedAttackIntent = isMappedControllerKeyHeld(mc.gameSettings.keyBindAttack.getKeyCode());
         boolean rightAttackIntent = mappedAttackIntent
-                || (rightAttackTriggerHeld && VRClientSettings.controllerRightTriggerKeyCode <= 0);
+                || (rightAttackTriggerHeld && VRClientSettings.controllerRightTriggerKeyCode <= 0
+                && !(physicalBowHeld && !bowInMainHand));
         boolean rightUseIntent = rightPrimaryValue && VRClientSettings.controllerRightAKeyCode <= 0;
-        boolean leftUseIntent = (VRClientSettings.worldTwoHanded
+        boolean leftUseIntent = !physicalBowHeld && ((VRClientSettings.worldTwoHanded
                 && VRClientSettings.controllerLeftTriggerKeyCode <= 0 && leftTriggerValue > 0.35F)
-                || com.gtnhvr.gameplay.tasks.VRTaskRoomConsume.getInstance().isConsumingLeft();
+                || com.gtnhvr.gameplay.tasks.VRTaskRoomConsume.getInstance().isConsumingLeft());
 
-        if (rightAttackIntent || rightUseIntent) {
+        // While pulling, interaction follows the hand that holds the bow, not the hand
+        // pulling its string. The offhand bow uses the right trigger for the string, so
+        // that trigger must not simultaneously mine/attack.
+        if (physicalBowHeld && (bowStringIntent || bowTask.isDrawing())) {
+            leftHandActive = !bowInMainHand;
+        } else if (rightAttackIntent || rightUseIntent) {
             leftHandActive = false;
         } else if (leftUseIntent) {
             leftHandActive = true;
@@ -1302,9 +1313,10 @@ public final class VRControllerHandler {
                 && mc.thePlayer != null && mc.thePlayer.isBlocking();
         boolean mappedAttackState = isMappedControllerKeyHeld(mc.gameSettings.keyBindAttack.getKeyCode());
         boolean defaultAttackState = rightAttackTriggerHeld && VRClientSettings.controllerRightTriggerKeyCode <= 0;
+        boolean offhandBowOnRightTrigger = bowTask.isBowHeld(mc) && !bowTask.isBowInMainHand();
         boolean attackState = (defaultAttackState || mappedAttackState) && !hotbar.isMainSelectorActive()
                 && !com.gtnhvr.gui.VRWristInventory.getInstance().isActive()
-                && !blockingStopsAttack;
+                && !blockingStopsAttack && !offhandBowOnRightTrigger && !bowTask.isDrawing();
         if (attackState || (rightPrimaryValue && VRClientSettings.controllerRightAKeyCode <= 0)) {
             leftHandActive = false;
         } else if (leftTriggerValue > 0.35F) {
@@ -1329,12 +1341,15 @@ public final class VRControllerHandler {
                 && VRClientSettings.controllerLeftTriggerKeyCode <= 0 && leftTriggerValue > 0.35F) || roomConsumeLeft;
         boolean rightAUse = rightPrimaryValue && VRClientSettings.controllerRightAKeyCode <= 0;
         boolean mappedUseItemState = isMappedControllerKeyHeld(mc.gameSettings.keyBindUseItem.getKeyCode());
-        boolean useItemState = com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance().isBowHeld(mc)
-                ? com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance().isDrawing()
+        boolean bowHeldForUse = bowTask.isBowHeld(mc);
+        boolean useItemState = bowHeldForUse
+                ? bowTask.isDrawing()
                 : (isLeftTriggerUse || rightAUse || roomConsume || mappedUseItemState) && !hotbar.isSelectorActive()
                 && !com.gtnhvr.gui.VRWristInventory.getInstance().isActive();
         if (useItemState) {
-            if (isLeftTriggerUse) {
+            if (bowHeldForUse) {
+                leftHandActive = !bowTask.isBowInMainHand();
+            } else if (isLeftTriggerUse) {
                 leftHandActive = true;
             } else if (rightPrimaryValue) {
                 leftHandActive = false;
