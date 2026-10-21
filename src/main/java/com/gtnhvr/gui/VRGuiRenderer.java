@@ -164,7 +164,7 @@ public final class VRGuiRenderer {
 
         GLStateManager.glColorMask(true, true, true, true);
         GLStateManager.glEnable(GL11.GL_BLEND);
-        org.lwjgl.opengl.GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        com.gtnewhorizons.angelica.glsm.GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     public static void end() {
