@@ -610,3 +610,6 @@ visor.options.item_offsets.preview_item.held=Held from Inventory
 visor.options.item_offsets.preview_item.offhand=Offhand from Inventory
 visor.options.item_offsets.done=Done / Back
 visor.options.item_offsets.done.tooltip=Save and return to menu
+visor.screen.pause_menu.button.mob_spawns=Mob Spawn Markers: %s
+visor.screen.pause_menu.state.on=ON
+visor.screen.pause_menu.state.off=OFF
