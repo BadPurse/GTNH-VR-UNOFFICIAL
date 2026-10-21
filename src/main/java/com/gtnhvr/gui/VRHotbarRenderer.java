@@ -197,24 +197,25 @@ public final class VRHotbarRenderer {
 
         // Main Hand (Right Hand): tint the textured selection ring cyan/blue.
         // Keep the original ring texture; do not draw the old square placeholder.
-        GL11.glColor4f(0.15F, 0.85F, 1.0F, 1.0F);
-        drawRing(mc, slotMain, imageX, imageY, OFF_SEL0, OFF_SEL1);
+        drawRing(mc, slotMain, imageX, imageY, OFF_SEL0, OFF_SEL1, 0.15F, 0.85F, 1.0F);
 
         // Off Hand (Left Hand): tint the textured selection ring orange.
         if (slotOffhand >= 0 && slotOffhand < 9) {
-            GL11.glColor4f(1.0F, 0.65F, 0.10F, 1.0F);
-            drawRing(mc, slotOffhand, imageX, imageY, MAIN_SEL0, MAIN_SEL1);
+            drawRing(mc, slotOffhand, imageX, imageY, MAIN_SEL0, MAIN_SEL1, 1.0F, 0.65F, 0.10F);
         }
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     private void drawRing(Minecraft mc, int slot, int imageX, int imageY,
-                          ResourceLocation ring, ResourceLocation centerRing) {
+                          ResourceLocation ring, ResourceLocation centerRing,
+                          float red, float green, float blue) {
         HotBarSlice slice = HotBarSlice.fromSlot(slot);
         if (slice == HotBarSlice.NOT_SELECTED) {
             return;
         }
         mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
+        // Apply tint after binding, so a texture bind/reload cannot leave the ring white.
+        GL11.glColor4f(red, green, blue, 1.0F);
         drawTexturedRect(imageX + slice.getItemX() - RING_INSET, imageY + slice.getItemY() - RING_INSET,
                 RING_SIZE, RING_SIZE);
     }
