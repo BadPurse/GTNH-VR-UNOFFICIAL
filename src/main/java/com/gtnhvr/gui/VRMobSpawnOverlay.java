@@ -52,6 +52,9 @@ public final class VRMobSpawnOverlay {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+        // Force the first scan after enabling. Otherwise an off/on toggle during the
+        // same ten-tick scan window leaves the overlay empty until the next world tick.
+        lastScanTick = -1L;
         if (!enabled) {
             markerCount = 0;
         }
@@ -154,22 +157,44 @@ public final class VRMobSpawnOverlay {
      * Must be called during the world render pass after terrain but before GUI.
      */
     public void render(float partialTicks) {
-        if (!enabled || markerCount == 0) return;
+        render(partialTicks, com.gtnhvr.OpenXRRuntime.getCurrentEyeIndex());
+    }
+
+    /**
+     * Draw spawn markers in the same eye/world camera space as the world crosshair.
+     * Do not transform them to room space: this pass is rendered with the eye projection
+     * and Minecraft-world camera matrix, so world-relative block coordinates are required.
+     */
+    public void render(float partialTicks, int eyeIndex) {
+        if (!enabled) return;
 
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null || mc.thePlayer == null) return;
+        if (mc == null || mc.theWorld == null || mc.thePlayer == null || mc.currentScreen != null) return;
 
-        // renderStereoOverlays uses the room-space menu model-view matrix, not Minecraft's
-        // world camera matrix. Convert every marker from world space to the same room space.
-        // The stored Y is the air block's floor level, i.e. the top face of the solid block below.
-        VRControllerHandler controller = VRControllerHandler.getInstance();
-        double worldCrossHalfSize = 0.30D;
-        double yaw = Math.toRadians(180.0D + com.gtnhvr.HeadPoseController.getBaseYaw());
-        double cosYaw = Math.cos(yaw);
-        double sinYaw = Math.sin(yaw);
+        // Keep markers alive even if this render path runs before the next controller update.
+        update(mc);
+        if (markerCount == 0) return;
+
+        net.minecraft.entity.Entity renderEntity =
+                mc.renderViewEntity != null ? mc.renderViewEntity : mc.thePlayer;
+        double camX = renderEntity.prevPosX + (renderEntity.posX - renderEntity.prevPosX) * (double) partialTicks;
+        double camY = renderEntity.prevPosY + (renderEntity.posY - renderEntity.prevPosY) * (double) partialTicks;
+        double camZ = renderEntity.prevPosZ + (renderEntity.posZ - renderEntity.prevPosZ) * (double) partialTicks;
 
         GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
         GLStateManager.glPushMatrix();
+        java.nio.FloatBuffer projection = com.gtnhvr.OpenXRRuntime.getEyeProjectionBuffer(eyeIndex, 0.05F, 100.0F);
+        if (projection != null) {
+            GLStateManager.glLoadMatrix(projection);
+        }
+
+        GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+        GLStateManager.glPushMatrix();
+        java.nio.FloatBuffer modelView = com.gtnhvr.OpenXRRuntime.getEyeModelViewBuffer(eyeIndex, partialTicks);
+        if (modelView != null) {
+            GLStateManager.glLoadMatrix(modelView);
+        }
 
         try {
             GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
@@ -178,49 +203,39 @@ public final class VRMobSpawnOverlay {
             GLStateManager.glEnable(GL11.GL_BLEND);
             GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
             GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthFunc(GL11.GL_LEQUAL);
             GLStateManager.glDepthMask(false);
             GLStateManager.glLineWidth(2.5F);
 
-            // Offset slightly above the block surface to prevent z-fighting.
-            // Use the same world->room transform as world-anchored VR screens so markers line up
-            // with the actual block face under the room-space render matrix.
-            double yOffset = 0.005D;
-
+            // markerY is the air block above the solid support block; its Y coordinate
+            // is exactly the support block's top face. The small offset avoids z-fighting.
+            final double yOffset = 0.005D;
             for (int i = 0; i < markerCount; i++) {
-                Vector3f center = controller.worldToRoom(
-                        markerX[i] + 0.5D,
-                        markerY[i] + yOffset,
-                        markerZ[i] + 0.5D,
-                        partialTicks);
+                double bx = markerX[i] - camX;
+                double by = markerY[i] - camY + yOffset;
+                double bz = markerZ[i] - camZ;
 
                 byte type = markerType[i];
                 if (type == 1) {
-                    // Yellow: spawns at night only
-                    GLStateManager.glColor4f(1.0F, 1.0F, 0.0F, 0.75F);
+                    GLStateManager.glColor4f(1.0F, 1.0F, 0.0F, 0.85F);
                 } else {
-                    // Red: always spawns
-                    GLStateManager.glColor4f(1.0F, 0.1F, 0.1F, 0.85F);
+                    GLStateManager.glColor4f(1.0F, 0.1F, 0.1F, 0.95F);
                 }
 
-                // Draw a centered 0.6 x 0.6 block-top cross. Rotate its horizontal offsets
-                // by the same world-yaw transform used by worldToRoom().
                 GLStateManager.glBegin(GL11.GL_LINES);
-                gtnhvr$vertexRoom(center, -worldCrossHalfSize, -worldCrossHalfSize, cosYaw, sinYaw);
-                gtnhvr$vertexRoom(center,  worldCrossHalfSize,  worldCrossHalfSize, cosYaw, sinYaw);
-                gtnhvr$vertexRoom(center,  worldCrossHalfSize, -worldCrossHalfSize, cosYaw, sinYaw);
-                gtnhvr$vertexRoom(center, -worldCrossHalfSize,  worldCrossHalfSize, cosYaw, sinYaw);
+                GLStateManager.glVertex3d(bx + 0.2D, by, bz + 0.2D);
+                GLStateManager.glVertex3d(bx + 0.8D, by, bz + 0.8D);
+                GLStateManager.glVertex3d(bx + 0.8D, by, bz + 0.2D);
+                GLStateManager.glVertex3d(bx + 0.2D, by, bz + 0.8D);
                 GLStateManager.glEnd();
             }
         } finally {
-            GLStateManager.glPopMatrix();
+            GLStateManager.glPopMatrix(); // Restore model-view
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPopMatrix(); // Restore projection
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
             GLStateManager.glPopAttrib();
         }
     }
 
-    private static void gtnhvr$vertexRoom(Vector3f center, double worldDx, double worldDz,
-                                           double cosYaw, double sinYaw) {
-        double roomDx = worldDx * cosYaw + worldDz * sinYaw;
-        double roomDz = -worldDx * sinYaw + worldDz * cosYaw;
-        GLStateManager.glVertex3d(center.x + roomDx, center.y, center.z + roomDz);
-    }
 }
