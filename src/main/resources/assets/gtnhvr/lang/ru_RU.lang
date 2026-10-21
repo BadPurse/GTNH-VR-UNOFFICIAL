@@ -479,8 +479,8 @@ visor.options.item_offsets.done=Готово / Назад
 visor.options.item_offsets.done.tooltip=Сохранить и вернуться в меню
 
 # Управление плечевыми жестами
-gtnhvr.controls.shoulder.title=Плечевые жесты
-gtnhvr.controls.shoulder.tooltip=Настройки жестов касания противоположного плеча для джетпака и режима парения.
+gtnhvr.controls.shoulder.title=Назначение кнопок
+gtnhvr.controls.shoulder.tooltip=Настрой две дополнительные виртуальные кнопки контроллеров.
 gtnhvr.controls.shoulder.enabled=Плечевые жесты
 gtnhvr.controls.shoulder.enabled.tooltip=Общий переключатель плечевых жестов.
 gtnhvr.controls.shoulder.jetpack=Джетпак (правая -> левое плечо)
@@ -491,10 +491,10 @@ gtnhvr.controls.shoulder.jetpack_key=Клавиша джетпака
 gtnhvr.controls.shoulder.jetpack_key.tooltip=Переключает AUTO и найденные привязки джетпака. Выбери ту же клавишу, что назначена в моде джетпака.
 gtnhvr.controls.shoulder.glide_key=Клавиша парения
 gtnhvr.controls.shoulder.glide_key.tooltip=Переключает AUTO и найденные привязки парения или планирования.
-gtnhvr.controls.shoulder.distance=Дистанция
-gtnhvr.controls.shoulder.distance.tooltip=Максимальное расстояние от хвата контроллера до приблизительной точки плеча.
-gtnhvr.controls.shoulder.hold=Удержание
-gtnhvr.controls.shoulder.hold.tooltip=Сколько времени контроллер должен оставаться у плеча для срабатывания.
+gtnhvr.controls.shoulder.distance=Радиус жеста
+gtnhvr.controls.shoulder.distance.tooltip=Максимальное расстояние от приблизительного положения плеча для начала жеста.
+gtnhvr.controls.shoulder.hold=Время удержания
+gtnhvr.controls.shoulder.hold.tooltip=Сколько времени контроллер должен оставаться у плеча, прежде чем будет нажата назначенная клавиша.
 gtnhvr.controls.shoulder.binding.auto=Авто
 gtnhvr.controls.shoulder.binding.missing=Привязка не найдена:
 
@@ -507,3 +507,20 @@ gtnhvr.controls.group.interface=Меню и хотбар
 gtnhvr.controls.group.interface.tooltip=Настройки раскладки клавиатуры, виртуальных меню, HUD и хотбара.
 gtnhvr.controls.group.roomscale=Движения в реальности
 gtnhvr.controls.group.roomscale.tooltip=Физические действия: приседание, лазание, плавание и прыжки в VR.
+
+# Remappable virtual shoulder buttons
+gtnhvr.controls.bindings.title=Назначение кнопок контроллеров...
+gtnhvr.controls.bindings.tooltip=Назначь клавиши двум дополнительным виртуальным кнопкам, активируемым жестами у противоположного плеча.
+gtnhvr.controls.shoulder.master=Плечевые кнопки
+gtnhvr.controls.shoulder.master.tooltip=Включить или выключить обе дополнительные кнопки плечевых жестов.
+gtnhvr.controls.shoulder.right_to_left=Правая рука -> левое плечо
+gtnhvr.controls.shoulder.right_to_left.tooltip=Поднеси физический правый контроллер к левому плечу. Жест нажмёт назначенную здесь клавишу.
+gtnhvr.controls.shoulder.right_to_left.enabled=Правая -> левое включено
+gtnhvr.controls.shoulder.right_to_left.enabled.tooltip=Включить виртуальную кнопку «правый контроллер у левого плеча».
+gtnhvr.controls.shoulder.left_to_right=Левая рука -> правое плечо
+gtnhvr.controls.shoulder.left_to_right.tooltip=Поднеси физический левый контроллер к правому плечу. Жест нажмёт назначенную здесь клавишу.
+gtnhvr.controls.shoulder.left_to_right.enabled=Левая -> правое включено
+gtnhvr.controls.shoulder.left_to_right.enabled.tooltip=Включить виртуальную кнопку «левый контроллер у правого плеча».
+gtnhvr.controls.shoulder.press_key=Нажми клавишу...
+gtnhvr.controls.shoulder.capture_instructions=Нажми клавишу на физической клавиатуре для назначения. Backspace/Delete очищает привязку; Escape отменяет.
+gtnhvr.controls.shoulder.unassigned=НЕ НАЗНАЧЕНО
