@@ -723,7 +723,9 @@ public final class VRControllerHandler {
         for (int i = 0; i < mappedControllerKeyHeld.length; i++) {
             if (mappedControllerKeyHeld[i] && mappedControllerKeyCodes[i] == keyCode) return true;
         }
-        return false;
+        // Shoulder gestures are another source of synthetic key presses; treat them as
+        // part of the same aggregate state so the gameplay loop cannot release their key.
+        return com.gtnhvr.gameplay.VRShoulderGestures.getInstance().isSyntheticKeyHeld(keyCode);
     }
 
     private boolean isMappedControllerKeyHeldByOther(int index, int keyCode) {
@@ -741,12 +743,14 @@ public final class VRControllerHandler {
         boolean nowHeld = pressed && keyCode > 0;
 
         if (wasHeld && (oldCode != keyCode || !nowHeld)
-                && !isMappedControllerKeyHeldByOther(index, oldCode)) {
+                && !isMappedControllerKeyHeldByOther(index, oldCode)
+                && !com.gtnhvr.gameplay.VRShoulderGestures.getInstance().isSyntheticKeyHeld(oldCode)) {
             KeyBinding.setKeyBindState(oldCode, false);
         }
         if (nowHeld) {
             boolean newPress = !wasHeld || oldCode != keyCode;
-            if (newPress && !isMappedControllerKeyHeldByOther(index, keyCode)) {
+            if (newPress && !isMappedControllerKeyHeldByOther(index, keyCode)
+                    && !com.gtnhvr.gameplay.VRShoulderGestures.getInstance().isSyntheticKeyHeld(keyCode)) {
                 KeyBinding.onTick(keyCode);
             }
             KeyBinding.setKeyBindState(keyCode, true);
@@ -1304,7 +1308,12 @@ public final class VRControllerHandler {
         float sy = (Math.abs(leftStickY) > deadzone)
                 ? Math.signum(leftStickY) * (Math.abs(leftStickY) - deadzone) / (1.0F - deadzone) : 0.0F;
 
-        if (sx == 0.0F && sy == 0.0F) {
+        boolean mappedMovementInput =
+                isMappedControllerKeyHeld(mc.gameSettings.keyBindForward.getKeyCode())
+                || isMappedControllerKeyHeld(mc.gameSettings.keyBindBack.getKeyCode())
+                || isMappedControllerKeyHeld(mc.gameSettings.keyBindLeft.getKeyCode())
+                || isMappedControllerKeyHeld(mc.gameSettings.keyBindRight.getKeyCode());
+        if (sx == 0.0F && sy == 0.0F && !mappedMovementInput) {
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindBack.getKeyCode(), false);
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), false);
