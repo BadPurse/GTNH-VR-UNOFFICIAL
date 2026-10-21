@@ -173,5 +173,11 @@ public final class HeadPoseController {
     public static void recenter() {
         resetCalibration();
         OpenXRRuntime.resetSeatedBaseline();
+
+        // Recenter/height alignment also clears stale posture state. Without this, a
+        // previously latched room-crouch or thumbstick sneak can survive the new origin.
+        com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance()
+                .resetHeightCalibration();
+        VRControllerHandler.getInstance().resetSneakToggle();
     }
 }
