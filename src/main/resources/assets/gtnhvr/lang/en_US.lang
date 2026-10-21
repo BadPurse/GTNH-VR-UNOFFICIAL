@@ -136,7 +136,7 @@ visor.options.controls.left_handed=Left Handed
 visor.options.controls.right_handed=Right Handed
 visor.options.controls.left_handed.tooltip=If left hand should be dominant
 visor.options.controls.action_sets=Select action set
-visor.options.controls.action_sets.button=Action Bindings...
+visor.options.controls.action_sets.button=Control Groups...
 visor.options.controls.keyboard_layouts.button=Keyboard Layouts...
 visor.options.controls.keyboard_layouts.title=Keyboard layouts
 visor.options.controls.keyboard_layouts.always_enabled=If all layouts are off, English (US) is used as fallback
@@ -579,3 +579,13 @@ gtnhvr.controls.shoulder.hold=Hold
 gtnhvr.controls.shoulder.hold.tooltip=How long the controller must remain near the shoulder before activation.
 gtnhvr.controls.shoulder.binding.auto=Auto
 gtnhvr.controls.shoulder.binding.missing=Missing binding:
+
+# Control settings groups
+gtnhvr.controls.group.movement=Movement & Rotation
+gtnhvr.controls.group.movement.tooltip=Locomotion mode, turning, and movement-related settings.
+gtnhvr.controls.group.interactions=Interactions & World
+gtnhvr.controls.group.interactions.tooltip=Interaction range, world interaction behavior, and compatibility settings.
+gtnhvr.controls.group.interface=Menus & Hotbar
+gtnhvr.controls.group.interface.tooltip=Keyboard layout, virtual menu, HUD, and hotbar settings.
+gtnhvr.controls.group.roomscale=Roomscale Actions
+gtnhvr.controls.group.roomscale.tooltip=Physical movement actions such as roomscale sneaking, climbing, swimming, and jumping.
