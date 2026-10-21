@@ -653,21 +653,6 @@ public final class VRWristInventory {
             int x = PANEL_X + pos[0];
             int y = PANEL_Y + pos[1];
 
-            // Hotbar slots (ContainerPlayer slots 36..44) main/offhand highlights
-            if (slot.slotNumber >= 36 && slot.slotNumber <= 44) {
-                int hotbarIdx = slot.slotNumber - 36;
-                boolean isMain = (hotbarIdx == slotMain);
-                boolean isOffhand = (hotbarIdx == slotOffhand && slotOffhand >= 0 && slotOffhand < 9);
-
-                if (isMain) {
-                    // Match the radial hotbar: textured cyan selection, no colored square placeholder.
-                    drawTexturedSlotSelection(mc, x, y, hotbarIdx == 0, false);
-                } else if (isOffhand) {
-                    // Match the radial hotbar: textured orange selection, no colored square placeholder.
-                    drawTexturedSlotSelection(mc, x, y, hotbarIdx == 0, true);
-                }
-            }
-
             if (slot == hoverSlot && (!isDragging || !draggedSlots.contains(slot))) {
                 GL11.glDisable(GL11.GL_TEXTURE_2D);
                 GL11.glColor4f(1.0F, 1.0F, 1.0F, 0.50F);
@@ -692,6 +677,16 @@ public final class VRWristInventory {
             }
             if (stack != null) {
                 drawItem(mc, stack, x, y);
+            }
+
+            // Draw selection last so the item renderer cannot cover the textured ring.
+            if (slot.slotNumber >= 36 && slot.slotNumber <= 44) {
+                int hotbarIdx = slot.slotNumber - 36;
+                if (hotbarIdx == slotMain) {
+                    drawTexturedSlotSelection(mc, x, y, hotbarIdx == 0, false);
+                } else if (hotbarIdx == slotOffhand && slotOffhand >= 0 && slotOffhand < 9) {
+                    drawTexturedSlotSelection(mc, x, y, hotbarIdx == 0, true);
+                }
             }
         }
 
