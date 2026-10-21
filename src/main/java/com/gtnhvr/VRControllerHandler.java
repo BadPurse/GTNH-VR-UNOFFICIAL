@@ -827,7 +827,6 @@ public final class VRControllerHandler {
             // here: with autonomous VR resolution it can differ from the actual window,
             // shifting clicks and drag positions at every non-matching resolution.
             // Keep rendering resolution and input/window resolution as separate spaces.
-            Minecraft mc = Minecraft.getMinecraft();
             int windowW = (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 854;
             int windowH = (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 480;
             float curU = Math.max(0.0F, Math.min(1.0F, screenUV.x));
