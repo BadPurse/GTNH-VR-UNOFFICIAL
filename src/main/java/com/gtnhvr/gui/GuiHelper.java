@@ -114,7 +114,7 @@ public final class GuiHelper {
      */
     public static net.minecraft.client.gui.GuiTextField getFocusedTextField(GuiScreen screen) {
         if (screen == null) return null;
-        net.minecraft.client.gui.GuiTextField focused = getFocusedTextField();
+        net.minecraft.client.gui.GuiTextField focused = getFocusedTextField(screen);
         return focused != null && focused.isFocused() && screenContainsObject(screen, focused)
                 ? focused : null;
     }
@@ -161,7 +161,7 @@ public final class GuiHelper {
                                                 java.util.IdentityHashMap<Object, Boolean> visited) {
         if (owner == null) return false;
         if (owner == target) return true;
-        if (depth > 3 || visited.size() > 256 || visited.put(owner, Boolean.TRUE) != null) return false;
+        if (depth > 5 || visited.size() > 512 || visited.put(owner, Boolean.TRUE) != null) return false;
 
         Class<?> clz = owner.getClass();
         while (clz != null && clz != Object.class) {
