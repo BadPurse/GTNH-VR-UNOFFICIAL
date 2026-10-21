@@ -90,6 +90,12 @@ public class VRSettingsBodyHeight extends VROptionsSet {
                         ? I18n.format("visor.messages.height_measure_countdown", measureCountdown)
                         : I18n.format("visor.options.vr_body.height.measure.button"),
                 () -> {
+                    // Alignment is an explicit reset action: clear a stale physical crouch
+                    // baseline and the controller's latched sneak toggle even if this sample
+                    // is rejected because the user is seated or the reference space is LOCAL.
+                    com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance().resetHeightCalibration();
+                    com.gtnhvr.VRControllerHandler.getInstance().resetSneakToggle();
+
                     float currentHmdY = HeadPoseController.getY();
                     // Height calibration is only meaningful while standing in a floor-relative space.
                     // A seated headset height around 0.7 m must not be clamped into a false 1.2 m avatar.
