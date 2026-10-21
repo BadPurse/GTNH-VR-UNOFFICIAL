@@ -126,6 +126,8 @@ public final class VRControllerHandler {
     private boolean backClicked = false;
 
     private boolean inGameAttackHeld = false;
+    /** Hysteresis latch for the analog attack trigger (activate at 0.45, release at 0.25). */
+    private boolean rightAttackTriggerHeld = false;
     private boolean inGameUseItemHeld = false;
     private int inGameUseItemRepeatDelay = 0;
     private boolean snapTurnCooldown = false;
@@ -610,6 +612,10 @@ public final class VRControllerHandler {
         if (mc == null) return;
 
         if (mc.theWorld != lastWorld) {
+            // A world transition invalidates the previous press edge and any trigger latch.
+            inGameAttackHeld = false;
+            rightAttackTriggerHeld = false;
+            inGameUseItemHeld = false;
             lastWorld = mc.theWorld;
             if (mc.theWorld != null) {
                 worldLoadGraceTicks = 40; // ~2 seconds grace period on loading into world
@@ -623,6 +629,11 @@ public final class VRControllerHandler {
         if (inMenu != wasInMenu) {
             wasInMenu = inMenu;
             if (inMenu) {
+                // releaseAllInGameKeys clears Minecraft's pressed bit; reset our edge trackers too,
+                // or the next trigger press may be mistaken for an already-held attack.
+                inGameAttackHeld = false;
+                rightAttackTriggerHeld = false;
+                inGameUseItemHeld = false;
                 releaseAllInGameKeys(mc);
                 if (VRHotbarSelector.getInstance().isSelectorActive()) {
                     VRHotbarSelector.getInstance().closeAll();
@@ -1082,10 +1093,16 @@ public final class VRControllerHandler {
             }
         }
 
-        // 7. Attack / Mine / Break Block (Right Trigger squeeze > 0.35F)
+        // 7. Attack / Mine / Break Block (right trigger, with analog hysteresis).
+        // Avoid crack-progress flicker when the controller's analog value jitters near a single cutoff.
+        if (rightTriggerValue >= 0.45F) {
+            rightAttackTriggerHeld = true;
+        } else if (rightTriggerValue <= 0.25F) {
+            rightAttackTriggerHeld = false;
+        }
         boolean blockingStopsAttack = !VRClientSettings.worldAttacksWhileBlocking
                 && mc.thePlayer != null && mc.thePlayer.isBlocking();
-        boolean attackState = (rightTriggerValue > 0.35F) && !hotbar.isMainSelectorActive()
+        boolean attackState = rightAttackTriggerHeld && !hotbar.isMainSelectorActive()
                 && !com.gtnhvr.gui.VRWristInventory.getInstance().isActive()
                 && !blockingStopsAttack;
         if (attackState || rightPrimaryValue) {
@@ -1093,7 +1110,10 @@ public final class VRControllerHandler {
         } else if (leftTriggerValue > 0.35F) {
             leftHandActive = true;
         }
-        if (attackState && !inGameAttackHeld) {
+        // Re-arm the click edge if another screen/mod cleared the Minecraft key state
+        // while the controller-side held flag was still true.
+        boolean attackKeyDown = mc.gameSettings.keyBindAttack.isKeyDown();
+        if (attackState && (!inGameAttackHeld || !attackKeyDown)) {
             KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
         }
         inGameAttackHeld = attackState;
