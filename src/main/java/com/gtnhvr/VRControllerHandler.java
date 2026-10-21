@@ -1076,7 +1076,26 @@ public final class VRControllerHandler {
         releaseMenuClicks();
         updateMappedControllerKeys();
 
+        // Select the logical interaction hand BEFORE updating objectMouseOver. Previously
+        // VRHandAimPicker used last frame's hand, so the first click with the left trigger
+        // could be sent to the right-hand target. Vanilla chests often masked this, while
+        // AE2 and other modded blocks missed their one-shot activation event.
+        boolean mappedAttackIntent = isMappedControllerKeyHeld(mc.gameSettings.keyBindAttack.getKeyCode());
+        boolean rightAttackIntent = mappedAttackIntent
+                || (rightAttackTriggerHeld && VRClientSettings.controllerRightTriggerKeyCode <= 0);
+        boolean rightUseIntent = rightPrimaryValue && VRClientSettings.controllerRightAKeyCode <= 0;
+        boolean leftUseIntent = (VRClientSettings.worldTwoHanded
+                && VRClientSettings.controllerLeftTriggerKeyCode <= 0 && leftTriggerValue > 0.35F)
+                || com.gtnhvr.gameplay.tasks.VRTaskRoomConsume.getInstance().isConsumingLeft();
+
+        if (rightAttackIntent || rightUseIntent) {
+            leftHandActive = false;
+        } else if (leftUseIntent) {
+            leftHandActive = true;
+        }
+
         // 0. Update Hand 6-DoF Raycasting for block mining and placement (Visor VRAimPicker)
+        // after hand selection so this frame's click uses the matching controller target.
         VRHandAimPicker.update(mc, 1.0F);
 
         // Run Visor Physical Gameplay Tasks
