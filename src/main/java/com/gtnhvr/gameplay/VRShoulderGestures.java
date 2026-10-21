@@ -109,11 +109,13 @@ public final class VRShoulderGestures {
     // State tracking for right hand -> left shoulder (jetpack)
     private long rightHandOnLeftShoulderStart = 0L;
     private boolean rightHandWasOnShoulder = false;
+    private boolean rightHandShoulderGestureFired = false;
     private long lastJetpackToggleTime = 0L;
 
     // State tracking for left hand -> right shoulder (glide)
     private long leftHandOnRightShoulderStart = 0L;
     private boolean leftHandWasOnShoulder = false;
+    private boolean leftHandShoulderGestureFired = false;
     private long lastGlideToggleTime = 0L;
 
     // Cached reflection methods (looked up once)
@@ -143,8 +145,14 @@ public final class VRShoulderGestures {
 
         boolean jetpackGestureEnabled = VRClientSettings.shoulderJetpackGestureEnabled;
         boolean glideGestureEnabled = VRClientSettings.shoulderGlideGestureEnabled;
-        if (!jetpackGestureEnabled) rightHandWasOnShoulder = false;
-        if (!glideGestureEnabled) leftHandWasOnShoulder = false;
+        if (!jetpackGestureEnabled) {
+            rightHandWasOnShoulder = false;
+            rightHandShoulderGestureFired = false;
+        }
+        if (!glideGestureEnabled) {
+            leftHandWasOnShoulder = false;
+            leftHandShoulderGestureFired = false;
+        }
         if (!jetpackGestureEnabled && !glideGestureEnabled) return;
 
         XrPosef headPose = OpenXRRuntime.getHeadPose();
@@ -191,20 +199,24 @@ public final class VRShoulderGestures {
                 if (!rightHandWasOnShoulder) {
                     rightHandOnLeftShoulderStart = now;
                     rightHandWasOnShoulder = true;
-                } else if (now - rightHandOnLeftShoulderStart >= holdDurationMs
+                    rightHandShoulderGestureFired = false;
+                } else if (!rightHandShoulderGestureFired
+                        && now - rightHandOnLeftShoulderStart >= holdDurationMs
                         && now - lastJetpackToggleTime >= COOLDOWN_MS) {
                     toggleJetpack(mc);
                     lastJetpackToggleTime = now;
-                    rightHandWasOnShoulder = false;
+                    rightHandShoulderGestureFired = true;
                     // Haptic API accepts logical handedness; route explicitly to physical right/left.
                     handler.triggerHaptic(VRClientSettings.leftHanded, 30_000_000L, 0.85F, 0);
                     handler.triggerHaptic(!VRClientSettings.leftHanded, 15_000_000L, 0.45F, 0);
                 }
             } else {
                 rightHandWasOnShoulder = false;
+                rightHandShoulderGestureFired = false;
             }
         } else {
             rightHandWasOnShoulder = false;
+            rightHandShoulderGestureFired = false;
         }
 
         // LEFT CONTROLLER / OFF HAND -> RIGHT SHOULDER: hover/glide toggle.
@@ -216,19 +228,23 @@ public final class VRShoulderGestures {
                 if (!leftHandWasOnShoulder) {
                     leftHandOnRightShoulderStart = now;
                     leftHandWasOnShoulder = true;
-                } else if (now - leftHandOnRightShoulderStart >= holdDurationMs
+                    leftHandShoulderGestureFired = false;
+                } else if (!leftHandShoulderGestureFired
+                        && now - leftHandOnRightShoulderStart >= holdDurationMs
                         && now - lastGlideToggleTime >= COOLDOWN_MS) {
                     toggleGlide(mc);
                     lastGlideToggleTime = now;
-                    leftHandWasOnShoulder = false;
+                    leftHandShoulderGestureFired = true;
                     handler.triggerHaptic(!VRClientSettings.leftHanded, 30_000_000L, 0.85F, 0);
                     handler.triggerHaptic(VRClientSettings.leftHanded, 15_000_000L, 0.45F, 0);
                 }
             } else {
                 leftHandWasOnShoulder = false;
+                leftHandShoulderGestureFired = false;
             }
         } else {
             leftHandWasOnShoulder = false;
+            leftHandShoulderGestureFired = false;
         }
     }
 
@@ -532,6 +548,8 @@ public final class VRShoulderGestures {
     private void resetState() {
         rightHandWasOnShoulder = false;
         leftHandWasOnShoulder = false;
+        rightHandShoulderGestureFired = false;
+        leftHandShoulderGestureFired = false;
         rightHandOnLeftShoulderStart = 0L;
         leftHandOnRightShoulderStart = 0L;
     }
