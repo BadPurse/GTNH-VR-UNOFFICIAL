@@ -163,9 +163,6 @@ public class VRTaskRoomCrawl {
 
     /** Rebase the next room-scale sample after the avatar height has been changed. */
     public void resetHeightCalibration() {
-        stageHeightCalibrated = false;
-        stageStandingHeadY = 0.0F;
-        localHeightCalibrated = false;
-        localStandingHeadY = 0.0F;
+        resetPhysicalCrouch(Minecraft.getMinecraft());
     }
 }
