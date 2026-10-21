@@ -1680,6 +1680,18 @@ public final class VRControllerHandler {
         boolean shoulderSneak = com.gtnhvr.gameplay.VRShoulderGestures.getInstance().isSyntheticKeyHeld(sneakKey);
         if (!roomSneak && !shoulderSneak && !isMappedControllerKeyHeld(sneakKey)) {
             KeyBinding.setKeyBindState(sneakKey, false);
+            if (mc.thePlayer != null) {
+                if (mc.thePlayer.movementInput != null) {
+                    mc.thePlayer.movementInput.sneak = false;
+                }
+                mc.thePlayer.setSneaking(false);
+                if (mc.thePlayer.yOffset == 1.34F) {
+                    mc.thePlayer.yOffset = 1.62F;
+                    if (mc.thePlayer.boundingBox != null) {
+                        mc.thePlayer.boundingBox.maxY = mc.thePlayer.boundingBox.minY + 1.80D;
+                    }
+                }
+            }
         }
     }
 
