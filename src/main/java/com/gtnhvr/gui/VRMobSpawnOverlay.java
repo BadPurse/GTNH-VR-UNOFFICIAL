@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.VRControllerHandler;
 import com.gtnhvr.settings.VRClientSettings;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
@@ -161,18 +162,18 @@ public final class VRMobSpawnOverlay {
         double py = mc.thePlayer.prevPosY + (mc.thePlayer.posY - mc.thePlayer.prevPosY) * partialTicks;
         double pz = mc.thePlayer.prevPosZ + (mc.thePlayer.posZ - mc.thePlayer.prevPosZ) * partialTicks;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
 
         try {
-            GL11.glDisable(GL11.GL_TEXTURE_2D);
-            GL11.glDisable(GL11.GL_CULL_FACE);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthMask(false);
-            GL11.glLineWidth(2.5F);
+            GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
+            GLStateManager.glLineWidth(2.5F);
 
             // Offset slightly above the block surface to prevent z-fighting
             float yOffset = 0.005F;
@@ -185,25 +186,25 @@ public final class VRMobSpawnOverlay {
                 byte type = markerType[i];
                 if (type == 1) {
                     // Yellow: spawns at night only
-                    GL11.glColor4f(1.0F, 1.0F, 0.0F, 0.75F);
+                    GLStateManager.glColor4f(1.0F, 1.0F, 0.0F, 0.75F);
                 } else {
                     // Red: always spawns
-                    GL11.glColor4f(1.0F, 0.1F, 0.1F, 0.85F);
+                    GLStateManager.glColor4f(1.0F, 0.1F, 0.1F, 0.85F);
                 }
 
                 // Draw an X cross on top of the block below (at y level)
-                GL11.glBegin(GL11.GL_LINES);
+                GLStateManager.glBegin(GL11.GL_LINES);
                 // Diagonal 1: (0.2, 0, 0.2) to (0.8, 0, 0.8)
-                GL11.glVertex3d(bx + 0.2, by + yOffset, bz + 0.2);
-                GL11.glVertex3d(bx + 0.8, by + yOffset, bz + 0.8);
+                GLStateManager.glVertex3d(bx + 0.2, by + yOffset, bz + 0.2);
+                GLStateManager.glVertex3d(bx + 0.8, by + yOffset, bz + 0.8);
                 // Diagonal 2: (0.8, 0, 0.2) to (0.2, 0, 0.8)
-                GL11.glVertex3d(bx + 0.8, by + yOffset, bz + 0.2);
-                GL11.glVertex3d(bx + 0.2, by + yOffset, bz + 0.8);
-                GL11.glEnd();
+                GLStateManager.glVertex3d(bx + 0.8, by + yOffset, bz + 0.2);
+                GLStateManager.glVertex3d(bx + 0.2, by + yOffset, bz + 0.8);
+                GLStateManager.glEnd();
             }
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
         }
     }
 }
