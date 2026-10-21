@@ -68,5 +68,13 @@ public class VRSettingsControls extends VROptionsSet {
                 () -> new com.gtnhvr.gui.settings.categories.controls.VRSettingsItemOffsets(screen, this),
                 I18n.format("visor.options.item_offsets.category.tooltip")
         ));
+
+        // Working settings page for the two opposite-shoulder gesture actions.
+        widgets.add(new OptionWidget.SubmenuWidget(
+                OptionWidgetPosition.RIGHT, 2,
+                I18n.format("gtnhvr.controls.shoulder.title"),
+                () -> new com.gtnhvr.gui.settings.categories.controls.VRSettingsShoulderGestures(screen, this),
+                I18n.format("gtnhvr.controls.shoulder.tooltip")
+        ));
     }
 }
