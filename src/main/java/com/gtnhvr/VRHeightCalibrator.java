@@ -74,7 +74,7 @@ public final class VRHeightCalibrator {
         }
 
         float headY = HeadPoseController.getY();
-        if (headY > 0.5F && headY < 2.5F) {
+        if (headY > 0.90F && headY < 2.5F) {
             sum += headY;
             samples++;
         }
@@ -85,6 +85,7 @@ public final class VRHeightCalibrator {
             if (samples > 0) {
                 float height = Math.max(1.2F, Math.min(2.4F, eyeToHeight(sum / samples)));
                 VRClientSettings.playerHeight = height;
+                com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance().resetHeightCalibration();
                 VRClientSettings.save();
                 GTNHVRLog.chat(I18n.format("visor.messages.height_auto_set", formatHeight(height)));
             }
