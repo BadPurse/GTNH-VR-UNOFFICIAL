@@ -1,5 +1,6 @@
 package com.gtnhvr;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.EntityRenderer;
@@ -358,13 +359,13 @@ public final class OpenXRRuntime {
         int desktopH = (mc.getFramebuffer() != null && mc.getFramebuffer().framebufferHeight > 0)
                 ? mc.getFramebuffer().framebufferHeight : (mc.displayHeight > 0 ? mc.displayHeight : 480);
 
-        boolean prevScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        boolean prevScissor = GLStateManager.glIsEnabled(GL11.GL_SCISSOR_TEST);
         if (prevScissor) {
-            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
         }
 
         IntBuffer prevViewport = BufferUtils.createIntBuffer(16);
-        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
+        GLStateManager.glGetInteger(GL11.GL_VIEWPORT, prevViewport);
 
         net.minecraft.client.shader.Framebuffer origFb = getMinecraftFramebuffer(mc);
 
@@ -402,9 +403,9 @@ public final class OpenXRRuntime {
             EyeSwapchain leftEye = eyes[0];
             leftEye.beginRender();
             try {
-                GL11.glViewport(0, 0, leftEye.width, leftEye.height);
-                GL11.glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
-                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+                GLStateManager.glViewport(0, 0, leftEye.width, leftEye.height);
+                GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+                GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
                 renderer.renderWorld(partialTicks, finishTimeNano);
 
@@ -434,9 +435,9 @@ public final class OpenXRRuntime {
             EyeSwapchain rightEye = eyes[1];
             rightEye.beginRender();
             try {
-                GL11.glViewport(0, 0, rightEye.width, rightEye.height);
-                GL11.glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
-                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+                GLStateManager.glViewport(0, 0, rightEye.width, rightEye.height);
+                GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+                GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
                 renderer.renderWorld(partialTicks, finishTimeNano);
 
@@ -458,10 +459,10 @@ public final class OpenXRRuntime {
             renderingEyePass = false;
             vrStereoActive = false;
 
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, desktopFbo);
-            GL11.glViewport(prevViewport.get(0), prevViewport.get(1), prevViewport.get(2), prevViewport.get(3));
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, desktopFbo);
+            GLStateManager.glViewport(prevViewport.get(0), prevViewport.get(1), prevViewport.get(2), prevViewport.get(3));
             if (prevScissor) {
-                GL11.glEnable(GL11.GL_SCISSOR_TEST);
+                GLStateManager.glEnable(GL11.GL_SCISSOR_TEST);
             }
         }
     }
@@ -469,24 +470,24 @@ public final class OpenXRRuntime {
     private static void renderStereoOverlays(int eyeIndex, Minecraft mc, Vector3f hmdPos, Quaternionf hmdRot, int screenTex, int screenW, int screenH, float partialTicks) {
         if (mc == null || eyes == null || eyeIndex < 0 || eyeIndex >= eyes.length) return;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
         try {
             // Unbind any active shader program
             try {
-                org.lwjgl.opengl.GL20.glUseProgram(0);
+                org.lwjgl.opengl.GLStateManager.glUseProgram(0);
             } catch (Throwable ignored) {}
 
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, eyes[eyeIndex].fbo);
-            GL11.glViewport(0, 0, eyes[eyeIndex].width, eyes[eyeIndex].height);
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, eyes[eyeIndex].fbo);
+            GLStateManager.glViewport(0, 0, eyes[eyeIndex].width, eyes[eyeIndex].height);
 
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glLoadMatrixf(getEyeProjectionBuffer(eyeIndex, 0.05F, 100.0F));
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glLoadMatrix(getEyeProjectionBuffer(eyeIndex, 0.05F, 100.0F));
 
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
             FloatBuffer mv = getMenuModelViewBuffer(eyeIndex);
             if (mv != null) {
-                GL11.glLoadMatrixf(mv);
+                GLStateManager.glLoadMatrix(mv);
             }
 
             boolean inGameGui = (mc.currentScreen != null);
@@ -505,7 +506,7 @@ public final class OpenXRRuntime {
                 com.gtnhvr.gui.VRMobSpawnOverlay.getInstance().render(partialTicks);
 
                 // 3. Clear depth for HUD and Hotbar
-                GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+                GLStateManager.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 
                 // 5. Floating HUD (health, hunger, armor, minimap with smooth Head-Lock)
                 boolean hasHud = (com.gtnhvr.gui.VRHudRenderer.getTextureId() > 0 && !mc.gameSettings.hideGUI);
@@ -548,38 +549,38 @@ public final class OpenXRRuntime {
                     }
                 }
                 if (isHeadInside) {
-                    GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-                    GL11.glDisable(GL11.GL_TEXTURE_2D);
-                    GL11.glDisable(GL11.GL_CULL_FACE);
-                    GL11.glDisable(GL11.GL_DEPTH_TEST);
-                    GL11.glEnable(GL11.GL_BLEND);
-                    GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-                    GL11.glColor4f(0.01F, 0.01F, 0.02F, 0.98F);
+                    GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+                    GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+                    GLStateManager.glDisable(GL11.GL_CULL_FACE);
+                    GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+                    GLStateManager.glEnable(GL11.GL_BLEND);
+                    GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                    GLStateManager.glColor4f(0.01F, 0.01F, 0.02F, 0.98F);
 
-                    GL11.glMatrixMode(GL11.GL_PROJECTION);
-                    GL11.glPushMatrix();
-                    GL11.glLoadIdentity();
-                    GL11.glMatrixMode(GL11.GL_MODELVIEW);
-                    GL11.glPushMatrix();
-                    GL11.glLoadIdentity();
+                    GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+                    GLStateManager.glPushMatrix();
+                    GLStateManager.glLoadIdentity();
+                    GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+                    GLStateManager.glPushMatrix();
+                    GLStateManager.glLoadIdentity();
 
-                    GL11.glBegin(GL11.GL_QUADS);
-                    GL11.glVertex2f(-1.0F, -1.0F);
-                    GL11.glVertex2f( 1.0F, -1.0F);
-                    GL11.glVertex2f( 1.0F,  1.0F);
-                    GL11.glVertex2f(-1.0F,  1.0F);
-                    GL11.glEnd();
+                    GLStateManager.glBegin(GL11.GL_QUADS);
+                    GLStateManager.glVertex2f(-1.0F, -1.0F);
+                    GLStateManager.glVertex2f( 1.0F, -1.0F);
+                    GLStateManager.glVertex2f( 1.0F,  1.0F);
+                    GLStateManager.glVertex2f(-1.0F,  1.0F);
+                    GLStateManager.glEnd();
 
-                    GL11.glPopMatrix();
-                    GL11.glMatrixMode(GL11.GL_PROJECTION);
-                    GL11.glPopMatrix();
-                    GL11.glMatrixMode(GL11.GL_MODELVIEW);
-                    GL11.glPopAttrib();
+                    GLStateManager.glPopMatrix();
+                    GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+                    GLStateManager.glPopMatrix();
+                    GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+                    GLStateManager.glPopAttrib();
                 }
             } else {
                 // In-Game GUI (Inventory, Chests, Pause Menu, Options):
                 // Clear depth buffer so floating GUI quad renders cleanly and transparently over the world!
-                GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+                GLStateManager.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 
                 // Render floating transparent 3D virtual screen quad
                 if (screenTex > 0) {
@@ -596,8 +597,8 @@ public final class OpenXRRuntime {
         } catch (Throwable t) {
             GTNHVRLog.warn("Error rendering stereo overlays for eye %d: %s", eyeIndex, t);
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
         }
     }
 
@@ -934,20 +935,20 @@ public final class OpenXRRuntime {
                     EyeSwapchain eye = eyes[eyeIndex];
                     eye.beginRender();
                     try {
-                        GL11.glViewport(0, 0, eye.width, eye.height);
+                        GLStateManager.glViewport(0, 0, eye.width, eye.height);
 
                         // Clear background to deep-space void
-                        GL11.glClearColor(0.015F, 0.025F, 0.05F, 1.0F);
-                        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+                        GLStateManager.glClearColor(0.015F, 0.025F, 0.05F, 1.0F);
+                        GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
                         // Set 3D eye projection & modelview for virtual screen and environment
-                        GL11.glMatrixMode(GL11.GL_PROJECTION);
-                        GL11.glLoadMatrixf(getEyeProjectionBuffer(eyeIndex, 0.05F, 100.0F));
+                        GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+                        GLStateManager.glLoadMatrix(getEyeProjectionBuffer(eyeIndex, 0.05F, 100.0F));
 
-                        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+                        GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
                         FloatBuffer mv = getMenuModelViewBuffer(eyeIndex);
                         if (mv != null) {
-                            GL11.glLoadMatrixf(mv);
+                            GLStateManager.glLoadMatrix(mv);
                         }
 
                         // Render authentic GTNH 3D Main Menu environment (platform & panorama)
@@ -980,8 +981,8 @@ public final class OpenXRRuntime {
         if (eye == null) return;
         if (com.gtnhvr.settings.VRClientSettings.mirrorMode == com.gtnhvr.settings.MirrorMode.OFF) return;
 
-        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, eye.fbo);
-        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, targetFbo);
+        GLStateManager.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, eye.fbo);
+        GLStateManager.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, targetFbo);
 
         if (com.gtnhvr.settings.VRClientSettings.mirrorMode == com.gtnhvr.settings.MirrorMode.CROPPED && targetW > 0 && targetH > 0) {
             float targetAspect = (float) targetW / (float) targetH;
@@ -996,14 +997,14 @@ public final class OpenXRRuntime {
                 srcY0 = (eye.height - cropH) / 2;
                 srcY1 = srcY0 + cropH;
             }
-            GL30.glBlitFramebuffer(
+            GLStateManager.glBlitFramebuffer(
                     srcX0, srcY0, srcX1, srcY1,
                     0, 0, targetW, targetH,
                     GL11.GL_COLOR_BUFFER_BIT,
                     GL11.GL_LINEAR
             );
         } else {
-            GL30.glBlitFramebuffer(
+            GLStateManager.glBlitFramebuffer(
                     0, 0, eye.width, eye.height,
                     0, 0, targetW, targetH,
                     GL11.GL_COLOR_BUFFER_BIT,
@@ -1012,7 +1013,7 @@ public final class OpenXRRuntime {
         }
 
         // Restore single framebuffer target binding
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, targetFbo);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, targetFbo);
     }
 
     private static void xrEndFrameWithoutLayer() {
@@ -1157,7 +1158,7 @@ public final class OpenXRRuntime {
             for (int i = 0; i < imgs.capacity(); i++) imgs.get(i).type(XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR);
             check(xrEnumerateSwapchainImages(sc, count, XrSwapchainImageBaseHeader.create(imgs.address(), imgs.capacity())), "xrEnumerateSwapchainImages(data)");
 
-            int fbo = GL30.glGenFramebuffers();
+            int fbo = GLStateManager.glGenFramebuffers();
             int depthTex = com.gtnewhorizons.angelica.glsm.GLStateManager.glGenTextures();
             com.gtnewhorizons.angelica.glsm.GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, depthTex);
             com.gtnewhorizons.angelica.glsm.GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
@@ -1179,16 +1180,16 @@ public final class OpenXRRuntime {
                 );
             }
 
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-            net.minecraft.client.renderer.OpenGlHelper.func_153188_a(
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+            GLStateManager.glFramebufferTexture2D(
                     GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL11.GL_TEXTURE_2D, depthTex, 0
             );
             if (stencil) {
-                net.minecraft.client.renderer.OpenGlHelper.func_153188_a(
+                GLStateManager.glFramebufferTexture2D(
                         GL30.GL_FRAMEBUFFER, GL30.GL_STENCIL_ATTACHMENT, GL11.GL_TEXTURE_2D, depthTex, 0
                 );
             }
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
 
             return new EyeSwapchain(sc, width, height, imgs, fbo, depthTex, eyeIndex);
         }
@@ -1212,12 +1213,12 @@ public final class OpenXRRuntime {
                     eyeFramebuffers[eyeIndex].updateFromSwapchain(fbo, textureId, 0, depthTex, width, height);
                 }
 
-                GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-                GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, textureId, 0);
-                GL11.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
-                GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
+                GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+                GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, textureId, 0);
+                GLStateManager.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
+                GLStateManager.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
 
-                int status = GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
+                int status = GLStateManager.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
                 if (status != GL30.GL_FRAMEBUFFER_COMPLETE) {
                     GTNHVRLog.throttled("Eye swapchain FBO incomplete: 0x%X", status);
                 }
@@ -1226,7 +1227,7 @@ public final class OpenXRRuntime {
 
         public void endRender() {
             try (MemoryStack stack = MemoryStack.stackPush()) {
-                GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+                GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
                 XrSwapchainImageReleaseInfo release = XrSwapchainImageReleaseInfo.calloc(stack)
                         .type(XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO);
                 check(xrReleaseSwapchainImage(swapchain, release), "xrReleaseSwapchainImage");
@@ -1245,13 +1246,13 @@ public final class OpenXRRuntime {
                     int srcH = (mc.getFramebuffer() != null && mc.getFramebuffer().framebufferHeight > 0)
                             ? mc.getFramebuffer().framebufferHeight : (mc.displayHeight > 0 ? mc.displayHeight : 480);
 
-                    GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, srcFbo);
-                    GL11.glReadBuffer(srcFbo == 0 ? GL11.GL_BACK : GL30.GL_COLOR_ATTACHMENT0);
+                    GLStateManager.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, srcFbo);
+                    GLStateManager.glReadBuffer(srcFbo == 0 ? GL11.GL_BACK : GL30.GL_COLOR_ATTACHMENT0);
 
-                    GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, fbo);
-                    GL11.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
+                    GLStateManager.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, fbo);
+                    GLStateManager.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
 
-                    GL30.glBlitFramebuffer(
+                    GLStateManager.glBlitFramebuffer(
                             0, 0, srcW, srcH,
                             0, 0, width, height,
                             GL11.GL_COLOR_BUFFER_BIT,
@@ -1267,7 +1268,7 @@ public final class OpenXRRuntime {
             try { xrDestroySwapchain(swapchain); } catch (Throwable ignored) {}
             try { images.free(); } catch (Throwable ignored) {}
             if (fbo != 0) {
-                try { GL30.glDeleteFramebuffers(fbo); } catch (Throwable ignored) {}
+                try { GLStateManager.glDeleteFramebuffers(fbo); } catch (Throwable ignored) {}
             }
             if (depthTex != 0) {
                 try { com.gtnewhorizons.angelica.glsm.GLStateManager.glDeleteTextures(depthTex); } catch (Throwable ignored) {}
