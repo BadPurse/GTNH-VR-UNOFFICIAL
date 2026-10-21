@@ -28,7 +28,7 @@ public final class VRSettingsShoulderGestures extends VROptionsSet {
     @Override
     protected void buildWidgets() {
         widgets.add(new OptionWidget.ToggleWidget(
-                OptionWidgetPosition.LEFT, 0,
+                OptionWidgetPosition.CENTER, 0,
                 I18n.format("gtnhvr.controls.shoulder.master"),
                 () -> VRClientSettings.shoulderGesturesEnabled,
                 value -> {
@@ -36,14 +36,6 @@ public final class VRSettingsShoulderGestures extends VROptionsSet {
                     VRClientSettings.save();
                 },
                 I18n.format("gtnhvr.controls.shoulder.master.tooltip")
-        ));
-
-        widgets.add(new OptionWidget.ButtonWidget(
-                OptionWidgetPosition.RIGHT, 0,
-                () -> I18n.format("gtnhvr.controls.shoulder.distance") + ": "
-                        + String.format("%.0f cm", VRClientSettings.shoulderGestureDistance * 100.0F),
-                () -> cycleDistance(),
-                I18n.format("gtnhvr.controls.shoulder.distance.tooltip")
         ));
 
         widgets.add(new OptionWidget.ButtonWidget(
@@ -115,19 +107,6 @@ public final class VRSettingsShoulderGestures extends VROptionsSet {
                 value -> String.format("%.2f s", value),
                 I18n.format("gtnhvr.controls.shoulder.hold.tooltip")
         ));
-    }
-
-    private void cycleDistance() {
-        float[] values = {0.10F, 0.14F, 0.18F, 0.22F, 0.28F, 0.35F, 0.45F};
-        int next = 0;
-        for (int i = 0; i < values.length; i++) {
-            if (Math.abs(VRClientSettings.shoulderGestureDistance - values[i]) < 0.005F) {
-                next = (i + 1) % values.length;
-                break;
-            }
-        }
-        VRClientSettings.shoulderGestureDistance = values[next];
-        VRClientSettings.save();
     }
 
     private static String getKeyName(int keyCode) {
