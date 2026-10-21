@@ -27,6 +27,7 @@ public final class VRGuiRenderer {
     private static int width = 0;
     private static int height = 0;
     private static boolean capturing = false;
+    private static boolean logicalGuiResolutionActive = false;
     private static int previousFbo = 0;
     private static long frameId = 0L;
     private static long clearedFrameId = -1L;
@@ -37,13 +38,15 @@ public final class VRGuiRenderer {
     private static int savedDisplayWidth = -1;
     private static int savedDisplayHeight = -1;
 
+    // Match Visor's fixed main GUI render target (VRGuiManagerImpl: 1920 x 1080).
+    // The menu canvas is intentionally independent of the desktop window and of the
+    // headset mirror aspect ratio.
+    private static final int VR_MENU_GUI_WIDTH = 1920;
+    private static final int VR_MENU_GUI_HEIGHT = 1080;
+
     /**
-     * A menu is shown before a world exists. Render that whole no-world screen flow
-     * at the configured virtual-screen resolution instead of inheriting the desktop
-     * window size. This intentionally includes GTNH/CustomMainMenu screens and
-     * Angelica's video-options screens opened from the title menu.
-     *
-     * In-world GUIs keep the existing autonomous-resolution setting behavior.
+     * Before a world exists, every screen in the title-menu flow (including GTNH's
+     * CustomMainMenu and Angelica's video options) uses the same fixed virtual canvas.
      */
     private static boolean useVirtualResolutionForMenu(Minecraft mc) {
         return mc != null
@@ -53,8 +56,10 @@ public final class VRGuiRenderer {
 
     public static int getCaptureWidth() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution
-                || useVirtualResolutionForMenu(mc)) {
+        if (useVirtualResolutionForMenu(mc)) {
+            return VR_MENU_GUI_WIDTH;
+        }
+        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
             return Math.max(320, com.gtnhvr.settings.VRClientSettings.virtualScreenWidth);
         }
         return (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 1920;
@@ -62,8 +67,10 @@ public final class VRGuiRenderer {
 
     public static int getCaptureHeight() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution
-                || useVirtualResolutionForMenu(mc)) {
+        if (useVirtualResolutionForMenu(mc)) {
+            return VR_MENU_GUI_HEIGHT;
+        }
+        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
             return Math.max(240, com.gtnhvr.settings.VRClientSettings.virtualScreenHeight);
         }
         return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 1080;
@@ -71,6 +78,9 @@ public final class VRGuiRenderer {
 
     private static void useLogicalGuiResolution(Minecraft mc) {
         if (mc == null) return;
+        // Activate before setWorldAndResolution: modded screens may query Display.getWidth/Height
+        // from their init/resize code. Visor overrides those getters during its GUI render phase.
+        logicalGuiResolutionActive = true;
         if (savedDisplayWidth < 0 || savedDisplayHeight < 0) {
             savedDisplayWidth = mc.displayWidth;
             savedDisplayHeight = mc.displayHeight;
@@ -94,6 +104,7 @@ public final class VRGuiRenderer {
         }
         savedDisplayWidth = -1;
         savedDisplayHeight = -1;
+        logicalGuiResolutionActive = false;
     }
 
     /** Called once at the start of every render tick; allows exactly one clear per frame. */
@@ -219,6 +230,11 @@ public final class VRGuiRenderer {
 
     public static boolean isCapturing() {
         return capturing;
+    }
+
+    /** True while a GUI screen is being laid out/rendered on the virtual GUI canvas. */
+    public static boolean isLogicalGuiResolutionActive() {
+        return logicalGuiResolutionActive;
     }
 
     public static void destroy() {
