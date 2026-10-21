@@ -23,4 +23,19 @@ public abstract class MixinGuiScreen {
             ci.cancel();
         }
     }
+    /**
+     * Modded GUI frameworks may drain Mouse.next() while rendering (rather than during
+     * Minecraft's normal input tick). Keep those queued window-pixel events paired with
+     * the physical window dimensions; the surrounding GUI canvas remains virtual 1920x1080.
+     */
+    @Inject(method = {"handleMouseInput", "func_146274_d"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$beginPhysicalMouseInputScope(CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiRenderer.beginMouseInputScope();
+    }
+
+    @Inject(method = {"handleMouseInput", "func_146274_d"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$endPhysicalMouseInputScope(CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiRenderer.endMouseInputScope();
+    }
+
 }
