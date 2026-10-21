@@ -195,8 +195,8 @@ public final class VRHotbarRenderer {
         GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
 
-        // Main Hand (Right Hand): tint the textured selection ring cyan/blue.
-        // Keep the original ring texture; do not draw the old square placeholder.
+        // Main Hand (Right Hand): use Visor's already cyan-coloured selection texture.
+        // Do not apply an extra tint or draw the old square placeholder.
         drawRing(mc, slotMain, imageX, imageY, OFF_SEL0, OFF_SEL1);
 
         // Off Hand (Left Hand): the source texture already contains the orange colour.
