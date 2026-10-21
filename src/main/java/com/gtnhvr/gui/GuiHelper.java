@@ -217,6 +217,7 @@ public final class GuiHelper {
             Class<?> clz = screen.getClass();
             while (clz != null && clz != Object.class && clz != GuiScreen.class.getSuperclass()) {
                 for (Field field : clz.getDeclaredFields()) {
+                    if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) continue;
                     field.setAccessible(true);
                     Object val = field.get(screen);
                     if (val == null) continue;
