@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.VRControllerHandler;
 import com.gtnhvr.settings.VRClientSettings;
 import com.gtnhvr.settings.VROverlayConfig;
@@ -37,37 +38,37 @@ public final class VRHudRenderer {
             width = w;
             height = h;
 
-            fbo = GL30.glGenFramebuffers();
-            texture = GL11.glGenTextures();
-            depthRb = GL30.glGenRenderbuffers();
+            fbo = GLStateManager.glGenFramebuffers();
+            texture = GLStateManager.glGenTextures();
+            depthRb = GLStateManager.glGenRenderbuffers();
 
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+            GLStateManager.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 
-            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
-            GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, width, height);
+            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
+            GLStateManager.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, width, height);
 
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-            GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
-            GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+            GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
+            GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
         }
     }
 
     public static void begin(int w, int h) {
         checkSize(w, h);
         capturing = true;
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL11.glViewport(0, 0, width, height);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GLStateManager.glViewport(0, 0, width, height);
         // Clear with 100% transparent background so world shows through behind HUD elements
-        GL11.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-        GL11.glEnable(GL11.GL_BLEND);
-        org.lwjgl.opengl.GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+        GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+        GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        org.lwjgl.opengl.GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
     }
 
     public static void end() {
@@ -77,7 +78,7 @@ public final class VRHudRenderer {
         Minecraft mc = Minecraft.getMinecraft();
         int targetFbo = (mc != null && mc.getFramebuffer() != null && mc.getFramebuffer().framebufferObject > 0)
                 ? mc.getFramebuffer().framebufferObject : 0;
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, targetFbo);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, targetFbo);
     }
 
     private static final Vector3f currentHudPos = new Vector3f();
@@ -161,21 +162,21 @@ public final class VRHudRenderer {
         float halfW = hudWidth * 0.5F;
         float halfH = hudWidth * aspect * 0.5F;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
 
         try {
-            GL11.glDisable(GL11.GL_CULL_FACE);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthMask(false);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glEnable(GL11.GL_ALPHA_TEST);
-            GL11.glAlphaFunc(GL11.GL_GREATER, 0.08F);
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GLStateManager.glEnable(GL11.GL_ALPHA_TEST);
+            GLStateManager.glAlphaFunc(GL11.GL_GREATER, 0.08F);
 
             // Translate and apply smooth full 3D orientation
-            GL11.glTranslatef(currentHudPos.x, currentHudPos.y, currentHudPos.z);
+            GLStateManager.glTranslatef(currentHudPos.x, currentHudPos.y, currentHudPos.z);
             float qw = currentHudRot.w;
             float qx = currentHudRot.x;
             float qy = currentHudRot.y;
@@ -186,12 +187,12 @@ public final class VRHudRenderer {
             float sinHalf = (float) Math.sqrt(Math.max(0.0F, 1.0F - qw * qw));
             if (sinHalf > 1e-4F) {
                 float angleDeg = (float) Math.toDegrees(2.0 * Math.acos(Math.min(1.0F, qw)));
-                GL11.glRotatef(angleDeg, qx / sinHalf, qy / sinHalf, qz / sinHalf);
+                GLStateManager.glRotatef(angleDeg, qx / sinHalf, qy / sinHalf, qz / sinHalf);
             }
 
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
             // Correct orientation: (0,0) is bottom-left, (1,1) is top-right (matching Visor RenderHelper & VRVirtualScreen)
             if (VRClientSettings.curvedHud) {
@@ -200,30 +201,30 @@ public final class VRHudRenderer {
                 float radius = (VRClientSettings.hudDistance > 0.1F) ? VRClientSettings.hudDistance : 1.20F;
                 float arc = Math.min((float) Math.toRadians(150.0), hudWidth / radius);
                 int segments = 32;
-                GL11.glBegin(GL11.GL_QUAD_STRIP);
+                GLStateManager.glBegin(GL11.GL_QUAD_STRIP);
                 for (int i = 0; i <= segments; i++) {
                     float t = (float) i / (float) segments;
                     float a = (t - 0.5F) * arc;
                     float x = radius * (float) Math.sin(a);
                     float z = radius * (1.0F - (float) Math.cos(a));
-                    GL11.glTexCoord2f(t, 0.0F); GL11.glVertex3f(x, -halfH, z);
-                    GL11.glTexCoord2f(t, 1.0F); GL11.glVertex3f(x,  halfH, z);
+                    GLStateManager.glTexCoord2f(t, 0.0F); GLStateManager.glVertex3f(x, -halfH, z);
+                    GLStateManager.glTexCoord2f(t, 1.0F); GLStateManager.glVertex3f(x,  halfH, z);
                 }
-                GL11.glEnd();
+                GLStateManager.glEnd();
             } else {
-                GL11.glBegin(GL11.GL_QUADS);
-                GL11.glTexCoord2f(0.0F, 0.0F); GL11.glVertex3f(-halfW, -halfH, 0.0F);
-                GL11.glTexCoord2f(1.0F, 0.0F); GL11.glVertex3f( halfW, -halfH, 0.0F);
-                GL11.glTexCoord2f(1.0F, 1.0F); GL11.glVertex3f( halfW,  halfH, 0.0F);
-                GL11.glTexCoord2f(0.0F, 1.0F); GL11.glVertex3f(-halfW,  halfH, 0.0F);
-                GL11.glEnd();
+                GLStateManager.glBegin(GL11.GL_QUADS);
+                GLStateManager.glTexCoord2f(0.0F, 0.0F); GLStateManager.glVertex3f(-halfW, -halfH, 0.0F);
+                GLStateManager.glTexCoord2f(1.0F, 0.0F); GLStateManager.glVertex3f( halfW, -halfH, 0.0F);
+                GLStateManager.glTexCoord2f(1.0F, 1.0F); GLStateManager.glVertex3f( halfW,  halfH, 0.0F);
+                GLStateManager.glTexCoord2f(0.0F, 1.0F); GLStateManager.glVertex3f(-halfW,  halfH, 0.0F);
+                GLStateManager.glEnd();
             }
 
-            GL11.glDisable(GL11.GL_ALPHA_TEST);
+            GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
 
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
         }
     }
 
@@ -237,15 +238,15 @@ public final class VRHudRenderer {
 
     public static void destroy() {
         if (fbo != 0) {
-            GL30.glDeleteFramebuffers(fbo);
+            GLStateManager.glDeleteFramebuffers(fbo);
             fbo = 0;
         }
         if (texture != 0) {
-            GL11.glDeleteTextures(texture);
+            GLStateManager.glDeleteTextures(texture);
             texture = 0;
         }
         if (depthRb != 0) {
-            GL30.glDeleteRenderbuffers(depthRb);
+            GLStateManager.glDeleteRenderbuffers(depthRb);
             depthRb = 0;
         }
         width = 0;
