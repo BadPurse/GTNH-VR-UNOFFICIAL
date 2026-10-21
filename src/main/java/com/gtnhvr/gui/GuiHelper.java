@@ -422,23 +422,11 @@ public final class GuiHelper {
                 me.eigenraven.lwjgl3ify.client.TextFieldHandler.textBuffer.setLength(0);
             } catch (Throwable ignored) {}
         } else {
-            // Mod text field fallback (MEGuiTextField in AE2, TextFieldEnder in EnderIO, etc.)
+            // Mod text field fallback: use the widget's own handler and supported deletion APIs.
             Object modTf = getAnyFocusedTextFieldObject(screen);
             if (modTf != null) {
-                try {
-                    Method m = null;
-                    try {
-                        m = modTf.getClass().getMethod("textboxKeyTyped", char.class, int.class);
-                    } catch (NoSuchMethodException e) {
-                        try {
-                            m = modTf.getClass().getMethod("func_146201_a", char.class, int.class);
-                        } catch (NoSuchMethodException ignored) {}
-                    }
-                    if (m != null) {
-                        m.setAccessible(true);
-                        m.invoke(modTf, character, keyCode);
-                    }
-                } catch (Throwable ignored) {}
+                dispatchKeyToTextFieldObject(modTf, character, keyCode);
+                clearTextBuffer();
             }
         }
     }
