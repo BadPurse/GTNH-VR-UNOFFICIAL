@@ -545,7 +545,7 @@ public final class VRHandRenderer {
         int brightness = (mc.thePlayer != null) ? mc.thePlayer.getBrightnessForRender(1.0F) : 0xF000F0;
         int lightX = brightness % 65536;
         int lightY = brightness / 65536;
-        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, (float) lightX, (float) lightY);
+        GLStateManager.glMultiTexCoord2f(OpenGlHelper.lightmapTexUnit, (float) lightX, (float) lightY);
         GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
         VRItemCategory category = getItemCategory(heldItem);
