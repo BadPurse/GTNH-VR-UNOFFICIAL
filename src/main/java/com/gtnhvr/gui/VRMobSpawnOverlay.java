@@ -20,7 +20,7 @@ import org.lwjgl.opengl.GL11;
  * - RED cross: mobs can spawn NOW (block light < 8 AND sky light < 8)
  * - YELLOW cross: mobs can spawn at NIGHT (block light < 8 but sky light >= 8)
  *
- * Toggled via the Tools overlay button in VR settings.
+ * Toggled from the Tools tab of the VR Game Menu.
  * Based on the same algorithm as NEI F7 overlay.
  */
 @Lwjgl3Aware
