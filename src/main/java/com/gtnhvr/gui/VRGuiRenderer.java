@@ -42,6 +42,12 @@ public final class VRGuiRenderer {
     private static int savedScaledGuiWidth = -1;
     private static int savedScaledGuiHeight = -1;
 
+    // Some modded tooltip renderers read raw Mouse coordinates rather than drawScreen arguments.
+    // Keep those pixels in the same virtual coordinate space as the active GUI canvas.
+    private static java.lang.reflect.Field[] mouseCoordinateFields;
+    private static int[] savedMouseCoordinates;
+    private static boolean mouseCoordinatesAdjusted = false;
+
     // Same fixed GUI target as Visor's VRGuiManagerImpl. The screen canvas must not
     // inherit the desktop aspect ratio or the custom 2388x1668 default, which is not 16:9.
     private static final int VR_GUI_WIDTH = 1920;
@@ -130,6 +136,67 @@ public final class VRGuiRenderer {
         return Math.round(mouseY * (logicalHeight / (float) savedScaledGuiHeight));
     }
 
+    private static void adjustMouseCoordinatesForVirtualCanvas() {
+        if (mouseCoordinatesAdjusted || savedDisplayWidth <= 0 || savedDisplayHeight <= 0
+                || width <= 0 || height <= 0) {
+            return;
+        }
+
+        try {
+            if (mouseCoordinateFields == null) {
+                Class<?> mouseClass = Class.forName("org.lwjglx.input.Mouse");
+                String[] names = {"x", "y", "latestX", "latestY", "lastEventX", "lastEventY"};
+                java.lang.reflect.Field[] fields = new java.lang.reflect.Field[names.length];
+                for (int i = 0; i < names.length; i++) {
+                    try {
+                        fields[i] = mouseClass.getDeclaredField(names[i]);
+                        fields[i].setAccessible(true);
+                    } catch (NoSuchFieldException ignored) {
+                        // lastEventX/Y are optional in some lwjgl3ify versions.
+                    }
+                }
+                if (fields[0] == null || fields[1] == null) return;
+                mouseCoordinateFields = fields;
+            }
+
+            int[] saved = new int[mouseCoordinateFields.length];
+            for (int i = 0; i < mouseCoordinateFields.length; i++) {
+                java.lang.reflect.Field field = mouseCoordinateFields[i];
+                if (field != null) saved[i] = field.getInt(null);
+            }
+
+            float scaleX = width / (float) savedDisplayWidth;
+            float scaleY = height / (float) savedDisplayHeight;
+            for (int i = 0; i < mouseCoordinateFields.length; i++) {
+                java.lang.reflect.Field field = mouseCoordinateFields[i];
+                if (field != null) {
+                    field.setInt(null, Math.round(saved[i] * ((i % 2 == 0) ? scaleX : scaleY)));
+                }
+            }
+
+            savedMouseCoordinates = saved;
+            mouseCoordinatesAdjusted = true;
+        } catch (Throwable ignored) {
+            restoreMouseCoordinates();
+        }
+    }
+
+    private static void restoreMouseCoordinates() {
+        if (!mouseCoordinatesAdjusted || mouseCoordinateFields == null || savedMouseCoordinates == null) {
+            return;
+        }
+        try {
+            for (int i = 0; i < mouseCoordinateFields.length; i++) {
+                java.lang.reflect.Field field = mouseCoordinateFields[i];
+                if (field != null) field.setInt(null, savedMouseCoordinates[i]);
+            }
+        } catch (Throwable ignored) {
+        } finally {
+            mouseCoordinatesAdjusted = false;
+            savedMouseCoordinates = null;
+        }
+    }
+
     /** Called once at the start of every render tick; allows exactly one clear per frame. */
     public static void newFrame() {
         frameId++;
@@ -204,6 +271,7 @@ public final class VRGuiRenderer {
                 savedMinecraftFramebuffer = OpenXRRuntime.getMinecraftFramebuffer(mc);
                 OpenXRRuntime.setMinecraftFramebuffer(mc, guiFramebuffer);
                 useLogicalGuiResolution(mc);
+                adjustMouseCoordinatesForVirtualCanvas();
                 setupLogicalGuiProjection(mc);
             }
         }
@@ -246,6 +314,7 @@ public final class VRGuiRenderer {
             OpenXRRuntime.setMinecraftFramebuffer(mc, savedMinecraftFramebuffer);
             savedMinecraftFramebuffer = null;
         }
+        restoreMouseCoordinates();
         restoreWindowResolution(mc);
 
         if (captureGlStatePushed) {
