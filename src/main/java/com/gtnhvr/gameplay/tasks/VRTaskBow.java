@@ -35,6 +35,8 @@ public class VRTaskBow {
     private static final long AIM_HOLD_MS = 250L;
 
     private volatile boolean drawing = false;
+    /** true when the bow is held by the main/right controller, false for the offhand/left controller. */
+    private volatile boolean bowInMainHand = true;
     private volatile float tension = 0.0F;
     private volatile long releasedAtMs = 0L;
     private final Vector3f aimRoomDir = new Vector3f(0.0F, 0.0F, -1.0F);
@@ -49,7 +51,7 @@ public class VRTaskBow {
         return INSTANCE;
     }
 
-    /** True when the physical bow replaces the normal use-item input. */
+    /** True when a physical two-handed bow can be controlled by the tracked controllers. */
     public boolean isBowHeld(Minecraft mc) {
         if (!VRClientSettings.worldTwoHanded || mc == null || mc.thePlayer == null || mc.currentScreen != null) {
             return false;
@@ -58,8 +60,23 @@ public class VRTaskBow {
         if (!handler.isRightHandTracked() || !handler.isLeftHandTracked()) {
             return false;
         }
-        ItemStack held = mc.thePlayer.getHeldItem();
-        return held != null && held.getItem() instanceof ItemBow;
+
+        ItemStack main = mc.thePlayer.getHeldItem();
+        if (main != null && main.getItem() instanceof ItemBow) {
+            bowInMainHand = true;
+            return true;
+        }
+
+        ItemStack offhand = com.gtnhvr.gui.VRHotbarSelector.getInstance().getOffhandItemStack(mc);
+        if (offhand != null && offhand.getItem() instanceof ItemBow) {
+            bowInMainHand = false;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean isBowInMainHand() {
+        return bowInMainHand;
     }
 
     public boolean isDrawing() {
@@ -82,41 +99,41 @@ public class VRTaskBow {
 
     public void update(Minecraft mc, VRControllerHandler handler) {
         if (!isBowHeld(mc)) {
-            if (drawing) {
-                finishDraw();
-            }
+            if (drawing) finishDraw();
             return;
         }
 
-        Vector3f mainPos = handler.getRightHandPos();
-        Vector3f offPos = handler.getLeftHandPos();
-        float distance = mainPos.distance(offPos);
-        float offTrigger = handler.getLeftTriggerValue();
+        // Match Visor's bow task: either controller may hold the bow, and the opposite
+        // hand controls the string trigger and sets the aim direction.
+        Vector3f bowPos = bowInMainHand ? handler.getRightHandPos() : handler.getLeftHandPos();
+        Vector3f stringPos = bowInMainHand ? handler.getLeftHandPos() : handler.getRightHandPos();
+        float distance = bowPos.distance(stringPos);
+        float stringTrigger = bowInMainHand ? handler.getLeftTriggerValue() : handler.getRightTriggerValue();
 
         if (!drawing) {
-            if (offTrigger > TRIGGER_GRAB && distance < GRAB_DISTANCE) {
+            if (stringTrigger > TRIGGER_GRAB && distance < GRAB_DISTANCE) {
                 drawing = true;
                 tension = 0.0F;
-                handler.triggerHaptic(true, 10_000_000L, 0.60F, 0);
+                handler.triggerHaptic(bowInMainHand, 10_000_000L, 0.60F, 0);
             }
             return;
         }
 
-        // Aim: from the string hand through the bow hand
-        Vector3f aim = new Vector3f(mainPos).sub(offPos);
+        // Aim: from the string hand through the bow hand.
+        Vector3f aim = new Vector3f(bowPos).sub(stringPos);
         if (aim.lengthSquared() > 1.0E-6F) {
             aimRoomDir.set(aim).normalize();
         }
         tension = Math.max(0.0F, Math.min(1.0F, (distance - MIN_PULL) / (FULL_PULL - MIN_PULL)));
 
-        // String tension felt in the bow hand
+        // Haptic feedback in the hand that holds the bow, matching Visor's two-hand pose.
         long now = System.currentTimeMillis();
         if (tension > 0.05F && now - lastHapticMs > 60L) {
             lastHapticMs = now;
-            handler.triggerHaptic(false, 20_000_000L, 0.15F + 0.45F * tension, 0);
+            handler.triggerHaptic(!bowInMainHand, 20_000_000L, 0.15F + 0.45F * tension, 0);
         }
 
-        // Calculate arrow trajectory arc in Minecraft world (1:1 with Visor BowAimCrosshairRenderer)
+        // Calculate arrow trajectory arc in Minecraft world (1:1 with Visor bow aiming).
         trajectoryPoints.clear();
         hitPointRoom = null;
         if (tension > 0.05F && mc.theWorld != null) {
@@ -125,7 +142,7 @@ public class VRTaskBow {
             if (f > 1.0F) f = 1.0F;
             float speed = f * 3.0F;
 
-            Vector3f startRoom = new Vector3f(mainPos);
+            Vector3f startRoom = new Vector3f(bowPos);
             trajectoryPoints.add(new Vector3f(startRoom));
 
             net.minecraft.util.Vec3 curWorld = handler.roomToWorld(startRoom, 1.0F);
@@ -149,7 +166,6 @@ public class VRTaskBow {
                         curWorld.zCoord + vz
                 );
                 net.minecraft.util.MovingObjectPosition hit = mc.theWorld.func_147447_a(curWorld, nextWorld, false, true, false);
-
                 net.minecraft.util.Vec3 pt = (hit != null) ? hit.hitVec : nextWorld;
                 double dx = pt.xCoord - px;
                 double dy = pt.yCoord - py;
@@ -173,9 +189,9 @@ public class VRTaskBow {
             }
         }
 
-        if (offTrigger < TRIGGER_RELEASE) {
+        if (stringTrigger < TRIGGER_RELEASE) {
             finishDraw();
-            handler.triggerHaptic(true, 15_000_000L, 0.70F, 0);
+            handler.triggerHaptic(bowInMainHand, 15_000_000L, 0.70F, 0);
         }
     }
 
