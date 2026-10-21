@@ -92,7 +92,7 @@ public abstract class MixinMinecraft {
                 || newScreen instanceof net.minecraft.client.gui.inventory.GuiEditSign
                 || newScreen instanceof net.minecraft.client.gui.GuiScreenBook
                 || newScreen instanceof net.minecraft.client.gui.GuiRepair) {
-            com.gtnhvr.gui.VRVirtualKeyboard.getInstance().showAutoKeyboard();
+            com.gtnhvr.gui.VRVirtualKeyboard.getInstance().showAutoKeyboard(newScreen);
         } else {
             com.gtnhvr.gui.VRVirtualKeyboard.getInstance().hideAutoKeyboard();
         }
