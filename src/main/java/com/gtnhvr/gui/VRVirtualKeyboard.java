@@ -606,7 +606,7 @@ public final class VRVirtualKeyboard {
             Minecraft mc = Minecraft.getMinecraft();
             if (mc != null && mc.currentScreen != null) {
                 try {
-                    net.minecraft.client.gui.GuiTextField focused = com.gtnhvr.gui.GuiHelper.getFocusedTextField();
+                    net.minecraft.client.gui.GuiTextField focused = com.gtnhvr.gui.GuiHelper.getFocusedTextField(mc.currentScreen);
                     if (focused != null && focused.isFocused()) {
                         String sel = focused.getSelectedText();
                         if (sel != null && !sel.isEmpty()) {
@@ -633,7 +633,7 @@ public final class VRVirtualKeyboard {
                 String clip = GuiScreen.getClipboardString();
                 if (clip != null && !clip.isEmpty()) {
                     try {
-                        net.minecraft.client.gui.GuiTextField focused = com.gtnhvr.gui.GuiHelper.getFocusedTextField();
+                        net.minecraft.client.gui.GuiTextField focused = com.gtnhvr.gui.GuiHelper.getFocusedTextField(mc.currentScreen);
                         if (focused != null && focused.isFocused()) {
                             focused.writeText(clip);
                             triggerHaptic(isLeft);
@@ -739,7 +739,7 @@ public final class VRVirtualKeyboard {
     private boolean dispatchDirectlyToFocusedTextField(GuiScreen screen, char ch, int keyCode) {
         if (screen == null) return false;
 
-        net.minecraft.client.gui.GuiTextField focused = com.gtnhvr.gui.GuiHelper.getFocusedTextField();
+        net.minecraft.client.gui.GuiTextField focused = com.gtnhvr.gui.GuiHelper.getFocusedTextField(screen);
         if (focused != null && focused.isFocused()) {
             focused.textboxKeyTyped(ch, keyCode);
             return true;
