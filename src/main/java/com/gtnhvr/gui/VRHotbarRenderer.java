@@ -199,11 +199,11 @@ public final class VRHotbarRenderer {
         GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
         GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
 
-        // Main Hand (Right Hand): use Visor's already cyan-coloured selection texture.
+        // Main hand: use the same pre-coloured main-hand texture as Visor.
         // Do not apply an extra tint or draw the old square placeholder.
         drawRing(mc, slotMain, imageX, imageY, MAIN_SEL0, MAIN_SEL1);
 
-        // Off Hand uses the original Visor offhand selection texture.
+        // Offhand: use the same pre-coloured offhand texture as Visor.
         if (slotOffhand >= 0 && slotOffhand < 9) {
             drawRing(mc, slotOffhand, imageX, imageY, OFF_SEL0, OFF_SEL1);
         }
