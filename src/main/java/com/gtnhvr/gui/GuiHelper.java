@@ -218,6 +218,66 @@ public final class GuiHelper {
                 || name.startsWith("com.cleanroommc.modularui.");
     }
 
+    /** Recognize standard and modded text widgets without accepting arbitrary focused buttons/panels. */
+    private static boolean isTextInputCandidate(Object obj) {
+        if (obj == null) return false;
+        String simpleName = obj.getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
+        boolean textFieldName = simpleName.contains("textfield") || simpleName.contains("textbox")
+                || simpleName.contains("textinput") || simpleName.contains("searchfield")
+                || simpleName.contains("editbox") || simpleName.contains("inputfield")
+                || simpleName.contains("textentry") || simpleName.contains("searchbox");
+        boolean focusedMethod = false;
+        boolean textApi = false;
+        boolean keyTypedMethod = false;
+        try {
+            for (Method method : obj.getClass().getMethods()) {
+                String name = method.getName().toLowerCase(java.util.Locale.ROOT);
+                Class<?>[] params = method.getParameterTypes();
+                if ((name.equals("isfocused") || name.equals("func_146206_l") || name.equals("hasfocus"))
+                        && params.length == 0
+                        && (method.getReturnType() == boolean.class || method.getReturnType() == Boolean.class)) {
+                    focusedMethod = true;
+                }
+                if (name.equals("gettext") || name.equals("getvalue") || name.equals("getstring")
+                        || name.equals("getmessage") || name.equals("writetext") || name.equals("inserttext")
+                        || name.equals("settext") || name.equals("setvalue") || name.equals("setstring")
+                        || name.equals("setmessage") || name.equals("deletefromcursor") || name.equals("func_146177_a")) {
+                    textApi = true;
+                }
+                if ((name.contains("keytyped") || name.equals("func_146201_a"))
+                        && params.length == 2 && params[0] == char.class && params[1] == int.class) {
+                    keyTypedMethod = true;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return textFieldName || (focusedMethod && (textApi || keyTypedMethod));
+    }
+
+    private static boolean isObjectFocused(Object obj) {
+        if (obj == null) return false;
+        try {
+            for (String name : new String[] {"isFocused", "func_146206_l", "hasFocus"}) {
+                try {
+                    Method method = obj.getClass().getMethod(name);
+                    if (method.getReturnType() == boolean.class || method.getReturnType() == Boolean.class) {
+                        method.setAccessible(true);
+                        return Boolean.TRUE.equals(method.invoke(obj));
+                    }
+                } catch (NoSuchMethodException ignored) {}
+            }
+            for (Class<?> clz = obj.getClass(); clz != null && clz != Object.class; clz = clz.getSuperclass()) {
+                for (Field field : clz.getDeclaredFields()) {
+                    if (field.getType() == boolean.class && (field.getName().equalsIgnoreCase("focused")
+                            || field.getName().equalsIgnoreCase("isFocused") || field.getName().equalsIgnoreCase("hasFocus"))) {
+                        field.setAccessible(true);
+                        if (field.getBoolean(obj)) return true;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
     public static Object getAnyFocusedTextFieldObject(GuiScreen screen) {
         if (screen == null) return null;
         return findFocusedTextFieldObject(screen, 0, new java.util.IdentityHashMap<>(), true);
