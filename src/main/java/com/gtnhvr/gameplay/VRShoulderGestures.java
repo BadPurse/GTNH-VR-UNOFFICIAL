@@ -183,7 +183,7 @@ public final class VRShoulderGestures {
         // RIGHT CONTROLLER / MAIN HAND -> LEFT SHOULDER: jetpack toggle.
         // Use the grip pose when available; the aim pose can sit several centimetres in front
         // of the controller and make a real shoulder-touch gesture miss its detection radius.
-        if (jetpackGestureEnabled && handler.isRightHandTracked()) {
+        if (jetpackGestureEnabled && handler.isRightGripHandTracked()) {
             Vector3f rightHandPos = handler.getRightGripHandPos();
             float distToLeftShoulder = new Vector3f(rightHandPos).sub(leftShoulder).length();
 
@@ -196,8 +196,9 @@ public final class VRShoulderGestures {
                     toggleJetpack(mc);
                     lastJetpackToggleTime = now;
                     rightHandWasOnShoulder = false;
-                    handler.triggerHaptic(false, 30_000_000L, 0.85F, 0);
-                    handler.triggerHaptic(true, 15_000_000L, 0.45F, 0);
+                    // Haptic API accepts logical handedness; route explicitly to physical right/left.
+                    handler.triggerHaptic(VRClientSettings.leftHanded, 30_000_000L, 0.85F, 0);
+                    handler.triggerHaptic(!VRClientSettings.leftHanded, 15_000_000L, 0.45F, 0);
                 }
             } else {
                 rightHandWasOnShoulder = false;
@@ -207,7 +208,7 @@ public final class VRShoulderGestures {
         }
 
         // LEFT CONTROLLER / OFF HAND -> RIGHT SHOULDER: hover/glide toggle.
-        if (glideGestureEnabled && handler.isLeftHandTracked()) {
+        if (glideGestureEnabled && handler.isLeftGripHandTracked()) {
             Vector3f leftHandPos = handler.getLeftGripHandPos();
             float distToRightShoulder = new Vector3f(leftHandPos).sub(rightShoulder).length();
 
@@ -220,8 +221,8 @@ public final class VRShoulderGestures {
                     toggleGlide(mc);
                     lastGlideToggleTime = now;
                     leftHandWasOnShoulder = false;
-                    handler.triggerHaptic(true, 30_000_000L, 0.85F, 0);
-                    handler.triggerHaptic(false, 15_000_000L, 0.45F, 0);
+                    handler.triggerHaptic(!VRClientSettings.leftHanded, 30_000_000L, 0.85F, 0);
+                    handler.triggerHaptic(VRClientSettings.leftHanded, 15_000_000L, 0.45F, 0);
                 }
             } else {
                 leftHandWasOnShoulder = false;
