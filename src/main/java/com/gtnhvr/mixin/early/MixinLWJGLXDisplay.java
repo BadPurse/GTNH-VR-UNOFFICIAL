@@ -21,4 +21,24 @@ public abstract class MixinLWJGLXDisplay {
             cir.setReturnValue(true);
         }
     }
+
+    /**
+     * Visor keeps GUI rendering on its own fixed GUI canvas by overriding Window's
+     * pixel dimensions during the GUI render phase. In 1.7.10/LWJGL3ify the equivalent
+     * is Display.getWidth/getHeight. Do not affect game rendering or desktop input:
+     * these values change only while VRGuiRenderer is laying out/rendering a screen.
+     */
+    @Inject(method = "getWidth", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    private static void gtnhvr$virtualGuiWidth(CallbackInfoReturnable<Integer> cir) {
+        if (com.gtnhvr.gui.VRGuiRenderer.isLogicalGuiResolutionActive()) {
+            cir.setReturnValue(com.gtnhvr.gui.VRGuiRenderer.getWidth());
+        }
+    }
+
+    @Inject(method = "getHeight", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    private static void gtnhvr$virtualGuiHeight(CallbackInfoReturnable<Integer> cir) {
+        if (com.gtnhvr.gui.VRGuiRenderer.isLogicalGuiResolutionActive()) {
+            cir.setReturnValue(com.gtnhvr.gui.VRGuiRenderer.getHeight());
+        }
+    }
 }
