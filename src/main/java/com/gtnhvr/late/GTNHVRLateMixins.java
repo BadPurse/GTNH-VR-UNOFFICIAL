@@ -17,6 +17,9 @@ public class GTNHVRLateMixins implements ILateMixinLoader {
 
     @Override
     public List<String> getMixins(Set<String> loadedMods) {
+        if (!cpw.mods.fml.relauncher.FMLLaunchHandler.side().isClient()) {
+            return java.util.Collections.emptyList();
+        }
         List<String> mixins = new ArrayList<>();
         if (loadedMods.contains("angelica")) {
             mixins.add("MixinReeseSodiumVideoOptionsScreen");

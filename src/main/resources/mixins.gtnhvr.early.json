@@ -1,34 +1,34 @@
 {
-  "required": true,
+  "required": false,
   "minVersion": "0.8",
   "package": "com.gtnhvr.mixin.early",
   "refmap": "mixins.gtnhvr.refmap.json",
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
+  ],
+  "client": [
     "MixinEntity",
     "MixinEntityRenderer",
     "MixinGui",
+    "MixinGuiContainerCreative",
     "MixinGuiIngame",
     "MixinGuiMainMenu",
     "MixinGuiScreen",
-    "MixinGuiTextField",
-    "MixinItemRenderer",
-    "MixinMinecraft",
-    "MixinMovementInputFromOptions",
-    "MixinPlayerControllerMP"
-  ],
-  "client": [
-    "MixinGuiContainerCreative",
     "MixinGuiScrollingList",
     "MixinGuiSlot",
+    "MixinGuiTextField",
+    "MixinItemRenderer",
+    "MixinLWJGLXDisplay",
     "MixinLWJGLXGL11Alpha",
     "MixinLWJGLXGL14Alpha",
-    "MixinLWJGLXDisplay",
+    "MixinMinecraft",
+    "MixinMovementInputFromOptions",
+    "MixinPlayerControllerMP",
     "MixinRenderItem",
     "MixinTextFieldHandler"
   ],
   "injectors": {
-    "defaultRequire": 1
+    "defaultRequire": 0
   }
 }

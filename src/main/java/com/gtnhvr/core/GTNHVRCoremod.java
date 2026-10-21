@@ -1,6 +1,7 @@
 package com.gtnhvr.core;
 
 import com.gtnewhorizon.gtnhmixins.IEarlyMixinLoader;
+import cpw.mods.fml.relauncher.FMLLaunchHandler;
 import cpw.mods.fml.relauncher.IFMLLoadingPlugin;
 
 import java.util.Collections;
@@ -20,22 +21,28 @@ public class GTNHVRCoremod implements IFMLLoadingPlugin, IEarlyMixinLoader {
 
     @Override
     public List<String> getMixins(Set<String> loadedCoreMods) {
+        if (!FMLLaunchHandler.side().isClient()) {
+            return Collections.emptyList();
+        }
         return java.util.Arrays.asList(
                 "MixinEntity",
                 "MixinEntityRenderer",
                 "MixinGui",
-                "MixinGuiIngame",
                 "MixinGuiContainerCreative",
+                "MixinGuiIngame",
                 "MixinGuiMainMenu",
                 "MixinGuiScreen",
                 "MixinGuiScrollingList",
                 "MixinGuiSlot",
                 "MixinGuiTextField",
+                "MixinItemRenderer",
+                "MixinLWJGLXDisplay",
                 "MixinLWJGLXGL11Alpha",
                 "MixinLWJGLXGL14Alpha",
-                "MixinLWJGLXDisplay",
                 "MixinMinecraft",
                 "MixinMovementInputFromOptions",
+                "MixinPlayerControllerMP",
+                "MixinRenderItem",
                 "MixinTextFieldHandler"
         );
     }
