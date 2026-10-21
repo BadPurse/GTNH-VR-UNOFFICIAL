@@ -91,8 +91,9 @@ public abstract class MixinEntityRenderer {
         Minecraft mc = Minecraft.getMinecraft();
         if (OpenXRRuntime.isSessionRunning() && mc != null && mc.currentScreen != null
                 && !VRGuiRenderer.isCapturing()) {
-            boolean mainMenu = mc.theWorld == null
-                    && mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu;
+            // GTNH's CustomMainMenu need not extend GuiMainMenu; before a world loads,
+            // every screen is part of the title-menu flow (including Angelica settings).
+            boolean mainMenu = mc.theWorld == null;
             VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), mainMenu);
         }
     }

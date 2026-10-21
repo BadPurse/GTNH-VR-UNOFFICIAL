@@ -265,8 +265,8 @@ public final class GuiEventHandler {
         if (!com.gtnhvr.OpenXRRuntime.isSessionRunning()) return;
         Minecraft mc = Minecraft.getMinecraft();
         if (mc != null && mc.currentScreen != null && !VRGuiRenderer.isCapturing()) {
-            boolean mainMenu = mc.theWorld == null
-                    && mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu;
+            // Include GTNH's replacement title screen and graphics/settings screens before a world loads.
+            boolean mainMenu = mc.theWorld == null;
             VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), mainMenu);
         }
     }

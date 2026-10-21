@@ -6,6 +6,7 @@ import com.gtnhvr.settings.VRClientSettings;
 import com.gtnhvr.settings.VROverlayConfig;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.shader.Framebuffer;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -26,6 +27,8 @@ public final class VRHudRenderer {
     private static int depthRb = 0;
     private static int width = 0;
     private static int height = 0;
+    private static VRGuiFramebuffer hudFramebuffer = null;
+    private static Framebuffer savedMinecraftFramebuffer = null;
     private static boolean capturing = false;
     private static boolean glStatePushed = false;
     private static int previousFbo = 0;
@@ -70,10 +73,19 @@ public final class VRHudRenderer {
             GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
             GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
 
+            if (hudFramebuffer == null) {
+                hudFramebuffer = new VRGuiFramebuffer(width, height);
+            }
+            hudFramebuffer.update(fbo, texture, depthRb, width, height);
+
             GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, restoreFbo == oldFbo ? 0 : restoreFbo);
             GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, restoreRenderbuffer == oldDepthRb ? 0 : restoreRenderbuffer);
             GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, restoreTexture == oldTexture ? 0 : restoreTexture);
         }
+        if (hudFramebuffer == null) {
+            hudFramebuffer = new VRGuiFramebuffer(width, height);
+        }
+        hudFramebuffer.update(fbo, texture, depthRb, width, height);
     }
 
     /** Capture the HUD on the same logical canvas as GUI screens with its own scoped render state. */
@@ -93,6 +105,10 @@ public final class VRHudRenderer {
         GLStateManager.glPushMatrix();
 
         if (mc != null) {
+            savedMinecraftFramebuffer = OpenXRRuntime.getMinecraftFramebuffer(mc);
+            if (hudFramebuffer != null) {
+                OpenXRRuntime.setMinecraftFramebuffer(mc, hudFramebuffer);
+            }
             savedDisplayWidth = mc.displayWidth;
             savedDisplayHeight = mc.displayHeight;
             previousLogicalResolutionActive = VRGuiRenderer.isLogicalGuiResolutionActive();
@@ -132,6 +148,10 @@ public final class VRHudRenderer {
         GLStateManager.glFlush();
 
         Minecraft mc = Minecraft.getMinecraft();
+        if (mc != null && savedMinecraftFramebuffer != null) {
+            OpenXRRuntime.setMinecraftFramebuffer(mc, savedMinecraftFramebuffer);
+        }
+        savedMinecraftFramebuffer = null;
         if (mc != null && savedDisplayWidth >= 0 && savedDisplayHeight >= 0) {
             mc.displayWidth = savedDisplayWidth;
             mc.displayHeight = savedDisplayHeight;
@@ -332,6 +352,8 @@ public final class VRHudRenderer {
             GLStateManager.glDeleteRenderbuffers(depthRb);
             depthRb = 0;
         }
+        hudFramebuffer = null;
+        savedMinecraftFramebuffer = null;
         width = 0;
         height = 0;
         capturing = false;
