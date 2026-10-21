@@ -12,7 +12,6 @@
     "MixinEntityRenderer",
     "MixinGui",
     "MixinGuiContainerCreative",
-    "MixinGuiContainerMouseInput",
     "MixinGuiIngame",
     "MixinGuiIngameForge",
     "MixinGuiMainMenu",
