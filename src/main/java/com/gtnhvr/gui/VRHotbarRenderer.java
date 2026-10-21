@@ -6,6 +6,7 @@ import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
@@ -200,11 +201,11 @@ public final class VRHotbarRenderer {
 
         // Main Hand (Right Hand): use Visor's already cyan-coloured selection texture.
         // Do not apply an extra tint or draw the old square placeholder.
-        drawRing(mc, slotMain, imageX, imageY, OFF_SEL0, OFF_SEL1);
+        drawRing(mc, slotMain, imageX, imageY, MAIN_SEL0, MAIN_SEL1);
 
-        // Off Hand (Left Hand): the source texture already contains the orange colour.
+        // Off Hand uses the original Visor offhand selection texture.
         if (slotOffhand >= 0 && slotOffhand < 9) {
-            drawRing(mc, slotOffhand, imageX, imageY, MAIN_SEL0, MAIN_SEL1);
+            drawRing(mc, slotOffhand, imageX, imageY, OFF_SEL0, OFF_SEL1);
         }
         GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
     }
@@ -239,8 +240,8 @@ public final class VRHotbarRenderer {
             mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
             // The Visor PNG is already cyan/orange. Draw it un-tinted on texture unit 0.
             GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            drawTexturedRect(imageX + slice.getItemX() - RING_INSET, imageY + slice.getItemY() - RING_INSET,
-                    RING_SIZE, RING_SIZE);
+            drawSelectionTexture(imageX + slice.getItemX() - RING_INSET,
+                    imageY + slice.getItemY() - RING_INSET, RING_SIZE, RING_SIZE);
         } finally {
             GLStateManager.glPopAttrib();
             for (int unit = 1; unit < textureUnitCount; unit++) {
@@ -285,6 +286,22 @@ public final class VRHotbarRenderer {
         GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
         GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         font.drawStringWithShadow(name, nameX, nameY, 0xFFFFFF);
+    }
+
+    /**
+     * Minecraft 1.7.10 equivalent of Visor GuiTexture.blit: submit a textured quad through
+     * Tessellator and store white tint per vertex, so previously rendered item state cannot
+     * recolour or reorder the selection texture.
+     */
+    private static void drawSelectionTexture(float x, float y, float w, float h) {
+        Tessellator tessellator = Tessellator.instance;
+        tessellator.startDrawingQuads();
+        tessellator.setColorRGBA_F(1.0F, 1.0F, 1.0F, 1.0F);
+        tessellator.addVertexWithUV(x, y + h, 0.0D, 0.0D, 1.0D);
+        tessellator.addVertexWithUV(x + w, y + h, 0.0D, 1.0D, 1.0D);
+        tessellator.addVertexWithUV(x + w, y, 0.0D, 1.0D, 0.0D);
+        tessellator.addVertexWithUV(x, y, 0.0D, 0.0D, 0.0D);
+        tessellator.draw();
     }
 
     private static void drawTexturedRect(float x, float y, float w, float h) {
