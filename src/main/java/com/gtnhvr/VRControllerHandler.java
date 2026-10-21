@@ -402,14 +402,6 @@ public final class VRControllerHandler {
         rightHandRot.set(leftHandRot);
         leftHandRot.set(tmpRot);
 
-        Vector3f tmpGripPos = new Vector3f(rightGripHandPos);
-        rightGripHandPos.set(leftGripHandPos);
-        leftGripHandPos.set(tmpGripPos);
-
-        boolean tmpGripTracked = rightGripHandTracked;
-        rightGripHandTracked = leftGripHandTracked;
-        leftGripHandTracked = tmpGripTracked;
-
         boolean tmpTracked = rightHandTracked;
         rightHandTracked = leftHandTracked;
         leftHandTracked = tmpTracked;
@@ -1405,16 +1397,18 @@ public final class VRControllerHandler {
         return rightGripHandTracked;
     }
 
+    /** Physical (not handedness-swapped) right controller grip position. */
     public Vector3f getRightGripHandPos() {
-        return rightGripHandTracked ? rightGripHandPos : rightHandPos;
+        return rightGripHandPos;
     }
 
     public boolean isLeftGripHandTracked() {
         return leftGripHandTracked;
     }
 
+    /** Physical (not handedness-swapped) left controller grip position. */
     public Vector3f getLeftGripHandPos() {
-        return leftGripHandTracked ? leftGripHandPos : leftHandPos;
+        return leftGripHandPos;
     }
 
     public float getRightTriggerValue() { return rightTriggerValue; }
