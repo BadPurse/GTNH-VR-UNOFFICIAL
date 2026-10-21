@@ -72,6 +72,23 @@ public final class VRGuiRenderer {
         return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : VR_GUI_HEIGHT;
     }
 
+    /**
+     * Physical window dimensions for synthesizing controller mouse events. During GUI capture,
+     * Minecraft.displayWidth/Height temporarily contain the virtual canvas size; using those
+     * values here and then mapping the queued Mouse event would scale the pointer twice.
+     */
+    public static int getPhysicalWindowWidth() {
+        if (savedDisplayWidth > 0) return savedDisplayWidth;
+        Minecraft mc = Minecraft.getMinecraft();
+        return mc != null && mc.displayWidth > 0 ? mc.displayWidth : VR_GUI_WIDTH;
+    }
+
+    public static int getPhysicalWindowHeight() {
+        if (savedDisplayHeight > 0) return savedDisplayHeight;
+        Minecraft mc = Minecraft.getMinecraft();
+        return mc != null && mc.displayHeight > 0 ? mc.displayHeight : VR_GUI_HEIGHT;
+    }
+
     private static void useLogicalGuiResolution(Minecraft mc) {
         if (mc == null) return;
         // This flag is true only while a GUI/HUD render target is active, not during the 3D world pass.
