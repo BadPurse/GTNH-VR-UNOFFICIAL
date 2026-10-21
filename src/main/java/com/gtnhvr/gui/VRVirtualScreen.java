@@ -318,13 +318,11 @@ public final class VRVirtualScreen {
     }
 
     public float getScreenAspect() {
-        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
-            return (float) com.gtnhvr.settings.VRClientSettings.virtualScreenHeight / (float) com.gtnhvr.settings.VRClientSettings.virtualScreenWidth;
-        }
-        Minecraft mc = Minecraft.getMinecraft();
-        return (mc != null && mc.displayHeight > 0 && mc.displayWidth > 0)
-                ? (float) mc.displayHeight / (float) mc.displayWidth
-                : (1668.0F / 2388.0F);
+        int captureWidth = VRGuiRenderer.getCaptureWidth();
+        int captureHeight = VRGuiRenderer.getCaptureHeight();
+        return captureWidth > 0 && captureHeight > 0
+                ? (float) captureHeight / (float) captureWidth
+                : (9.0F / 16.0F);
     }
 
     public Vector3f getDragBarWorldPos() {
