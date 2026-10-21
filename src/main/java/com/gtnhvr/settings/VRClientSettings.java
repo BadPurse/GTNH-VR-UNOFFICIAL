@@ -248,6 +248,28 @@ public final class VRClientSettings {
     public static int virtualScreenHeight = 1668;
     public static boolean antiXrayVignette = true;
 
+
+    // Optional in-world controller-to-key mappings. Zero preserves the built-in Visor-style action.
+    public static int controllerRightTriggerKeyCode = 0;
+    public static int controllerLeftTriggerKeyCode = 0;
+    public static int controllerRightAKeyCode = 0;
+    public static int controllerRightBKeyCode = 0;
+    public static int controllerLeftXKeyCode = 0;
+    public static int controllerLeftYKeyCode = 0;
+    public static int controllerLeftMenuKeyCode = 0;
+    public static int controllerRightStickClickKeyCode = 0;
+    public static int controllerLeftStickClickKeyCode = 0;
+    public static int controllerRightGripKeyCode = 0;
+    public static int controllerLeftGripKeyCode = 0;
+    public static int controllerLeftStickUpKeyCode = 0;
+    public static int controllerLeftStickDownKeyCode = 0;
+    public static int controllerLeftStickLeftKeyCode = 0;
+    public static int controllerLeftStickRightKeyCode = 0;
+    public static int controllerRightStickUpKeyCode = 0;
+    public static int controllerRightStickDownKeyCode = 0;
+    public static int controllerRightStickLeftKeyCode = 0;
+    public static int controllerRightStickRightKeyCode = 0;
+
     // Remappable virtual controller buttons triggered by opposite-shoulder gestures.
     public static boolean shoulderGesturesEnabled = true;
     public static boolean shoulderRightToLeftEnabled = true;
@@ -431,6 +453,28 @@ public final class VRClientSettings {
             interactionReach = interactionDistance;
             crosshairLaser = vrCrosshair;
 
+
+            // Controller bindings: a zero key code retains that control's default in-world action.
+            controllerRightTriggerKeyCode = config.get("controls", "controllerRightTriggerKeyCode", 0).getInt(0);
+            controllerLeftTriggerKeyCode = config.get("controls", "controllerLeftTriggerKeyCode", 0).getInt(0);
+            controllerRightAKeyCode = config.get("controls", "controllerRightAKeyCode", 0).getInt(0);
+            controllerRightBKeyCode = config.get("controls", "controllerRightBKeyCode", 0).getInt(0);
+            controllerLeftXKeyCode = config.get("controls", "controllerLeftXKeyCode", 0).getInt(0);
+            controllerLeftYKeyCode = config.get("controls", "controllerLeftYKeyCode", 0).getInt(0);
+            controllerLeftMenuKeyCode = config.get("controls", "controllerLeftMenuKeyCode", 0).getInt(0);
+            controllerRightStickClickKeyCode = config.get("controls", "controllerRightStickClickKeyCode", 0).getInt(0);
+            controllerLeftStickClickKeyCode = config.get("controls", "controllerLeftStickClickKeyCode", 0).getInt(0);
+            controllerRightGripKeyCode = config.get("controls", "controllerRightGripKeyCode", 0).getInt(0);
+            controllerLeftGripKeyCode = config.get("controls", "controllerLeftGripKeyCode", 0).getInt(0);
+            controllerLeftStickUpKeyCode = config.get("controls", "controllerLeftStickUpKeyCode", 0).getInt(0);
+            controllerLeftStickDownKeyCode = config.get("controls", "controllerLeftStickDownKeyCode", 0).getInt(0);
+            controllerLeftStickLeftKeyCode = config.get("controls", "controllerLeftStickLeftKeyCode", 0).getInt(0);
+            controllerLeftStickRightKeyCode = config.get("controls", "controllerLeftStickRightKeyCode", 0).getInt(0);
+            controllerRightStickUpKeyCode = config.get("controls", "controllerRightStickUpKeyCode", 0).getInt(0);
+            controllerRightStickDownKeyCode = config.get("controls", "controllerRightStickDownKeyCode", 0).getInt(0);
+            controllerRightStickLeftKeyCode = config.get("controls", "controllerRightStickLeftKeyCode", 0).getInt(0);
+            controllerRightStickRightKeyCode = config.get("controls", "controllerRightStickRightKeyCode", 0).getInt(0);
+
             // Remappable shoulder gesture buttons. The chosen physical keyboard key can trigger
             // any Minecraft/Forge/mod key binding already assigned to that key.
             shoulderGesturesEnabled = config.getBoolean("shoulderGesturesEnabled", "controls", shoulderGesturesEnabled, "Enable opposite-shoulder virtual buttons");
@@ -592,6 +636,27 @@ public final class VRClientSettings {
             config.get("world", "worldRoomClimbing", true).set(worldRoomClimbing);
             config.get("world", "worldSupportedMovement", 0).set(worldSupportedMovement);
             config.get("world", "worldSupportedHeightMode", 0).set(worldSupportedHeightMode);
+
+            // Controller binding overrides
+            config.get("controls", "controllerRightTriggerKeyCode", 0).set(controllerRightTriggerKeyCode);
+            config.get("controls", "controllerLeftTriggerKeyCode", 0).set(controllerLeftTriggerKeyCode);
+            config.get("controls", "controllerRightAKeyCode", 0).set(controllerRightAKeyCode);
+            config.get("controls", "controllerRightBKeyCode", 0).set(controllerRightBKeyCode);
+            config.get("controls", "controllerLeftXKeyCode", 0).set(controllerLeftXKeyCode);
+            config.get("controls", "controllerLeftYKeyCode", 0).set(controllerLeftYKeyCode);
+            config.get("controls", "controllerLeftMenuKeyCode", 0).set(controllerLeftMenuKeyCode);
+            config.get("controls", "controllerRightStickClickKeyCode", 0).set(controllerRightStickClickKeyCode);
+            config.get("controls", "controllerLeftStickClickKeyCode", 0).set(controllerLeftStickClickKeyCode);
+            config.get("controls", "controllerRightGripKeyCode", 0).set(controllerRightGripKeyCode);
+            config.get("controls", "controllerLeftGripKeyCode", 0).set(controllerLeftGripKeyCode);
+            config.get("controls", "controllerLeftStickUpKeyCode", 0).set(controllerLeftStickUpKeyCode);
+            config.get("controls", "controllerLeftStickDownKeyCode", 0).set(controllerLeftStickDownKeyCode);
+            config.get("controls", "controllerLeftStickLeftKeyCode", 0).set(controllerLeftStickLeftKeyCode);
+            config.get("controls", "controllerLeftStickRightKeyCode", 0).set(controllerLeftStickRightKeyCode);
+            config.get("controls", "controllerRightStickUpKeyCode", 0).set(controllerRightStickUpKeyCode);
+            config.get("controls", "controllerRightStickDownKeyCode", 0).set(controllerRightStickDownKeyCode);
+            config.get("controls", "controllerRightStickLeftKeyCode", 0).set(controllerRightStickLeftKeyCode);
+            config.get("controls", "controllerRightStickRightKeyCode", 0).set(controllerRightStickRightKeyCode);
             config.get("controls", "shoulderGesturesEnabled", true).set(shoulderGesturesEnabled);
             config.get("controls", "shoulderRightToLeftEnabled", true).set(shoulderRightToLeftEnabled);
             config.get("controls", "shoulderLeftToRightEnabled", true).set(shoulderLeftToRightEnabled);
@@ -717,6 +782,25 @@ public final class VRClientSettings {
         worldRoomClimbing = true;
         worldSupportedMovement = 0;
         worldSupportedHeightMode = 0;
+        controllerRightTriggerKeyCode = 0;
+        controllerLeftTriggerKeyCode = 0;
+        controllerRightAKeyCode = 0;
+        controllerRightBKeyCode = 0;
+        controllerLeftXKeyCode = 0;
+        controllerLeftYKeyCode = 0;
+        controllerLeftMenuKeyCode = 0;
+        controllerRightStickClickKeyCode = 0;
+        controllerLeftStickClickKeyCode = 0;
+        controllerRightGripKeyCode = 0;
+        controllerLeftGripKeyCode = 0;
+        controllerLeftStickUpKeyCode = 0;
+        controllerLeftStickDownKeyCode = 0;
+        controllerLeftStickLeftKeyCode = 0;
+        controllerLeftStickRightKeyCode = 0;
+        controllerRightStickUpKeyCode = 0;
+        controllerRightStickDownKeyCode = 0;
+        controllerRightStickLeftKeyCode = 0;
+        controllerRightStickRightKeyCode = 0;
         shoulderGesturesEnabled = true;
         shoulderRightToLeftEnabled = true;
         shoulderLeftToRightEnabled = true;
