@@ -248,14 +248,15 @@ public final class VRClientSettings {
     public static int virtualScreenHeight = 1668;
     public static boolean antiXrayVignette = true;
 
-    // Shoulder gesture bindings and detection settings
-    public static boolean shoulderJetpackEnabled = true;
-    public static boolean shoulderJetpackGestureEnabled = true;
-    public static boolean shoulderGlideGestureEnabled = true;
+    // Remappable virtual controller buttons triggered by opposite-shoulder gestures.
+    public static boolean shoulderGesturesEnabled = true;
+    public static boolean shoulderRightToLeftEnabled = true;
+    public static boolean shoulderLeftToRightEnabled = true;
+    /** LWJGL keyboard key codes; 0 means unassigned. */
+    public static int shoulderRightToLeftKeyCode = 0;
+    public static int shoulderLeftToRightKeyCode = 0;
     public static float shoulderGestureDistance = 0.18F;
     public static float shoulderGestureHoldSeconds = 1.0F;
-    public static String shoulderJetpackKeyBinding = "AUTO";
-    public static String shoulderGlideKeyBinding = "AUTO";
 
     private VRClientSettings() {}
 
@@ -430,14 +431,15 @@ public final class VRClientSettings {
             interactionReach = interactionDistance;
             crosshairLaser = vrCrosshair;
 
-            // Shoulder Gestures
-            shoulderJetpackEnabled = config.getBoolean("shoulderJetpackEnabled", "world", shoulderJetpackEnabled, "Enable shoulder gestures");
-            shoulderJetpackGestureEnabled = config.getBoolean("shoulderJetpackGestureEnabled", "world", shoulderJetpackGestureEnabled, "Right hand to left shoulder: toggle jetpack");
-            shoulderGlideGestureEnabled = config.getBoolean("shoulderGlideGestureEnabled", "world", shoulderGlideGestureEnabled, "Left hand to right shoulder: toggle hover or glide");
-            shoulderGestureDistance = (float) config.get("world", "shoulderGestureDistance", (double) shoulderGestureDistance, "Shoulder gesture detection distance in meters", 0.10D, 0.45D).getDouble();
-            shoulderGestureHoldSeconds = (float) config.get("world", "shoulderGestureHoldSeconds", (double) shoulderGestureHoldSeconds, "How long a hand must stay at a shoulder", 0.25D, 2.50D).getDouble();
-            shoulderJetpackKeyBinding = config.getString("shoulderJetpackKeyBinding", "world", shoulderJetpackKeyBinding, "Key binding description for the jetpack shoulder gesture; AUTO searches available bindings");
-            shoulderGlideKeyBinding = config.getString("shoulderGlideKeyBinding", "world", shoulderGlideKeyBinding, "Key binding description for the hover/glide shoulder gesture; AUTO searches available bindings");
+            // Remappable shoulder gesture buttons. The chosen physical keyboard key can trigger
+            // any Minecraft/Forge/mod key binding already assigned to that key.
+            shoulderGesturesEnabled = config.getBoolean("shoulderGesturesEnabled", "controls", shoulderGesturesEnabled, "Enable opposite-shoulder virtual buttons");
+            shoulderRightToLeftEnabled = config.getBoolean("shoulderRightToLeftEnabled", "controls", shoulderRightToLeftEnabled, "Right controller at left shoulder virtual button");
+            shoulderLeftToRightEnabled = config.getBoolean("shoulderLeftToRightEnabled", "controls", shoulderLeftToRightEnabled, "Left controller at right shoulder virtual button");
+            shoulderRightToLeftKeyCode = config.get("controls", "shoulderRightToLeftKeyCode", shoulderRightToLeftKeyCode).getInt(0);
+            shoulderLeftToRightKeyCode = config.get("controls", "shoulderLeftToRightKeyCode", shoulderLeftToRightKeyCode).getInt(0);
+            shoulderGestureDistance = (float) config.get("controls", "shoulderGestureDistance", (double) shoulderGestureDistance, "Shoulder gesture detection distance in meters", 0.10D, 0.45D).getDouble();
+            shoulderGestureHoldSeconds = (float) config.get("controls", "shoulderGestureHoldSeconds", (double) shoulderGestureHoldSeconds, "How long a hand must stay at a shoulder", 0.25D, 2.50D).getDouble();
 
             if (config.hasChanged()) {
                 config.save();
@@ -590,13 +592,13 @@ public final class VRClientSettings {
             config.get("world", "worldRoomClimbing", true).set(worldRoomClimbing);
             config.get("world", "worldSupportedMovement", 0).set(worldSupportedMovement);
             config.get("world", "worldSupportedHeightMode", 0).set(worldSupportedHeightMode);
-            config.get("world", "shoulderJetpackEnabled", true).set(shoulderJetpackEnabled);
-            config.get("world", "shoulderJetpackGestureEnabled", true).set(shoulderJetpackGestureEnabled);
-            config.get("world", "shoulderGlideGestureEnabled", true).set(shoulderGlideGestureEnabled);
-            config.get("world", "shoulderGestureDistance", 0.18D).set((double) shoulderGestureDistance);
-            config.get("world", "shoulderGestureHoldSeconds", 1.0D).set((double) shoulderGestureHoldSeconds);
-            config.get("world", "shoulderJetpackKeyBinding", "AUTO").set(shoulderJetpackKeyBinding);
-            config.get("world", "shoulderGlideKeyBinding", "AUTO").set(shoulderGlideKeyBinding);
+            config.get("controls", "shoulderGesturesEnabled", true).set(shoulderGesturesEnabled);
+            config.get("controls", "shoulderRightToLeftEnabled", true).set(shoulderRightToLeftEnabled);
+            config.get("controls", "shoulderLeftToRightEnabled", true).set(shoulderLeftToRightEnabled);
+            config.get("controls", "shoulderRightToLeftKeyCode", 0).set(shoulderRightToLeftKeyCode);
+            config.get("controls", "shoulderLeftToRightKeyCode", 0).set(shoulderLeftToRightKeyCode);
+            config.get("controls", "shoulderGestureDistance", 0.18D).set((double) shoulderGestureDistance);
+            config.get("controls", "shoulderGestureHoldSeconds", 1.0D).set((double) shoulderGestureHoldSeconds);
 
             // Custom Hand Offsets (Per-Hand & Per-Category)
             saveOffset("tool_right", toolRight, DEFAULT_TOOL_RIGHT);
@@ -715,13 +717,13 @@ public final class VRClientSettings {
         worldRoomClimbing = true;
         worldSupportedMovement = 0;
         worldSupportedHeightMode = 0;
-        shoulderJetpackEnabled = true;
-        shoulderJetpackGestureEnabled = true;
-        shoulderGlideGestureEnabled = true;
+        shoulderGesturesEnabled = true;
+        shoulderRightToLeftEnabled = true;
+        shoulderLeftToRightEnabled = true;
+        shoulderRightToLeftKeyCode = 0;
+        shoulderLeftToRightKeyCode = 0;
         shoulderGestureDistance = 0.18F;
         shoulderGestureHoldSeconds = 1.0F;
-        shoulderJetpackKeyBinding = "AUTO";
-        shoulderGlideKeyBinding = "AUTO";
 
         autoHeight = true;
         vrBodyModel = "Steve (Classic)";
