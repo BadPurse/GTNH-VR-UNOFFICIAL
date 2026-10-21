@@ -785,16 +785,25 @@ public final class VRWristInventory {
 
     private static void drawTexturedSlotSelection(Minecraft mc, float x, float y, boolean centerSlot, boolean offhand) {
         String textureName;
+        float red;
+        float green;
+        float blue;
         if (offhand) {
             textureName = centerSlot ? "hotbar_main_selected0.png" : "hotbar_main_selected1.png";
-            GL11.glColor4f(1.0F, 0.65F, 0.10F, 1.0F);
+            red = 1.0F;
+            green = 0.65F;
+            blue = 0.10F;
         } else {
             textureName = centerSlot ? "hotbar_offhand_selected0.png" : "hotbar_offhand_selected1.png";
-            GL11.glColor4f(0.15F, 0.85F, 1.0F, 1.0F);
+            red = 0.15F;
+            green = 0.85F;
+            blue = 1.0F;
         }
         mc.getTextureManager().bindTexture(new ResourceLocation(
                 "gtnhvr", "textures/gui/overlays/hotbar/" + textureName));
-        drawTexturedRect(x - 1.0F, y - 1.0F, 18.0F, 18.0F);
+        // Use the radial menu's original 26x26 ring geometry, not an 18x18 slot-sized quad.
+        GL11.glColor4f(red, green, blue, 1.0F);
+        drawTexturedRect(x - 5.0F, y - 5.0F, 26.0F, 26.0F);
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
