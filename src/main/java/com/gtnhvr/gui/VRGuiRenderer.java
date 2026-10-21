@@ -143,6 +143,24 @@ public final class VRGuiRenderer {
         return Math.round(mouseY * (logicalHeight / (float) savedScaledGuiHeight));
     }
 
+    /**
+     * Convert raw LWJGL event pixels to the virtual GUI pixel canvas. Some third-party
+     * containers/options screens poll Mouse.next() directly and bypass our scoped
+     * GuiScreen.handleMouseInput wrapper, so their getEventX/getEventY values must be
+     * expressed in the same pixel space as Minecraft.displayWidth/displayHeight.
+     */
+    public static int mapPhysicalMouseEventXToLogicalCanvas(int eventX) {
+        if (!capturing || !logicalGuiResolutionActive || mouseInputScopeDepth > 0
+                || savedDisplayWidth <= 0 || width <= 0) return eventX;
+        return Math.round(eventX * (width / (float) savedDisplayWidth));
+    }
+
+    public static int mapPhysicalMouseEventYToLogicalCanvas(int eventY) {
+        if (!capturing || !logicalGuiResolutionActive || mouseInputScopeDepth > 0
+                || savedDisplayHeight <= 0 || height <= 0) return eventY;
+        return Math.round(eventY * (height / (float) savedDisplayHeight));
+    }
+
     private static void adjustMouseCoordinatesForVirtualCanvas() {
         if (mouseCoordinatesAdjusted || savedDisplayWidth <= 0 || savedDisplayHeight <= 0
                 || width <= 0 || height <= 0) {
