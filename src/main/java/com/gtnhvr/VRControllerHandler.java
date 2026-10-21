@@ -1233,25 +1233,30 @@ public final class VRControllerHandler {
             sneakToggled = false;
         }
 
-        boolean roomSneakActive = com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance().isSneaking();
+        com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl roomTask =
+                com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance();
+        boolean roomSneakActive = roomTask.isSneaking();
+        boolean roomCrawling = roomTask.isCrawling();
         boolean mappedSneakState = isMappedControllerKeyHeld(mc.gameSettings.keyBindSneak.getKeyCode());
         boolean sneakState = sneakToggled || roomSneakActive || mappedSneakState;
         KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), sneakState);
         if (mc.thePlayer != null) {
-            // Set the entity data watcher sneak flag so mods (Tinkers' Construct, etc.)
-            // properly detect isSneaking() and limit area-of-effect tools to single block.
-            mc.thePlayer.setSneaking(sneakState);
+            // Keep Minecraft's crouch flag synchronized for mods (e.g. Tinkers' Construct).
             if (mc.thePlayer.movementInput != null) {
                 mc.thePlayer.movementInput.sneak = sneakState;
             }
-            if (sneakState) {
+            mc.thePlayer.setSneaking(sneakState);
+
+            // Room-crawling owns its much shorter 0.65 m hitbox and yOffset. Do not let
+            // the ordinary 1.50 m sneak hitbox overwrite it during the same interaction tick.
+            if (roomCrawling) {
+                // VRTaskRoomCrawl.update() has already applied the crawl dimensions.
+            } else if (sneakState) {
                 mc.thePlayer.yOffset = 1.34F;
                 mc.thePlayer.boundingBox.maxY = mc.thePlayer.boundingBox.minY + 1.50D;
-            } else if (!com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance().isCrawling()) {
-                if (mc.thePlayer.yOffset == 1.34F) {
-                    mc.thePlayer.yOffset = 1.62F;
-                    mc.thePlayer.boundingBox.maxY = mc.thePlayer.boundingBox.minY + 1.80D;
-                }
+            } else if (mc.thePlayer.yOffset == 1.34F) {
+                mc.thePlayer.yOffset = 1.62F;
+                mc.thePlayer.boundingBox.maxY = mc.thePlayer.boundingBox.minY + 1.80D;
             }
         }
 
