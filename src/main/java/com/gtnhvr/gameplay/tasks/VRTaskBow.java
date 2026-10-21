@@ -197,49 +197,49 @@ public class VRTaskBow {
     public void renderTrajectoryArc() {
         if (!drawing || trajectoryPoints.size() < 2) return;
 
-        org.lwjgl.opengl.GL11.glPushAttrib(org.lwjgl.opengl.GL11.GL_ALL_ATTRIB_BITS);
-        org.lwjgl.opengl.GL11.glPushMatrix();
+        org.lwjgl.opengl.GLStateManager.glPushAttrib(org.lwjgl.opengl.GL11.GL_ALL_ATTRIB_BITS);
+        org.lwjgl.opengl.GLStateManager.glPushMatrix();
 
         try {
-            org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_TEXTURE_2D);
-            org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
-            org.lwjgl.opengl.GL11.glEnable(org.lwjgl.opengl.GL11.GL_BLEND);
-            org.lwjgl.opengl.GL11.glBlendFunc(org.lwjgl.opengl.GL11.GL_SRC_ALPHA, org.lwjgl.opengl.GL11.GL_ONE);
-            org.lwjgl.opengl.GL11.glLineWidth(3.5F);
+            org.lwjgl.opengl.GLStateManager.glDisable(org.lwjgl.opengl.GL11.GL_TEXTURE_2D);
+            org.lwjgl.opengl.GLStateManager.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
+            org.lwjgl.opengl.GLStateManager.glEnable(org.lwjgl.opengl.GL11.GL_BLEND);
+            org.lwjgl.opengl.GLStateManager.glBlendFunc(org.lwjgl.opengl.GL11.GL_SRC_ALPHA, org.lwjgl.opengl.GL11.GL_ONE);
+            org.lwjgl.opengl.GLStateManager.glLineWidth(3.5F);
 
             // Vibrant gradient: cyan transitioning to gold at full tension
             float r = 0.20F + 0.80F * tension;
             float g = 0.85F - 0.20F * tension;
             float b = 0.90F - 0.70F * tension;
-            org.lwjgl.opengl.GL11.glColor4f(r, g, b, 0.85F);
+            org.lwjgl.opengl.GLStateManager.glColor4f(r, g, b, 0.85F);
 
-            org.lwjgl.opengl.GL11.glBegin(org.lwjgl.opengl.GL11.GL_LINE_STRIP);
+            org.lwjgl.opengl.GLStateManager.glBegin(org.lwjgl.opengl.GL11.GL_LINE_STRIP);
             for (Vector3f pt : trajectoryPoints) {
-                org.lwjgl.opengl.GL11.glVertex3f(pt.x, pt.y, pt.z);
+                org.lwjgl.opengl.GLStateManager.glVertex3f(pt.x, pt.y, pt.z);
             }
-            org.lwjgl.opengl.GL11.glEnd();
+            org.lwjgl.opengl.GLStateManager.glEnd();
 
             // Hit target marker ring
             if (hitPointRoom != null) {
-                org.lwjgl.opengl.GL11.glPushMatrix();
-                org.lwjgl.opengl.GL11.glTranslatef(hitPointRoom.x, hitPointRoom.y + 0.01F, hitPointRoom.z);
-                org.lwjgl.opengl.GL11.glRotatef(90.0F, 1.0F, 0.0F, 0.0F);
+                org.lwjgl.opengl.GLStateManager.glPushMatrix();
+                org.lwjgl.opengl.GLStateManager.glTranslatef(hitPointRoom.x, hitPointRoom.y + 0.01F, hitPointRoom.z);
+                org.lwjgl.opengl.GLStateManager.glRotatef(90.0F, 1.0F, 0.0F, 0.0F);
 
-                org.lwjgl.opengl.GL11.glColor4f(r, g, b, 0.75F);
-                org.lwjgl.opengl.GL11.glBegin(org.lwjgl.opengl.GL11.GL_LINE_LOOP);
+                org.lwjgl.opengl.GLStateManager.glColor4f(r, g, b, 0.75F);
+                org.lwjgl.opengl.GLStateManager.glBegin(org.lwjgl.opengl.GL11.GL_LINE_LOOP);
                 int segments = 16;
                 float radius = 0.20F;
                 for (int s = 0; s < segments; s++) {
                     double theta = 2.0 * Math.PI * s / segments;
-                    org.lwjgl.opengl.GL11.glVertex2d(Math.cos(theta) * radius, Math.sin(theta) * radius);
+                    org.lwjgl.opengl.GLStateManager.glVertex2d(Math.cos(theta) * radius, Math.sin(theta) * radius);
                 }
-                org.lwjgl.opengl.GL11.glEnd();
-                org.lwjgl.opengl.GL11.glPopMatrix();
+                org.lwjgl.opengl.GLStateManager.glEnd();
+                org.lwjgl.opengl.GLStateManager.glPopMatrix();
             }
 
         } finally {
-            org.lwjgl.opengl.GL11.glPopMatrix();
-            org.lwjgl.opengl.GL11.glPopAttrib();
+            org.lwjgl.opengl.GLStateManager.glPopMatrix();
+            org.lwjgl.opengl.GLStateManager.glPopAttrib();
         }
     }
 
