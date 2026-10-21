@@ -122,20 +122,24 @@ public final class GuiHelper {
     /** Clear LWJGL3ify's stale text-field pointer without calling SDL end/reset text input (unsafe in VR). */
     public static void clearFocusedTextField(net.minecraft.client.gui.GuiTextField expectedField) {
         initFocusedTextFieldReflection();
+        boolean clearedExpectedField = expectedField == null;
         if (focusedTextInputField != null) {
             try {
                 Object obj = focusedTextInputField.get(null);
                 Object current = obj instanceof java.lang.ref.WeakReference<?> ref ? ref.get() : null;
                 if (expectedField == null || current == expectedField) {
                     focusedTextInputField.set(null, new java.lang.ref.WeakReference<>(null));
+                    clearedExpectedField = true;
                 }
             } catch (Throwable t) {
                 GTNHVRLog.warn("Unable to clear LWJGL3ify's focused text-field reference: %s", t);
             }
         }
-        try {
-            me.eigenraven.lwjgl3ify.client.TextFieldHandler.textBuffer.setLength(0);
-        } catch (Throwable ignored) {}
+        if (clearedExpectedField) {
+            try {
+                me.eigenraven.lwjgl3ify.client.TextFieldHandler.textBuffer.setLength(0);
+            } catch (Throwable ignored) {}
+        }
     }
 
     public static boolean hasAnyFocusedTextField(GuiScreen screen) {
