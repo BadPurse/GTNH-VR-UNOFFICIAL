@@ -23,6 +23,7 @@ import org.joml.Vector3f;
 import org.lwjgl.openxr.XrPosef;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL30;
 
@@ -792,8 +793,19 @@ public final class VRWristInventory {
             textureName = centerSlot ? "hotbar_offhand_selected1.png" : "hotbar_offhand_selected0.png";
         }
 
+        int previousActiveTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+        int textureUnitCount = Math.max(1, GL11.glGetInteger(GL13.GL_MAX_TEXTURE_UNITS));
+        boolean[] extraTextureUnitsEnabled = new boolean[textureUnitCount];
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
+            // Items are rendered before this pass. Keep the ring blit on the normal GUI texture
+            // unit instead of inheriting any lightmap/additional texture-unit state from RenderItem.
+            for (int unit = 1; unit < textureUnitCount; unit++) {
+                GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+                extraTextureUnitsEnabled[unit] = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+                GL11.glDisable(GL11.GL_TEXTURE_2D);
+            }
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
             GL11.glDisable(GL11.GL_DEPTH_TEST);
             GL11.glDisable(GL11.GL_LIGHTING);
             GL11.glEnable(GL11.GL_TEXTURE_2D);
@@ -808,6 +820,15 @@ public final class VRWristInventory {
             drawTexturedRect(x - 5.0F, y - 5.0F, 26.0F, 26.0F);
         } finally {
             GL11.glPopAttrib();
+            for (int unit = 1; unit < textureUnitCount; unit++) {
+                GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+                if (extraTextureUnitsEnabled[unit]) {
+                    GL11.glEnable(GL11.GL_TEXTURE_2D);
+                } else {
+                    GL11.glDisable(GL11.GL_TEXTURE_2D);
+                }
+            }
+            GL13.glActiveTexture(previousActiveTexture);
         }
     }
 
