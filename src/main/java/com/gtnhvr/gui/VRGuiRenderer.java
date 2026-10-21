@@ -33,21 +33,50 @@ public final class VRGuiRenderer {
 
     private static VRGuiFramebuffer guiFramebuffer = null;
     private static Framebuffer savedMinecraftFramebuffer = null;
+    private static int savedDisplayWidth = -1;
+    private static int savedDisplayHeight = -1;
 
     public static int getCaptureWidth() {
         if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
-            return com.gtnhvr.settings.VRClientSettings.virtualScreenWidth;
+            return Math.max(320, com.gtnhvr.settings.VRClientSettings.virtualScreenWidth);
         }
         Minecraft mc = Minecraft.getMinecraft();
-        return (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 2388;
+        return (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 1920;
     }
 
     public static int getCaptureHeight() {
         if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
-            return com.gtnhvr.settings.VRClientSettings.virtualScreenHeight;
+            return Math.max(240, com.gtnhvr.settings.VRClientSettings.virtualScreenHeight);
         }
         Minecraft mc = Minecraft.getMinecraft();
-        return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 1668;
+        return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 1080;
+    }
+
+    private static void useLogicalGuiResolution(Minecraft mc) {
+        if (mc == null) return;
+        if (savedDisplayWidth < 0 || savedDisplayHeight < 0) {
+            savedDisplayWidth = mc.displayWidth;
+            savedDisplayHeight = mc.displayHeight;
+        }
+        mc.displayWidth = width;
+        mc.displayHeight = height;
+        if (mc.currentScreen != null) {
+            net.minecraft.client.gui.ScaledResolution scaled =
+                    new net.minecraft.client.gui.ScaledResolution(mc, width, height);
+            if (mc.currentScreen.width != scaled.getScaledWidth()
+                    || mc.currentScreen.height != scaled.getScaledHeight()) {
+                mc.currentScreen.setWorldAndResolution(mc, scaled.getScaledWidth(), scaled.getScaledHeight());
+            }
+        }
+    }
+
+    private static void restoreWindowResolution(Minecraft mc) {
+        if (mc != null && savedDisplayWidth >= 0 && savedDisplayHeight >= 0) {
+            mc.displayWidth = savedDisplayWidth;
+            mc.displayHeight = savedDisplayHeight;
+        }
+        savedDisplayWidth = -1;
+        savedDisplayHeight = -1;
     }
 
     /** Called once at the start of every render tick; allows exactly one clear per frame. */
@@ -99,6 +128,7 @@ public final class VRGuiRenderer {
             if (mc != null) {
                 savedMinecraftFramebuffer = OpenXRRuntime.getMinecraftFramebuffer(mc);
                 OpenXRRuntime.setMinecraftFramebuffer(mc, guiFramebuffer);
+                useLogicalGuiResolution(mc);
             }
         }
         capturing = true;
@@ -152,6 +182,7 @@ public final class VRGuiRenderer {
             OpenXRRuntime.setMinecraftFramebuffer(mc, savedMinecraftFramebuffer);
             savedMinecraftFramebuffer = null;
         }
+        restoreWindowResolution(mc);
 
         // Restore previous framebuffer binding
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
@@ -193,6 +224,8 @@ public final class VRGuiRenderer {
         height = 0;
         capturing = false;
         previousFbo = 0;
+        Minecraft mc = Minecraft.getMinecraft();
+        restoreWindowResolution(mc);
         savedMinecraftFramebuffer = null;
     }
 }
