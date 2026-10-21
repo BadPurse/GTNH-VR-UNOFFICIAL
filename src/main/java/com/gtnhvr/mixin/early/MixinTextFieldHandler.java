@@ -26,7 +26,11 @@ public abstract class MixinTextFieldHandler {
         if (OpenXRRuntime.isSessionRunning() || VRClientSettings.vrPlayMode != VRPlayMode.DISABLED) {
             ci.cancel();
             if (VRClientSettings.keyboardAutoLayout) {
-                com.gtnhvr.gui.VRVirtualKeyboard.getInstance().showAutoKeyboard();
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+                if (mc != null && mc.currentScreen != null
+                        && com.gtnhvr.gui.GuiHelper.hasAnyFocusedTextField(mc.currentScreen)) {
+                    com.gtnhvr.gui.VRVirtualKeyboard.getInstance().showAutoKeyboard();
+                }
             }
         }
     }
