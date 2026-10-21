@@ -120,7 +120,7 @@ visor.options.controls.left_handed=Левша
 visor.options.controls.right_handed=Правша
 visor.options.controls.left_handed.tooltip=Сделать левую руку основной
 visor.options.controls.action_sets=Выбор набора действий
-visor.options.controls.action_sets.button=Назначение кнопок...
+visor.options.controls.action_sets.button=Группы управления...
 visor.options.controls.keyboard_layouts.button=Клавиатура...
 visor.options.controls.keyboard_layouts.title=Раскладки клавиатуры
 visor.options.controls.keyboard_layouts.always_enabled=Английская раскладка (US) включена всегда
@@ -497,3 +497,13 @@ gtnhvr.controls.shoulder.hold=Удержание
 gtnhvr.controls.shoulder.hold.tooltip=Сколько времени контроллер должен оставаться у плеча для срабатывания.
 gtnhvr.controls.shoulder.binding.auto=Авто
 gtnhvr.controls.shoulder.binding.missing=Привязка не найдена:
+
+# Control settings groups
+gtnhvr.controls.group.movement=Движение и поворот
+gtnhvr.controls.group.movement.tooltip=Режим перемещения, поворот и связанные параметры движения.
+gtnhvr.controls.group.interactions=Взаимодействие и мир
+gtnhvr.controls.group.interactions.tooltip=Дальность взаимодействия, поведение взаимодействий с миром и совместимость.
+gtnhvr.controls.group.interface=Меню и хотбар
+gtnhvr.controls.group.interface.tooltip=Настройки раскладки клавиатуры, виртуальных меню, HUD и хотбара.
+gtnhvr.controls.group.roomscale=Движения в реальности
+gtnhvr.controls.group.roomscale.tooltip=Физические действия: приседание, лазание, плавание и прыжки в VR.
