@@ -172,6 +172,8 @@ public final class VRVirtualKeyboard {
 
     private boolean autoOpened = false;
     private boolean sizeApplied = false;
+    /** Temporarily override the normal overlay visibility setting for controller binding capture. */
+    private boolean forceVisibleForBindingCapture = false;
     /** Screen that owns a manually opened keyboard; null means it was opened in-world. */
     private net.minecraft.client.gui.GuiScreen manualOwnerScreen;
 
@@ -259,13 +261,27 @@ public final class VRVirtualKeyboard {
         }
     }
 
+    public void showForBindingCapture() {
+        forceVisibleForBindingCapture = true;
+        setVisible(true);
+        // If the keyboard was already open, refresh the top-row actions for capture mode.
+        rebuildButtons();
+    }
+
+    public void hideForBindingCapture() {
+        setVisible(false);
+        forceVisibleForBindingCapture = false;
+    }
+
     public void setVisible(boolean visible) {
-        if (visible && !VROverlayConfig.get(VROverlayConfig.KEYBOARD).visible) {
+        if (visible && !forceVisibleForBindingCapture
+                && !VROverlayConfig.get(VROverlayConfig.KEYBOARD).visible) {
             return;
         }
         if (!visible) {
             this.autoOpened = false;
             this.manualOwnerScreen = null;
+            this.forceVisibleForBindingCapture = false;
         }
         if (this.visible != visible) {
             this.visible = visible;
@@ -498,14 +514,24 @@ public final class VRVirtualKeyboard {
         int id = 0;
         int topY = gridStart - (keyHeight + keyGap);
 
-        // 1. Close button (x)
+        final boolean bindingCapture = isCapturingVirtualBinding();
+        // 1. Close button (x). During capture it cancels the pending assignment.
         buttons.add(new KeyBtn(id++, 0, topY, smallButtonWidth, keyHeight, "§cx", (isLeft) -> {
-            setVisible(false);
+            if (cancelVirtualBindingCapture()) {
+                hideForBindingCapture();
+            } else {
+                setVisible(false);
+            }
             triggerHaptic(isLeft);
         }));
 
-        // 2. CUT
-        buttons.add(new KeyBtn(id++, gridStart, topY, sideButtonWidth, keyHeight, "CUT", (isLeft) -> {
+        // 2. Left modifier in capture mode; otherwise CUT.
+        buttons.add(new KeyBtn(id++, gridStart, topY, sideButtonWidth, keyHeight,
+                bindingCapture ? "CTRL" : "CUT", (isLeft) -> {
+            if (captureVirtualBindingKey(Keyboard.KEY_LCONTROL)) {
+                triggerHaptic(isLeft);
+                return;
+            }
             Minecraft mc = Minecraft.getMinecraft();
             if (mc != null && mc.currentScreen != null) {
                 try {
@@ -525,8 +551,13 @@ public final class VRVirtualKeyboard {
             triggerHaptic(isLeft);
         }));
 
-        // 3. COPY
-        buttons.add(new KeyBtn(id++, gridStart + sideButtonWidth + keyGap, topY, sideButtonWidth, keyHeight, "COPY", (isLeft) -> {
+        // 3. Right modifier in capture mode; otherwise COPY.
+        buttons.add(new KeyBtn(id++, gridStart + sideButtonWidth + keyGap, topY, sideButtonWidth, keyHeight,
+                bindingCapture ? "ALT" : "COPY", (isLeft) -> {
+            if (captureVirtualBindingKey(Keyboard.KEY_LMENU)) {
+                triggerHaptic(isLeft);
+                return;
+            }
             Minecraft mc = Minecraft.getMinecraft();
             if (mc != null && mc.currentScreen != null) {
                 try {
@@ -545,8 +576,13 @@ public final class VRVirtualKeyboard {
             triggerHaptic(isLeft);
         }));
 
-        // 4. PASTE
-        buttons.add(new KeyBtn(id++, gridStart + 2 * (sideButtonWidth + keyGap), topY, sideButtonWidth, keyHeight, "PASTE", (isLeft) -> {
+        // 4. Clear the selected binding in capture mode; otherwise PASTE.
+        buttons.add(new KeyBtn(id++, gridStart + 2 * (sideButtonWidth + keyGap), topY, sideButtonWidth, keyHeight,
+                bindingCapture ? "CLEAR" : "PASTE", (isLeft) -> {
+            if (clearVirtualBindingCapture()) {
+                triggerHaptic(isLeft);
+                return;
+            }
             Minecraft mc = Minecraft.getMinecraft();
             if (mc != null && mc.currentScreen != null) {
                 String clip = GuiScreen.getClipboardString();
@@ -621,6 +657,38 @@ public final class VRVirtualKeyboard {
         if (mc == null || mc.currentScreen == null) return;
         if (captureVirtualBindingKey(keyCode)) return;
         com.gtnhvr.gui.GuiHelper.keyTyped(mc.currentScreen, ch, keyCode);
+    }
+
+    private boolean isCapturingVirtualBinding() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || !(mc.currentScreen instanceof com.gtnhvr.gui.VRSettingsScreen settings)) return false;
+        com.gtnhvr.gui.settings.VROptionsSet options = settings.getCurrentOptionsSet();
+        return options instanceof com.gtnhvr.gui.settings.categories.controls.VRSettingsControllerBindings bindings
+                && bindings.isCapturingBinding();
+    }
+
+    private boolean cancelVirtualBindingCapture() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || !(mc.currentScreen instanceof com.gtnhvr.gui.VRSettingsScreen settings)) return false;
+        com.gtnhvr.gui.settings.VROptionsSet options = settings.getCurrentOptionsSet();
+        if (options instanceof com.gtnhvr.gui.settings.categories.controls.VRSettingsControllerBindings bindings
+                && bindings.isCapturingBinding()) {
+            bindings.cancelVirtualKeyboardCapture();
+            return true;
+        }
+        return false;
+    }
+
+    private boolean clearVirtualBindingCapture() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || !(mc.currentScreen instanceof com.gtnhvr.gui.VRSettingsScreen settings)) return false;
+        com.gtnhvr.gui.settings.VROptionsSet options = settings.getCurrentOptionsSet();
+        if (options instanceof com.gtnhvr.gui.settings.categories.controls.VRSettingsControllerBindings bindings
+                && bindings.isCapturingBinding()) {
+            bindings.clearBindingFromVirtualKeyboard();
+            return true;
+        }
+        return false;
     }
 
     /**
