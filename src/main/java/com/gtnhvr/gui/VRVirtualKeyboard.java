@@ -263,6 +263,10 @@ public final class VRVirtualKeyboard {
 
     public void showForBindingCapture() {
         forceVisibleForBindingCapture = true;
+        autoOpened = false;
+        Minecraft mc = Minecraft.getMinecraft();
+        // Claim the settings screen even if the keyboard was already visible for a text field.
+        manualOwnerScreen = mc == null ? null : mc.currentScreen;
         setVisible(true);
         // If the keyboard was already open, refresh the top-row actions for capture mode.
         rebuildButtons();
