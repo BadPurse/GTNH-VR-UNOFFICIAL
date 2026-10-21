@@ -551,25 +551,25 @@ public final class VRWristInventory {
         if (fbo != 0) {
             return;
         }
-        fbo = GL30.glGenFramebuffers();
-        texture = GL11.glGenTextures();
-        depthRb = GL30.glGenRenderbuffers();
+        fbo = GLStateManager.glGenFramebuffers();
+        texture = GLStateManager.glGenTextures();
+        depthRb = GLStateManager.glGenRenderbuffers();
 
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, FBO_W, FBO_H, 0, GL11.GL_RGBA,
+        GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+        GLStateManager.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, FBO_W, FBO_H, 0, GL11.GL_RGBA,
                 GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+        GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+        GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 
-        GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
-        GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, FBO_W, FBO_H);
+        GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
+        GLStateManager.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, FBO_W, FBO_H);
 
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
-        GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
+        GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
     }
 
     /** Draws the panel into its texture once per frame, before the eye passes. */
@@ -579,68 +579,68 @@ public final class VRWristInventory {
         }
         ensureTarget();
 
-        int previousFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-        boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        int previousFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        boolean scissor = GLStateManager.glIsEnabled(GL11.GL_SCISSOR_TEST);
         if (scissor) {
-            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
         }
-        GL11.glPushAttrib(GL11.GL_VIEWPORT_BIT);
+        GLStateManager.glPushAttrib(GL11.GL_VIEWPORT_BIT);
         VRHotbarRenderer.markRendering(true);
         try {
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-            GL11.glViewport(0, 0, FBO_W, FBO_H);
-            GL11.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+            GLStateManager.glViewport(0, 0, FBO_W, FBO_H);
+            GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+            GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-            GL11.glOrtho(0.0D, CANVAS_W, CANVAS_H, 0.0D, 1000.0D, 3000.0D);
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-            GL11.glTranslatef(0.0F, 0.0F, -2000.0F);
-            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glLoadIdentity();
+            GLStateManager.glOrtho(0.0D, CANVAS_W, CANVAS_H, 0.0D, 1000.0D, 3000.0D);
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glLoadIdentity();
+            GLStateManager.glTranslatef(0.0F, 0.0F, -2000.0F);
+            GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             try {
                 drawPanel(mc);
             } finally {
                 RenderHelper.disableStandardItemLighting();
-                GL11.glPopAttrib();
-                GL11.glMatrixMode(GL11.GL_PROJECTION);
-                GL11.glPopMatrix();
-                GL11.glMatrixMode(GL11.GL_MODELVIEW);
-                GL11.glPopMatrix();
+                GLStateManager.glPopAttrib();
+                GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+                GLStateManager.glPopMatrix();
+                GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+                GLStateManager.glPopMatrix();
             }
         } finally {
             VRHotbarRenderer.markRendering(false);
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
-            GL11.glPopAttrib();
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
+            GLStateManager.glPopAttrib();
             if (scissor) {
-                GL11.glEnable(GL11.GL_SCISSOR_TEST);
+                GLStateManager.glEnable(GL11.GL_SCISSOR_TEST);
             }
         }
     }
 
     private void drawPanel(Minecraft mc) {
         EntityPlayer player = mc.thePlayer;
-        GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GLStateManager.glDisable(GL11.GL_LIGHTING);
+        GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+        GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
         mc.getTextureManager().bindTexture(TEXTURE);
         drawTexturedRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H);
 
         // Player preview in the left frame
-        GL11.glPushMatrix();
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GLStateManager.glPushMatrix();
+        GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
         GuiInventory.func_147046_a(PANEL_X + 51, PANEL_Y + 75, 30, 0.0F, -20.0F, player);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glPopMatrix();
-        GL11.glEnable(GL11.GL_BLEND);
-        GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+        GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+        GLStateManager.glPopMatrix();
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
 
         // Slots
         int slotMain = (player.inventory != null) ? player.inventory.currentItem : 0;
@@ -656,11 +656,11 @@ public final class VRWristInventory {
             int y = PANEL_Y + pos[1];
 
             if (slot == hoverSlot && (!isDragging || !draggedSlots.contains(slot))) {
-                GL11.glDisable(GL11.GL_TEXTURE_2D);
-                GL11.glColor4f(1.0F, 1.0F, 1.0F, 0.50F);
+                GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+                GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 0.50F);
                 drawRect(x, y, x + 16, y + 16);
-                GL11.glEnable(GL11.GL_TEXTURE_2D);
-                GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+                GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+                GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
             }
 
             // Render slot item or real-time drag preview item (no blue background glow!)
@@ -722,18 +722,18 @@ public final class VRWristInventory {
     }
 
     private static void drawItem(Minecraft mc, ItemStack stack, int x, int y) {
-        GL11.glPushMatrix();
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glEnable(GL12.GL_RESCALE_NORMAL);
+        GLStateManager.glPushMatrix();
+        GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+        GLStateManager.glEnable(GL12.GL_RESCALE_NORMAL);
         RenderHelper.enableGUIStandardItemLighting();
         ITEM_RENDER.renderItemAndEffectIntoGUI(mc.fontRenderer, mc.getTextureManager(), stack, x, y);
         ITEM_RENDER.renderItemOverlayIntoGUI(mc.fontRenderer, mc.getTextureManager(), stack, x, y);
         RenderHelper.disableStandardItemLighting();
-        GL11.glDisable(GL12.GL_RESCALE_NORMAL);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glPopMatrix();
-        GL11.glEnable(GL11.GL_BLEND);
-        GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+        GLStateManager.glDisable(GL12.GL_RESCALE_NORMAL);
+        GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+        GLStateManager.glPopMatrix();
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
     }
 
     private static void drawTooltip(Minecraft mc, ItemStack stack, int mouseX, int mouseY) {
@@ -766,16 +766,16 @@ public final class VRWristInventory {
             y = 4;
         }
 
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glColor4f(0.063F, 0.0F, 0.063F, 0.94F);
+        GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glColor4f(0.063F, 0.0F, 0.063F, 0.94F);
         drawRect(x - 3, y - 3, x + width + 3, y + height + 3);
-        GL11.glColor4f(0.31F, 0.0F, 1.0F, 0.66F);
+        GLStateManager.glColor4f(0.31F, 0.0F, 1.0F, 0.66F);
         drawRect(x - 3, y - 3, x + width + 3, y - 2);
         drawRect(x - 3, y + height + 2, x + width + 3, y + height + 3);
         drawRect(x - 3, y - 3, x - 2, y + height + 3);
         drawRect(x + width + 2, y - 3, x + width + 3, y + height + 3);
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
         int lineY = y;
         for (int i = 0; i < lines.size(); i++) {
@@ -794,8 +794,8 @@ public final class VRWristInventory {
             textureName = centerSlot ? "hotbar_offhand_selected1.png" : "hotbar_offhand_selected0.png";
         }
 
-        int previousActiveTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
-        int textureUnitCount = Math.max(1, GL11.glGetInteger(GL13.GL_MAX_TEXTURE_UNITS));
+        int previousActiveTexture = GLStateManager.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+        int textureUnitCount = Math.max(1, GLStateManager.glGetInteger(GL13.GL_MAX_TEXTURE_UNITS));
         boolean[] extraTextureUnitsEnabled = new boolean[textureUnitCount];
         GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
@@ -803,7 +803,7 @@ public final class VRWristInventory {
             // unit instead of inheriting any lightmap/additional texture-unit state from RenderItem.
             for (int unit = 1; unit < textureUnitCount; unit++) {
                 GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
-                extraTextureUnitsEnabled[unit] = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+                extraTextureUnitsEnabled[unit] = GLStateManager.glIsEnabled(GL11.GL_TEXTURE_2D);
                 GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
             }
             GLStateManager.glActiveTexture(GL13.GL_TEXTURE0);
@@ -834,21 +834,21 @@ public final class VRWristInventory {
     }
 
     private static void drawTexturedRect(float x, float y, float w, float h) {
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glTexCoord2f(0.0F, 0.0F); GL11.glVertex2f(x, y);
-        GL11.glTexCoord2f(1.0F, 0.0F); GL11.glVertex2f(x + w, y);
-        GL11.glTexCoord2f(1.0F, 1.0F); GL11.glVertex2f(x + w, y + h);
-        GL11.glTexCoord2f(0.0F, 1.0F); GL11.glVertex2f(x, y + h);
-        GL11.glEnd();
+        GLStateManager.glBegin(GL11.GL_QUADS);
+        GLStateManager.glTexCoord2f(0.0F, 0.0F); GLStateManager.glVertex2f(x, y);
+        GLStateManager.glTexCoord2f(1.0F, 0.0F); GLStateManager.glVertex2f(x + w, y);
+        GLStateManager.glTexCoord2f(1.0F, 1.0F); GLStateManager.glVertex2f(x + w, y + h);
+        GLStateManager.glTexCoord2f(0.0F, 1.0F); GLStateManager.glVertex2f(x, y + h);
+        GLStateManager.glEnd();
     }
 
     private static void drawRect(float x0, float y0, float x1, float y1) {
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex2f(x0, y0);
-        GL11.glVertex2f(x1, y0);
-        GL11.glVertex2f(x1, y1);
-        GL11.glVertex2f(x0, y1);
-        GL11.glEnd();
+        GLStateManager.glBegin(GL11.GL_QUADS);
+        GLStateManager.glVertex2f(x0, y0);
+        GLStateManager.glVertex2f(x1, y0);
+        GLStateManager.glVertex2f(x1, y1);
+        GLStateManager.glVertex2f(x0, y1);
+        GLStateManager.glEnd();
     }
 
     /** Draws the panel as a floating quad inside an eye pass (room space). */
@@ -864,38 +864,38 @@ public final class VRWristInventory {
         Vector3f r = new Vector3f(right).mul(halfWidth);
         Vector3f u = new Vector3f(up).mul(halfHeight);
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
-            GL11.glDisable(GL11.GL_CULL_FACE);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glDisable(GL11.GL_FOG);
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthMask(false);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glDisable(GL11.GL_FOG);
+            GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
                     GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
             // 1. Draw Wrist Inventory Panel Quad
-            GL11.glBegin(GL11.GL_QUADS);
-            GL11.glTexCoord2f(0.0F, 0.0F);
-            GL11.glVertex3f(center.x - r.x - u.x, center.y - r.y - u.y, center.z - r.z - u.z);
-            GL11.glTexCoord2f(1.0F, 0.0F);
-            GL11.glVertex3f(center.x + r.x - u.x, center.y + r.y - u.y, center.z + r.z - u.z);
-            GL11.glTexCoord2f(1.0F, 1.0F);
-            GL11.glVertex3f(center.x + r.x + u.x, center.y + r.y + u.y, center.z + r.z + u.z);
-            GL11.glTexCoord2f(0.0F, 1.0F);
-            GL11.glVertex3f(center.x - r.x + u.x, center.y - r.y + u.y, center.z - r.z + u.z);
-            GL11.glEnd();
+            GLStateManager.glBegin(GL11.GL_QUADS);
+            GLStateManager.glTexCoord2f(0.0F, 0.0F);
+            GLStateManager.glVertex3f(center.x - r.x - u.x, center.y - r.y - u.y, center.z - r.z - u.z);
+            GLStateManager.glTexCoord2f(1.0F, 0.0F);
+            GLStateManager.glVertex3f(center.x + r.x - u.x, center.y + r.y - u.y, center.z + r.z - u.z);
+            GLStateManager.glTexCoord2f(1.0F, 1.0F);
+            GLStateManager.glVertex3f(center.x + r.x + u.x, center.y + r.y + u.y, center.z + r.z + u.z);
+            GLStateManager.glTexCoord2f(0.0F, 1.0F);
+            GLStateManager.glVertex3f(center.x - r.x + u.x, center.y - r.y + u.y, center.z - r.z + u.z);
+            GLStateManager.glEnd();
 
             // 2. Render Authentic Visor Small '+' Crosshair on wrist inventory panel
             if (hoverValid) {
                 renderCrosshair(mc);
             }
         } finally {
-            GL11.glPopAttrib();
+            GLStateManager.glPopAttrib();
         }
     }
 
@@ -919,32 +919,32 @@ public final class VRWristInventory {
         Vector3f rx = new Vector3f(right).mul(hs);
         Vector3f uy = new Vector3f(up).mul(hs);
 
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
         mc.getTextureManager().bindTexture(ICONS_TEX);
 
         // 1:1 Visor inverting blend mode: GL_ONE_MINUS_DST_COLOR, GL_ONE_MINUS_SRC_COLOR
-        GL14.glBlendFuncSeparate(
+        GLStateManager.glBlendFuncSeparate(
                 GL11.GL_ONE_MINUS_DST_COLOR,
                 GL11.GL_ONE_MINUS_SRC_COLOR,
                 GL11.GL_ONE,
                 GL11.GL_ZERO
         );
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
-        GL11.glBegin(GL11.GL_QUADS);
+        GLStateManager.glBegin(GL11.GL_QUADS);
         // Bottom-left
-        GL11.glTexCoord2f(0.0F, 0.0625F);
-        GL11.glVertex3f(crossPos.x - rx.x - uy.x, crossPos.y - rx.y - uy.y, crossPos.z - rx.z - uy.z);
+        GLStateManager.glTexCoord2f(0.0F, 0.0625F);
+        GLStateManager.glVertex3f(crossPos.x - rx.x - uy.x, crossPos.y - rx.y - uy.y, crossPos.z - rx.z - uy.z);
         // Bottom-right
-        GL11.glTexCoord2f(0.0625F, 0.0625F);
-        GL11.glVertex3f(crossPos.x + rx.x - uy.x, crossPos.y + rx.y - uy.y, crossPos.z + rx.z - uy.z);
+        GLStateManager.glTexCoord2f(0.0625F, 0.0625F);
+        GLStateManager.glVertex3f(crossPos.x + rx.x - uy.x, crossPos.y + rx.y - uy.y, crossPos.z + rx.z - uy.z);
         // Top-right
-        GL11.glTexCoord2f(0.0625F, 0.0F);
-        GL11.glVertex3f(crossPos.x + rx.x + uy.x, crossPos.y + rx.y + uy.y, crossPos.z + rx.z + uy.z);
+        GLStateManager.glTexCoord2f(0.0625F, 0.0F);
+        GLStateManager.glVertex3f(crossPos.x + rx.x + uy.x, crossPos.y + rx.y + uy.y, crossPos.z + rx.z + uy.z);
         // Top-left
-        GL11.glTexCoord2f(0.0F, 0.0F);
-        GL11.glVertex3f(crossPos.x - rx.x + uy.x, crossPos.y - rx.y + uy.y, crossPos.z - rx.z + uy.z);
-        GL11.glEnd();
+        GLStateManager.glTexCoord2f(0.0F, 0.0F);
+        GLStateManager.glVertex3f(crossPos.x - rx.x + uy.x, crossPos.y - rx.y + uy.y, crossPos.z - rx.z + uy.z);
+        GLStateManager.glEnd();
     }
 }
