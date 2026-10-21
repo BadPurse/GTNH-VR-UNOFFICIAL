@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.settings.VRClientSettings;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
@@ -221,17 +222,17 @@ public final class VRHotbarRenderer {
             // RenderItem can switch to the lightmap/additional texture units. GuiTexture.blit in
             // Visor renders through the GUI pipeline; this legacy GL path must normalize it first.
             for (int unit = 1; unit < textureUnitCount; unit++) {
-                GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+                GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
                 extraTextureUnitsEnabled[unit] = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
-                GL11.glDisable(GL11.GL_TEXTURE_2D);
+                GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
             }
-            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GLStateManager.glActiveTexture(GL13.GL_TEXTURE0);
             GL11.glDisable(GL11.GL_DEPTH_TEST);
             GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             GL11.glEnable(GL11.GL_BLEND);
             GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
-            GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
+            GLStateManager.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
             mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
             // The Visor PNG is already cyan/orange. Draw it un-tinted on texture unit 0.
             GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
@@ -240,14 +241,14 @@ public final class VRHotbarRenderer {
         } finally {
             GL11.glPopAttrib();
             for (int unit = 1; unit < textureUnitCount; unit++) {
-                GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+                GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
                 if (extraTextureUnitsEnabled[unit]) {
-                    GL11.glEnable(GL11.GL_TEXTURE_2D);
+                    GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
                 } else {
-                    GL11.glDisable(GL11.GL_TEXTURE_2D);
+                    GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
                 }
             }
-            GL13.glActiveTexture(previousActiveTexture);
+            GLStateManager.glActiveTexture(previousActiveTexture);
         }
     }
 
