@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ResourceLocation;
@@ -113,74 +114,74 @@ public final class VRMenuEnvironment {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc == null || mc.renderEngine == null) return;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
 
         try {
-            GL11.glDisable(GL11.GL_CULL_FACE);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthMask(false);
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
 
             // 1. Render rotating GTNH Deep-Space Cosmos & Starfield (Infinite Resolution)
-            GL11.glPushMatrix();
-            GL11.glRotatef(environmentRotation, 0.0F, 1.0F, 0.0F);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glRotatef(environmentRotation, 0.0F, 1.0F, 0.0F);
             renderGalacticNebula();
             renderStarfield();
             renderCelestialPlanet();
-            GL11.glPopMatrix();
+            GLStateManager.glPopMatrix();
 
             // 2. Render Distant Orbiting GregTech / Stargate Ring
             renderStargateRing();
 
             // 3. Render Crisp GregTech Steel Industrial Platform under player's feet
-            GL11.glDepthMask(true);
+            GLStateManager.glDepthMask(true);
             renderFloorPlatform(mc);
 
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
         }
     }
 
     private void renderStarfield() {
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE); // Additive luminous glow for stars
-        GL11.glEnable(GL11.GL_POINT_SMOOTH);
+        GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE); // Additive luminous glow for stars
+        GLStateManager.glEnable(GL11.GL_POINT_SMOOTH);
 
         for (int i = 0; i < NUM_STARS; i++) {
             float twinkle = 0.65F + 0.35F * (float) Math.sin(animTime * starTwinkleSpeed[i] + starPhase[i]);
-            GL11.glPointSize(starSizes[i]);
-            GL11.glColor4f(
+            GLStateManager.glPointSize(starSizes[i]);
+            GLStateManager.glColor4f(
                     starColors[i * 3],
                     starColors[i * 3 + 1],
                     starColors[i * 3 + 2],
                     twinkle
             );
-            GL11.glBegin(GL11.GL_POINTS);
-            GL11.glVertex3f(
+            GLStateManager.glBegin(GL11.GL_POINTS);
+            GLStateManager.glVertex3f(
                     starPositions[i * 3],
                     starPositions[i * 3 + 1],
                     starPositions[i * 3 + 2]
             );
-            GL11.glEnd();
+            GLStateManager.glEnd();
         }
 
-        GL11.glDisable(GL11.GL_POINT_SMOOTH);
+        GLStateManager.glDisable(GL11.GL_POINT_SMOOTH);
     }
 
     private void renderGalacticNebula() {
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
 
         int segments = 40;
         float radius = 70.0F;
         float bandHalfHeight = 16.0F;
 
         // Primary celestial cyan/blue galactic dust plane
-        GL11.glBegin(GL11.GL_QUAD_STRIP);
+        GLStateManager.glBegin(GL11.GL_QUAD_STRIP);
         for (int i = 0; i <= segments; i++) {
             double angle = (i % segments) * (Math.PI * 2.0 / segments);
             float cos = (float) Math.cos(angle);
@@ -192,15 +193,15 @@ public final class VRMenuEnvironment {
             float b = 0.38F + 0.20F * t;
             float alpha = 0.18F + 0.08F * (float) Math.cos(angle * 3.0);
 
-            GL11.glColor4f(r, g, b, 0.0F);
-            GL11.glVertex3f(cos * radius, bandHalfHeight, sin * radius);
+            GLStateManager.glColor4f(r, g, b, 0.0F);
+            GLStateManager.glVertex3f(cos * radius, bandHalfHeight, sin * radius);
 
-            GL11.glColor4f(r * 1.4F, g * 1.3F, b * 1.5F, alpha);
-            GL11.glVertex3f(cos * radius, 0.0F, sin * radius);
+            GLStateManager.glColor4f(r * 1.4F, g * 1.3F, b * 1.5F, alpha);
+            GLStateManager.glVertex3f(cos * radius, 0.0F, sin * radius);
         }
-        GL11.glEnd();
+        GLStateManager.glEnd();
 
-        GL11.glBegin(GL11.GL_QUAD_STRIP);
+        GLStateManager.glBegin(GL11.GL_QUAD_STRIP);
         for (int i = 0; i <= segments; i++) {
             double angle = (i % segments) * (Math.PI * 2.0 / segments);
             float cos = (float) Math.cos(angle);
@@ -212,47 +213,47 @@ public final class VRMenuEnvironment {
             float b = 0.38F + 0.20F * t;
             float alpha = 0.18F + 0.08F * (float) Math.cos(angle * 3.0);
 
-            GL11.glColor4f(r * 1.4F, g * 1.3F, b * 1.5F, alpha);
-            GL11.glVertex3f(cos * radius, 0.0F, sin * radius);
+            GLStateManager.glColor4f(r * 1.4F, g * 1.3F, b * 1.5F, alpha);
+            GLStateManager.glVertex3f(cos * radius, 0.0F, sin * radius);
 
-            GL11.glColor4f(r, g, b, 0.0F);
-            GL11.glVertex3f(cos * radius, -bandHalfHeight, sin * radius);
+            GLStateManager.glColor4f(r, g, b, 0.0F);
+            GLStateManager.glVertex3f(cos * radius, -bandHalfHeight, sin * radius);
         }
-        GL11.glEnd();
+        GLStateManager.glEnd();
 
         // Secondary ethereal violet/magenta celestial dust ribbon
-        GL11.glPushMatrix();
-        GL11.glRotatef(35.0F, 1.0F, 0.0F, 0.5F);
-        GL11.glBegin(GL11.GL_QUAD_STRIP);
+        GLStateManager.glPushMatrix();
+        GLStateManager.glRotatef(35.0F, 1.0F, 0.0F, 0.5F);
+        GLStateManager.glBegin(GL11.GL_QUAD_STRIP);
         for (int i = 0; i <= segments; i++) {
             double angle = (i % segments) * (Math.PI * 2.0 / segments);
             float cos = (float) Math.cos(angle);
             float sin = (float) Math.sin(angle);
             float alpha = 0.12F + 0.06F * (float) Math.sin(angle * 4.0);
 
-            GL11.glColor4f(0.25F, 0.08F, 0.35F, 0.0F);
-            GL11.glVertex3f(cos * radius, 10.0F, sin * radius);
+            GLStateManager.glColor4f(0.25F, 0.08F, 0.35F, 0.0F);
+            GLStateManager.glVertex3f(cos * radius, 10.0F, sin * radius);
 
-            GL11.glColor4f(0.35F, 0.10F, 0.45F, alpha);
-            GL11.glVertex3f(cos * radius, 0.0F, sin * radius);
+            GLStateManager.glColor4f(0.35F, 0.10F, 0.45F, alpha);
+            GLStateManager.glVertex3f(cos * radius, 0.0F, sin * radius);
         }
-        GL11.glEnd();
-        GL11.glPopMatrix();
+        GLStateManager.glEnd();
+        GLStateManager.glPopMatrix();
     }
 
     /**
      * Renders a majestic distant Ringed Gas Giant on the celestial horizon.
      */
     private void renderCelestialPlanet() {
-        GL11.glPushMatrix();
+        GLStateManager.glPushMatrix();
         // Positioned high on the horizon beyond the stargate
-        GL11.glTranslatef(32.0F, 22.0F, -54.0F);
-        GL11.glRotatef(-25.0F, 0.0F, 0.0F, 1.0F);
-        GL11.glRotatef(15.0F, 1.0F, 0.0F, 0.0F);
+        GLStateManager.glTranslatef(32.0F, 22.0F, -54.0F);
+        GLStateManager.glRotatef(-25.0F, 0.0F, 0.0F, 1.0F);
+        GLStateManager.glRotatef(15.0F, 1.0F, 0.0F, 0.0F);
 
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         float planetRadius = 8.5F;
         int rings = 16;
@@ -268,7 +269,7 @@ public final class VRMenuEnvironment {
             float z1  = (float) Math.sin(lat1) * planetRadius;
             float zr1 = (float) Math.cos(lat1) * planetRadius;
 
-            GL11.glBegin(GL11.GL_QUAD_STRIP);
+            GLStateManager.glBegin(GL11.GL_QUAD_STRIP);
             for (int j = 0; j <= sectors; j++) {
                 double lng = 2.0 * Math.PI * (double) j / sectors;
                 float x = (float) Math.cos(lng);
@@ -284,89 +285,89 @@ public final class VRMenuEnvironment {
                 float pg = (0.22F + 0.20F * band) * light;
                 float pb = (0.48F + 0.35F * band) * light;
 
-                GL11.glColor4f(pr, pg, pb, 0.98F);
-                GL11.glVertex3f(x * zr0, z0, y * zr0);
+                GLStateManager.glColor4f(pr, pg, pb, 0.98F);
+                GLStateManager.glVertex3f(x * zr0, z0, y * zr0);
 
-                GL11.glColor4f(pr * 1.05F, pg * 1.05F, pb * 1.05F, 0.98F);
-                GL11.glVertex3f(x * zr1, z1, y * zr1);
+                GLStateManager.glColor4f(pr * 1.05F, pg * 1.05F, pb * 1.05F, 0.98F);
+                GLStateManager.glVertex3f(x * zr1, z1, y * zr1);
             }
-            GL11.glEnd();
+            GLStateManager.glEnd();
         }
 
         // 2. Glowing atmospheric limb ring
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        GL11.glLineWidth(3.0F);
-        GL11.glColor4f(0.1F, 0.8F, 1.0F, 0.65F);
-        GL11.glBegin(GL11.GL_LINE_LOOP);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        GLStateManager.glLineWidth(3.0F);
+        GLStateManager.glColor4f(0.1F, 0.8F, 1.0F, 0.65F);
+        GLStateManager.glBegin(GL11.GL_LINE_LOOP);
         for (int i = 0; i < 48; i++) {
             double a = i * (Math.PI * 2.0 / 48.0);
-            GL11.glVertex3f((float) Math.cos(a) * (planetRadius + 0.05F), (float) Math.sin(a) * (planetRadius + 0.05F), 0.0F);
+            GLStateManager.glVertex3f((float) Math.cos(a) * (planetRadius + 0.05F), (float) Math.sin(a) * (planetRadius + 0.05F), 0.0F);
         }
-        GL11.glEnd();
+        GLStateManager.glEnd();
 
         // 3. Translucent icy planetary ring system
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         float ringInner = 12.0F;
         float ringOuter = 19.5F;
         int ringSegments = 48;
 
-        GL11.glBegin(GL11.GL_QUAD_STRIP);
+        GLStateManager.glBegin(GL11.GL_QUAD_STRIP);
         for (int i = 0; i <= ringSegments; i++) {
             double a = (i % ringSegments) * (Math.PI * 2.0 / ringSegments);
             float cos = (float) Math.cos(a);
             float sin = (float) Math.sin(a);
             float ringAlpha = 0.40F + 0.20F * (float) Math.sin(a * 2.0);
 
-            GL11.glColor4f(0.45F, 0.75F, 0.95F, ringAlpha);
-            GL11.glVertex3f(cos * ringOuter, 0.0F, sin * ringOuter);
+            GLStateManager.glColor4f(0.45F, 0.75F, 0.95F, ringAlpha);
+            GLStateManager.glVertex3f(cos * ringOuter, 0.0F, sin * ringOuter);
 
-            GL11.glColor4f(0.25F, 0.55F, 0.85F, ringAlpha * 0.4F);
-            GL11.glVertex3f(cos * ringInner, 0.0F, sin * ringInner);
+            GLStateManager.glColor4f(0.25F, 0.55F, 0.85F, ringAlpha * 0.4F);
+            GLStateManager.glVertex3f(cos * ringInner, 0.0F, sin * ringInner);
         }
-        GL11.glEnd();
+        GLStateManager.glEnd();
 
-        GL11.glPopMatrix();
+        GLStateManager.glPopMatrix();
     }
 
     private void renderStargateRing() {
-        GL11.glPushMatrix();
-        GL11.glTranslatef(0.0F, 10.0F, -48.0F);
-        GL11.glRotatef(18.0F, 1.0F, 0.0F, 0.0F);
-        GL11.glRotatef(ringRotation, 0.0F, 0.0F, 1.0F);
+        GLStateManager.glPushMatrix();
+        GLStateManager.glTranslatef(0.0F, 10.0F, -48.0F);
+        GLStateManager.glRotatef(18.0F, 1.0F, 0.0F, 0.0F);
+        GLStateManager.glRotatef(ringRotation, 0.0F, 0.0F, 1.0F);
 
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         int segments = 48;
         float outerR = 18.0F;
         float innerR = 15.5F;
 
         // Dark titanium structural ring
-        GL11.glColor4f(0.12F, 0.14F, 0.18F, 0.95F);
-        GL11.glBegin(GL11.GL_QUAD_STRIP);
+        GLStateManager.glColor4f(0.12F, 0.14F, 0.18F, 0.95F);
+        GLStateManager.glBegin(GL11.GL_QUAD_STRIP);
         for (int i = 0; i <= segments; i++) {
             double a = (i % segments) * (Math.PI * 2.0 / segments);
             float cos = (float) Math.cos(a);
             float sin = (float) Math.sin(a);
-            GL11.glVertex3f(cos * outerR, sin * outerR, 0.0F);
-            GL11.glVertex3f(cos * innerR, sin * innerR, 0.0F);
+            GLStateManager.glVertex3f(cos * outerR, sin * outerR, 0.0F);
+            GLStateManager.glVertex3f(cos * innerR, sin * innerR, 0.0F);
         }
-        GL11.glEnd();
+        GLStateManager.glEnd();
 
         // Glowing cyan inner energy conduit
         float glowPulse = 0.75F + 0.25F * (float) Math.sin(animTime * 3.0);
-        GL11.glLineWidth(3.0F);
-        GL11.glColor4f(0.0F, 0.85F, 1.0F, glowPulse);
-        GL11.glBegin(GL11.GL_LINE_LOOP);
+        GLStateManager.glLineWidth(3.0F);
+        GLStateManager.glColor4f(0.0F, 0.85F, 1.0F, glowPulse);
+        GLStateManager.glBegin(GL11.GL_LINE_LOOP);
         for (int i = 0; i < segments; i++) {
             double a = i * (Math.PI * 2.0 / segments);
-            GL11.glVertex3f((float) Math.cos(a) * innerR, (float) Math.sin(a) * innerR, 0.05F);
+            GLStateManager.glVertex3f((float) Math.cos(a) * innerR, (float) Math.sin(a) * innerR, 0.05F);
         }
-        GL11.glEnd();
+        GLStateManager.glEnd();
 
         // 8 Stargate chevrons with high-tech glowing glyphs
-        GL11.glColor4f(0.0F, 0.95F, 1.0F, 0.90F);
+        GLStateManager.glColor4f(0.0F, 0.95F, 1.0F, 0.90F);
         for (int i = 0; i < 8; i++) {
             double a = i * (Math.PI * 2.0 / 8.0);
             float cos = (float) Math.cos(a);
@@ -376,15 +377,15 @@ public final class VRMenuEnvironment {
             float cy = sin * midR;
             float s = 0.75F;
 
-            GL11.glBegin(GL11.GL_QUADS);
-            GL11.glVertex3f(cx - s, cy - s, 0.08F);
-            GL11.glVertex3f(cx + s, cy - s, 0.08F);
-            GL11.glVertex3f(cx + s, cy + s, 0.08F);
-            GL11.glVertex3f(cx - s, cy + s, 0.08F);
-            GL11.glEnd();
+            GLStateManager.glBegin(GL11.GL_QUADS);
+            GLStateManager.glVertex3f(cx - s, cy - s, 0.08F);
+            GLStateManager.glVertex3f(cx + s, cy - s, 0.08F);
+            GLStateManager.glVertex3f(cx + s, cy + s, 0.08F);
+            GLStateManager.glVertex3f(cx - s, cy + s, 0.08F);
+            GLStateManager.glEnd();
         }
 
-        GL11.glPopMatrix();
+        GLStateManager.glPopMatrix();
     }
 
     private void renderFloorPlatform(Minecraft mc) {
@@ -392,9 +393,9 @@ public final class VRMenuEnvironment {
         mc.renderEngine.bindTexture(texture);
 
         // GL_NEAREST eliminates blur / soapy look for authentic crisp GregTech pixel art!
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        GL11.glColor4f(0.88F, 0.90F, 0.94F, 1.0F);
+        GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+        GLStateManager.glColor4f(0.88F, 0.90F, 0.94F, 1.0F);
 
         float halfW = 2.0F;
         float halfL = 2.0F;
@@ -403,63 +404,63 @@ public final class VRMenuEnvironment {
         float edgeY = floorY - 0.22F; // Slanted bevel depth
 
         // 1. Top face of GTNH platform (standing deck)
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glTexCoord2f(0.0F, 0.0F);     GL11.glVertex3f(-halfW, floorY, -halfL);
-        GL11.glTexCoord2f(0.0F, repeat);    GL11.glVertex3f(-halfW, floorY,  halfL);
-        GL11.glTexCoord2f(repeat, repeat); GL11.glVertex3f( halfW, floorY,  halfL);
-        GL11.glTexCoord2f(repeat, 0.0F);   GL11.glVertex3f( halfW, floorY, -halfL);
-        GL11.glEnd();
+        GLStateManager.glBegin(GL11.GL_QUADS);
+        GLStateManager.glTexCoord2f(0.0F, 0.0F);     GLStateManager.glVertex3f(-halfW, floorY, -halfL);
+        GLStateManager.glTexCoord2f(0.0F, repeat);    GLStateManager.glVertex3f(-halfW, floorY,  halfL);
+        GLStateManager.glTexCoord2f(repeat, repeat); GLStateManager.glVertex3f( halfW, floorY,  halfL);
+        GLStateManager.glTexCoord2f(repeat, 0.0F);   GLStateManager.glVertex3f( halfW, floorY, -halfL);
+        GLStateManager.glEnd();
 
         // 2. Beveled industrial skirts
-        GL11.glColor4f(0.48F, 0.52F, 0.58F, 1.0F);
-        GL11.glBegin(GL11.GL_QUADS);
+        GLStateManager.glColor4f(0.48F, 0.52F, 0.58F, 1.0F);
+        GLStateManager.glBegin(GL11.GL_QUADS);
         // North
-        GL11.glTexCoord2f(0.0F, 0.0F);   GL11.glVertex3f(-halfW, floorY, -halfL);
-        GL11.glTexCoord2f(repeat, 0.0F); GL11.glVertex3f( halfW, floorY, -halfL);
-        GL11.glTexCoord2f(repeat, 0.5F); GL11.glVertex3f( halfW, edgeY,  -halfL);
-        GL11.glTexCoord2f(0.0F, 0.5F);   GL11.glVertex3f(-halfW, edgeY,  -halfL);
+        GLStateManager.glTexCoord2f(0.0F, 0.0F);   GLStateManager.glVertex3f(-halfW, floorY, -halfL);
+        GLStateManager.glTexCoord2f(repeat, 0.0F); GLStateManager.glVertex3f( halfW, floorY, -halfL);
+        GLStateManager.glTexCoord2f(repeat, 0.5F); GLStateManager.glVertex3f( halfW, edgeY,  -halfL);
+        GLStateManager.glTexCoord2f(0.0F, 0.5F);   GLStateManager.glVertex3f(-halfW, edgeY,  -halfL);
         // South
-        GL11.glTexCoord2f(0.0F, 0.0F);   GL11.glVertex3f( halfW, floorY,  halfL);
-        GL11.glTexCoord2f(repeat, 0.0F); GL11.glVertex3f(-halfW, floorY,  halfL);
-        GL11.glTexCoord2f(repeat, 0.5F); GL11.glVertex3f(-halfW, edgeY,   halfL);
-        GL11.glTexCoord2f(0.0F, 0.5F);   GL11.glVertex3f( halfW, edgeY,   halfL);
+        GLStateManager.glTexCoord2f(0.0F, 0.0F);   GLStateManager.glVertex3f( halfW, floorY,  halfL);
+        GLStateManager.glTexCoord2f(repeat, 0.0F); GLStateManager.glVertex3f(-halfW, floorY,  halfL);
+        GLStateManager.glTexCoord2f(repeat, 0.5F); GLStateManager.glVertex3f(-halfW, edgeY,   halfL);
+        GLStateManager.glTexCoord2f(0.0F, 0.5F);   GLStateManager.glVertex3f( halfW, edgeY,   halfL);
         // East
-        GL11.glTexCoord2f(0.0F, 0.0F);   GL11.glVertex3f( halfW, floorY, -halfL);
-        GL11.glTexCoord2f(repeat, 0.0F); GL11.glVertex3f( halfW, floorY,  halfL);
-        GL11.glTexCoord2f(repeat, 0.5F); GL11.glVertex3f( halfW, edgeY,   halfL);
-        GL11.glTexCoord2f(0.0F, 0.5F);   GL11.glVertex3f( halfW, edgeY,  -halfL);
+        GLStateManager.glTexCoord2f(0.0F, 0.0F);   GLStateManager.glVertex3f( halfW, floorY, -halfL);
+        GLStateManager.glTexCoord2f(repeat, 0.0F); GLStateManager.glVertex3f( halfW, floorY,  halfL);
+        GLStateManager.glTexCoord2f(repeat, 0.5F); GLStateManager.glVertex3f( halfW, edgeY,   halfL);
+        GLStateManager.glTexCoord2f(0.0F, 0.5F);   GLStateManager.glVertex3f( halfW, edgeY,  -halfL);
         // West
-        GL11.glTexCoord2f(0.0F, 0.0F);   GL11.glVertex3f(-halfW, floorY,  halfL);
-        GL11.glTexCoord2f(repeat, 0.0F); GL11.glVertex3f(-halfW, floorY, -halfL);
-        GL11.glTexCoord2f(repeat, 0.5F); GL11.glVertex3f(-halfW, edgeY,  -halfL);
-        GL11.glTexCoord2f(0.0F, 0.5F);   GL11.glVertex3f(-halfW, edgeY,   halfL);
-        GL11.glEnd();
+        GLStateManager.glTexCoord2f(0.0F, 0.0F);   GLStateManager.glVertex3f(-halfW, floorY,  halfL);
+        GLStateManager.glTexCoord2f(repeat, 0.0F); GLStateManager.glVertex3f(-halfW, floorY, -halfL);
+        GLStateManager.glTexCoord2f(repeat, 0.5F); GLStateManager.glVertex3f(-halfW, edgeY,  -halfL);
+        GLStateManager.glTexCoord2f(0.0F, 0.5F);   GLStateManager.glVertex3f(-halfW, edgeY,   halfL);
+        GLStateManager.glEnd();
 
         // 3. High-Tech Glowing Cyan Perimeter Loop
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glLineWidth(3.5F);
+        GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GLStateManager.glLineWidth(3.5F);
         float pulse = 0.80F + 0.20F * (float) Math.sin(animTime * 2.5);
-        GL11.glColor4f(0.0F, 0.90F, 1.0F, pulse);
+        GLStateManager.glColor4f(0.0F, 0.90F, 1.0F, pulse);
 
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        GL11.glVertex3f(-halfW, floorY + 0.003F, -halfL);
-        GL11.glVertex3f(-halfW, floorY + 0.003F,  halfL);
-        GL11.glVertex3f( halfW, floorY + 0.003F,  halfL);
-        GL11.glVertex3f( halfW, floorY + 0.003F, -halfL);
-        GL11.glEnd();
+        GLStateManager.glBegin(GL11.GL_LINE_LOOP);
+        GLStateManager.glVertex3f(-halfW, floorY + 0.003F, -halfL);
+        GLStateManager.glVertex3f(-halfW, floorY + 0.003F,  halfL);
+        GLStateManager.glVertex3f( halfW, floorY + 0.003F,  halfL);
+        GLStateManager.glVertex3f( halfW, floorY + 0.003F, -halfL);
+        GLStateManager.glEnd();
 
         // 4. Circular VR Foot Alignment Guide
         float footRadius = 0.65F;
-        GL11.glLineWidth(2.2F);
-        GL11.glColor4f(0.0F, 0.80F, 1.0F, pulse * 0.85F);
-        GL11.glBegin(GL11.GL_LINE_LOOP);
+        GLStateManager.glLineWidth(2.2F);
+        GLStateManager.glColor4f(0.0F, 0.80F, 1.0F, pulse * 0.85F);
+        GLStateManager.glBegin(GL11.GL_LINE_LOOP);
         for (int i = 0; i < 32; i++) {
             double a = i * (Math.PI * 2.0 / 32.0);
-            GL11.glVertex3f((float) Math.cos(a) * footRadius, floorY + 0.003F, (float) Math.sin(a) * footRadius);
+            GLStateManager.glVertex3f((float) Math.cos(a) * footRadius, floorY + 0.003F, (float) Math.sin(a) * footRadius);
         }
-        GL11.glEnd();
+        GLStateManager.glEnd();
 
         // 5. Corner Emitter Status Pods (Pulsing high-tech nodes)
         float podSize = 0.08F;
@@ -470,31 +471,31 @@ public final class VRMenuEnvironment {
                 { halfW - 0.15F, -halfL + 0.15F}
         };
 
-        GL11.glColor4f(0.2F, 0.95F, 1.0F, 0.95F);
+        GLStateManager.glColor4f(0.2F, 0.95F, 1.0F, 0.95F);
         for (float[] c : corners) {
-            GL11.glBegin(GL11.GL_QUADS);
-            GL11.glVertex3f(c[0] - podSize, floorY + 0.004F, c[1] - podSize);
-            GL11.glVertex3f(c[0] + podSize, floorY + 0.004F, c[1] - podSize);
-            GL11.glVertex3f(c[0] + podSize, floorY + 0.004F, c[1] + podSize);
-            GL11.glVertex3f(c[0] - podSize, floorY + 0.004F, c[1] + podSize);
-            GL11.glEnd();
+            GLStateManager.glBegin(GL11.GL_QUADS);
+            GLStateManager.glVertex3f(c[0] - podSize, floorY + 0.004F, c[1] - podSize);
+            GLStateManager.glVertex3f(c[0] + podSize, floorY + 0.004F, c[1] - podSize);
+            GLStateManager.glVertex3f(c[0] + podSize, floorY + 0.004F, c[1] + podSize);
+            GLStateManager.glVertex3f(c[0] - podSize, floorY + 0.004F, c[1] + podSize);
+            GLStateManager.glEnd();
         }
 
         // 6. Glowing Energy Circuit Traces connecting Corner Pods to Center Guide
-        GL11.glLineWidth(2.0F);
-        GL11.glColor4f(0.0F, 0.85F, 1.0F, pulse * 0.70F);
-        GL11.glBegin(GL11.GL_LINES);
+        GLStateManager.glLineWidth(2.0F);
+        GLStateManager.glColor4f(0.0F, 0.85F, 1.0F, pulse * 0.70F);
+        GLStateManager.glBegin(GL11.GL_LINES);
         for (float[] c : corners) {
             float dist = (float) Math.sqrt(c[0] * c[0] + c[1] * c[1]);
             float nx = c[0] / dist;
             float nz = c[1] / dist;
             // Radial trace from corner pod edge to center foot guide
-            GL11.glVertex3f(c[0] - nx * podSize, floorY + 0.0035F, c[1] - nz * podSize);
-            GL11.glVertex3f(nx * footRadius, floorY + 0.0035F, nz * footRadius);
+            GLStateManager.glVertex3f(c[0] - nx * podSize, floorY + 0.0035F, c[1] - nz * podSize);
+            GLStateManager.glVertex3f(nx * footRadius, floorY + 0.0035F, nz * footRadius);
         }
-        GL11.glEnd();
+        GLStateManager.glEnd();
 
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glDisable(GL11.GL_BLEND);
+        GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glDisable(GL11.GL_BLEND);
     }
 }
