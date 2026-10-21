@@ -172,14 +172,18 @@ public final class VRVirtualKeyboard {
 
     private boolean autoOpened = false;
     private boolean sizeApplied = false;
+    /** Screen that owns a manually opened keyboard; null means it was opened in-world. */
+    private net.minecraft.client.gui.GuiScreen manualOwnerScreen;
 
     public void showAutoKeyboard() {
         VROverlayConfig.Entry cfg = VROverlayConfig.get(VROverlayConfig.KEYBOARD);
         if (!cfg.visible || !cfg.flag) {
             return;
         }
+        // Also claim an already-visible keyboard so it is auto-hidden when the input context closes.
+        this.autoOpened = true;
+        this.manualOwnerScreen = null;
         if (!this.visible) {
-            this.autoOpened = true;
             setVisible(true);
         }
     }
@@ -214,7 +218,7 @@ public final class VRVirtualKeyboard {
     public void orientForHeadset() {
         org.lwjgl.openxr.XrPosef head = com.gtnhvr.OpenXRRuntime.getHeadPose();
         if (head == null) {
-            kbPos.set(0.0F, 0.95F, -1.10F);
+            kbPos.set(0.0F, 0.80F, -1.10F);
             kbRot.identity().rotateX((float) Math.toRadians(-25.0F));
             return;
         }
@@ -236,9 +240,9 @@ public final class VRVirtualKeyboard {
             forward.normalize();
         }
 
-        // Float 1.05m in front of HMD, 0.38m below eye level
+        // Place the keyboard in front of the user and slightly below the GUI center.
         float kbDistance = VROverlayConfig.get(VROverlayConfig.KEYBOARD).distance;
-        kbPos.set(hx + forward.x * kbDistance, hy - 0.38F, hz + forward.z * kbDistance);
+        kbPos.set(hx + forward.x * kbDistance, hy - 0.52F, hz + forward.z * kbDistance);
         float yawRad = (float) Math.PI + (float) Math.atan2(forward.x, forward.z);
         kbRot.identity().rotateY(yawRad).rotateX((float) Math.toRadians(-25.0F));
         needsRedraw = true;
@@ -248,13 +252,26 @@ public final class VRVirtualKeyboard {
         return visible;
     }
 
+    /** Scope a manually opened keyboard to the GUI that opened it. */
+    public void onGuiOpen(net.minecraft.client.gui.GuiScreen nextScreen) {
+        if (visible && !autoOpened && manualOwnerScreen != null && nextScreen != manualOwnerScreen) {
+            setVisible(false);
+        }
+    }
+
     public void setVisible(boolean visible) {
         if (visible && !VROverlayConfig.get(VROverlayConfig.KEYBOARD).visible) {
             return;
         }
+        if (!visible) {
+            this.autoOpened = false;
+            this.manualOwnerScreen = null;
+        }
         if (this.visible != visible) {
             this.visible = visible;
             if (visible) {
+                Minecraft mc = Minecraft.getMinecraft();
+                this.manualOwnerScreen = this.autoOpened || mc == null ? null : mc.currentScreen;
                 if (!sizeApplied) {
                     sizeApplied = true;
                     float scale = VROverlayConfig.get(VROverlayConfig.KEYBOARD).scale;
@@ -269,6 +286,7 @@ public final class VRVirtualKeyboard {
                 rightPointer.reset();
             } else {
                 this.autoOpened = false;
+                this.manualOwnerScreen = null;
                 hoveredHandle = KeyboardHandle.NONE;
                 hoveredKeyIndex = -1;
                 isDragging = false;
@@ -453,7 +471,7 @@ public final class VRVirtualKeyboard {
             forward.set(0.0F, 0.0F, -1.0F);
         }
 
-        kbPos.set(hmdPos.x + forward.x * 0.95F, hmdPos.y - 0.42F, hmdPos.z + forward.z * 0.95F);
+        kbPos.set(hmdPos.x + forward.x * 0.95F, hmdPos.y - 0.55F, hmdPos.z + forward.z * 0.95F);
         float yawRad = (float) Math.PI + (float) Math.atan2(forward.x, forward.z);
         kbRot.identity().rotateY(yawRad).rotateX((float) Math.toRadians(-32.0F));
         kbWidth = 1.05F;
@@ -894,6 +912,11 @@ public final class VRVirtualKeyboard {
 
     public void update(Minecraft mc, VRControllerHandler handler) {
         if (!visible || mc == null || handler == null) return;
+        // Also guard against screen transitions that bypass or delay the Forge GuiOpen event.
+        if (!autoOpened && manualOwnerScreen != null && mc.currentScreen != manualOwnerScreen) {
+            setVisible(false);
+            return;
+        }
 
         leftPointer.tracked = handler.isLeftHandTracked();
         rightPointer.tracked = handler.isRightHandTracked();
