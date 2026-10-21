@@ -979,9 +979,10 @@ public final class VRControllerHandler {
 
         if (!screenHit) {
             screen.setCursorUV(-1.0F, -1.0F, false);
-            if (activeTrigger < 0.25F && activeGrip < 0.25F && !activePrimary) {
-                releaseMenuClicks();
-            }
+            // Visor's mouse handler releases the old target when cursor focus changes.
+            // Do the same here: otherwise a held trigger leaves Mouse.isButtonDown=true
+            // after the ray has left a GUI, confusing ModularUI/GT machines and sliders.
+            releaseMenuClicks();
             return;
         }
 
