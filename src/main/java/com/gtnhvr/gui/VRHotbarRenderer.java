@@ -11,6 +11,7 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL30;
 
@@ -212,8 +213,19 @@ public final class VRHotbarRenderer {
         if (slice == HotBarSlice.NOT_SELECTED) {
             return;
         }
+        int previousActiveTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+        int textureUnitCount = Math.max(1, GL11.glGetInteger(GL13.GL_MAX_TEXTURE_UNITS));
+        boolean[] extraTextureUnitsEnabled = new boolean[textureUnitCount];
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
+            // RenderItem can switch to the lightmap/additional texture units. GuiTexture.blit in
+            // Visor renders through the GUI pipeline; this legacy GL path must normalize it first.
+            for (int unit = 1; unit < textureUnitCount; unit++) {
+                GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+                extraTextureUnitsEnabled[unit] = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+                GL11.glDisable(GL11.GL_TEXTURE_2D);
+            }
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
             GL11.glDisable(GL11.GL_DEPTH_TEST);
             GL11.glDisable(GL11.GL_LIGHTING);
             GL11.glEnable(GL11.GL_TEXTURE_2D);
@@ -221,12 +233,21 @@ public final class VRHotbarRenderer {
             GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
             GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
             mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
-            // The Visor PNG is already cyan/orange. Draw it without applying a second vertex tint.
+            // The Visor PNG is already cyan/orange. Draw it un-tinted on texture unit 0.
             GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
             drawTexturedRect(imageX + slice.getItemX() - RING_INSET, imageY + slice.getItemY() - RING_INSET,
                     RING_SIZE, RING_SIZE);
         } finally {
             GL11.glPopAttrib();
+            for (int unit = 1; unit < textureUnitCount; unit++) {
+                GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+                if (extraTextureUnitsEnabled[unit]) {
+                    GL11.glEnable(GL11.GL_TEXTURE_2D);
+                } else {
+                    GL11.glDisable(GL11.GL_TEXTURE_2D);
+                }
+            }
+            GL13.glActiveTexture(previousActiveTexture);
         }
     }
 
