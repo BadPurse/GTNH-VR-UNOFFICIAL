@@ -13,6 +13,7 @@ import net.minecraft.world.EnumSkyBlock;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
 import org.lwjgl.opengl.GL11;
+import org.joml.Vector3f;
 
 /**
  * VR Mob Spawn Overlay (F7-style light level indicator).
@@ -158,9 +159,14 @@ public final class VRMobSpawnOverlay {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc == null || mc.thePlayer == null) return;
 
-        double px = mc.thePlayer.prevPosX + (mc.thePlayer.posX - mc.thePlayer.prevPosX) * partialTicks;
-        double py = mc.thePlayer.prevPosY + (mc.thePlayer.posY - mc.thePlayer.prevPosY) * partialTicks;
-        double pz = mc.thePlayer.prevPosZ + (mc.thePlayer.posZ - mc.thePlayer.prevPosZ) * partialTicks;
+        // renderStereoOverlays uses the room-space menu model-view matrix, not Minecraft's
+        // world camera matrix. Convert every marker from world space to the same room space.
+        // The stored Y is the air block's floor level, i.e. the top face of the solid block below.
+        VRControllerHandler controller = VRControllerHandler.getInstance();
+        double worldCrossHalfSize = 0.30D;
+        double yaw = Math.toRadians(180.0D + com.gtnhvr.HeadPoseController.getBaseYaw());
+        double cosYaw = Math.cos(yaw);
+        double sinYaw = Math.sin(yaw);
 
         GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         GLStateManager.glPushMatrix();
@@ -175,13 +181,17 @@ public final class VRMobSpawnOverlay {
             GLStateManager.glDepthMask(false);
             GLStateManager.glLineWidth(2.5F);
 
-            // Offset slightly above the block surface to prevent z-fighting
-            float yOffset = 0.005F;
+            // Offset slightly above the block surface to prevent z-fighting.
+            // Use the same world->room transform as world-anchored VR screens so markers line up
+            // with the actual block face under the room-space render matrix.
+            double yOffset = 0.005D;
 
             for (int i = 0; i < markerCount; i++) {
-                double bx = markerX[i] - px;
-                double by = markerY[i] - py;
-                double bz = markerZ[i] - pz;
+                Vector3f center = controller.worldToRoom(
+                        markerX[i] + 0.5D,
+                        markerY[i] + yOffset,
+                        markerZ[i] + 0.5D,
+                        partialTicks);
 
                 byte type = markerType[i];
                 if (type == 1) {
@@ -192,19 +202,25 @@ public final class VRMobSpawnOverlay {
                     GLStateManager.glColor4f(1.0F, 0.1F, 0.1F, 0.85F);
                 }
 
-                // Draw an X cross on top of the block below (at y level)
+                // Draw a centered 0.6 x 0.6 block-top cross. Rotate its horizontal offsets
+                // by the same world-yaw transform used by worldToRoom().
                 GLStateManager.glBegin(GL11.GL_LINES);
-                // Diagonal 1: (0.2, 0, 0.2) to (0.8, 0, 0.8)
-                GLStateManager.glVertex3d(bx + 0.2, by + yOffset, bz + 0.2);
-                GLStateManager.glVertex3d(bx + 0.8, by + yOffset, bz + 0.8);
-                // Diagonal 2: (0.8, 0, 0.2) to (0.2, 0, 0.8)
-                GLStateManager.glVertex3d(bx + 0.8, by + yOffset, bz + 0.2);
-                GLStateManager.glVertex3d(bx + 0.2, by + yOffset, bz + 0.8);
+                gtnhvr$vertexRoom(center, -worldCrossHalfSize, -worldCrossHalfSize, cosYaw, sinYaw);
+                gtnhvr$vertexRoom(center,  worldCrossHalfSize,  worldCrossHalfSize, cosYaw, sinYaw);
+                gtnhvr$vertexRoom(center,  worldCrossHalfSize, -worldCrossHalfSize, cosYaw, sinYaw);
+                gtnhvr$vertexRoom(center, -worldCrossHalfSize,  worldCrossHalfSize, cosYaw, sinYaw);
                 GLStateManager.glEnd();
             }
         } finally {
             GLStateManager.glPopMatrix();
             GLStateManager.glPopAttrib();
         }
+    }
+
+    private static void gtnhvr$vertexRoom(Vector3f center, double worldDx, double worldDz,
+                                           double cosYaw, double sinYaw) {
+        double roomDx = worldDx * cosYaw + worldDz * sinYaw;
+        double roomDz = -worldDx * sinYaw + worldDz * cosYaw;
+        GLStateManager.glVertex3d(center.x + roomDx, center.y, center.z + roomDz);
     }
 }
