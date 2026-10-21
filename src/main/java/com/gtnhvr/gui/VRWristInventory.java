@@ -679,15 +679,19 @@ public final class VRWristInventory {
                 drawItem(mc, stack, x, y);
             }
 
-            // Draw selection last so the item renderer cannot cover the textured ring.
-            if (slot.slotNumber >= 36 && slot.slotNumber <= 44) {
-                int hotbarIdx = slot.slotNumber - 36;
-                if (hotbarIdx == slotMain) {
-                    drawTexturedSlotSelection(mc, x, y, hotbarIdx == 0, false);
-                } else if (hotbarIdx == slotOffhand && slotOffhand >= 0 && slotOffhand < 9) {
-                    drawTexturedSlotSelection(mc, x, y, hotbarIdx == 0, true);
-                }
-            }
+        }
+
+        // Match Visor: draw all selection textures after every slot item, so later item icons
+        // cannot cover the 26x26 ring that extends beyond its own 16x16 slot.
+        int[] selectedPos = new int[2];
+        if (slotMain >= 0 && slotMain < 9 && layout(36 + slotMain, selectedPos)) {
+            drawTexturedSlotSelection(mc, PANEL_X + selectedPos[0], PANEL_Y + selectedPos[1],
+                    slotMain == 0, false);
+        }
+        if (slotOffhand >= 0 && slotOffhand < 9 && slotOffhand != slotMain
+                && layout(36 + slotOffhand, selectedPos)) {
+            drawTexturedSlotSelection(mc, PANEL_X + selectedPos[0], PANEL_Y + selectedPos[1],
+                    slotOffhand == 0, true);
         }
 
         // Held item on cursor and tooltip
@@ -779,32 +783,28 @@ public final class VRWristInventory {
     }
 
     private static void drawTexturedSlotSelection(Minecraft mc, float x, float y, boolean centerSlot, boolean offhand) {
+        // Match Visor's ready-coloured textures and center/non-center mapping.
+        // selected0 = outer slots; selected1 = center slot.
         String textureName;
-        float red;
-        float green;
-        float blue;
         if (offhand) {
-            textureName = centerSlot ? "hotbar_main_selected0.png" : "hotbar_main_selected1.png";
-            red = 1.0F;
-            green = 0.65F;
-            blue = 0.10F;
+            textureName = centerSlot ? "hotbar_main_selected1.png" : "hotbar_main_selected0.png";
         } else {
-            textureName = centerSlot ? "hotbar_offhand_selected0.png" : "hotbar_offhand_selected1.png";
-            red = 0.15F;
-            green = 0.85F;
-            blue = 1.0F;
+            textureName = centerSlot ? "hotbar_offhand_selected1.png" : "hotbar_offhand_selected0.png";
         }
+
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            GL11.glDisable(GL11.GL_LIGHTING);
             GL11.glEnable(GL11.GL_TEXTURE_2D);
             GL11.glEnable(GL11.GL_BLEND);
-            GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+            GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                    GL11.GL_ONE, GL11.GL_ONE);
             GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
             mc.getTextureManager().bindTexture(new ResourceLocation(
                     "gtnhvr", "textures/gui/overlays/hotbar/" + textureName));
-            // Use the radial menu's original 26x26 ring geometry, not an 18x18 slot-sized quad.
-            // MODULATE is explicit so the selection tint is not lost to GUI texture state.
-            GL11.glColor4f(red, green, blue, 1.0F);
+            // The PNG itself is cyan/orange; keep the vertex colour white instead of tinting it again.
+            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
             drawTexturedRect(x - 5.0F, y - 5.0F, 26.0F, 26.0F);
         } finally {
             GL11.glPopAttrib();
