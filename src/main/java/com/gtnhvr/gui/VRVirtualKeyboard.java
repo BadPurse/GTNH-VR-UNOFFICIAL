@@ -192,8 +192,13 @@ public final class VRVirtualKeyboard {
      */
     public void showAutoKeyboard(net.minecraft.client.gui.GuiScreen owner) {
         VROverlayConfig.Entry cfg = VROverlayConfig.get(VROverlayConfig.KEYBOARD);
-        if (owner == null || !cfg.visible || !VRClientSettings.keyboardAutoLayout
-                || !isTextInputContext(owner)) {
+        // Callers reach this method only after an explicit text-entry event:
+        // GuiChat/sign/book screens opening, or a field gaining focus. Do not re-check
+        // focus by reflection here: many modded fields report focus through their own
+        // widget/input handlers and are not discoverable at this exact point in the tick.
+        // The exact owner-screen check in update() still prevents the keyboard leaking
+        // into unrelated menus.
+        if (owner == null || !cfg.visible || !VRClientSettings.keyboardAutoLayout) {
             return;
         }
 
@@ -1137,8 +1142,10 @@ public final class VRVirtualKeyboard {
         // keyboard merely because a different screen happens to contain a focused/stale field.
         if (autoOpened && (!VRClientSettings.keyboardAutoLayout
                 || !VROverlayConfig.get(VROverlayConfig.KEYBOARD).visible
-                || mc.currentScreen != autoOwnerScreen
-                || !isTextInputContext(autoOwnerScreen))) {
+                || mc.currentScreen != autoOwnerScreen)) {
+            // The keyboard was opened by a confirmed text-entry event. Do not poll
+            // reflective text-field detection every frame: custom GregTech/ModularUI
+            // widgets often don't expose focus consistently after receiving keyboard focus.
             hideAutoKeyboard();
             return;
         }
