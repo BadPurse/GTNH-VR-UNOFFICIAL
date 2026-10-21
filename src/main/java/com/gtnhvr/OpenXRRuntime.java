@@ -475,7 +475,7 @@ public final class OpenXRRuntime {
         try {
             // Unbind any active shader program
             try {
-                org.lwjgl.opengl.GLStateManager.glUseProgram(0);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glUseProgram(0);
             } catch (Throwable ignored) {}
 
             GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, eyes[eyeIndex].fbo);
