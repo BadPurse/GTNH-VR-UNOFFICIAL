@@ -1112,7 +1112,7 @@ public final class VRControllerHandler {
         }
         // Re-arm the click edge if another screen/mod cleared the Minecraft key state
         // while the controller-side held flag was still true.
-        boolean attackKeyDown = mc.gameSettings.keyBindAttack.isKeyDown();
+        boolean attackKeyDown = mc.gameSettings.keyBindAttack.getIsKeyPressed();
         if (attackState && (!inGameAttackHeld || !attackKeyDown)) {
             KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
         }
