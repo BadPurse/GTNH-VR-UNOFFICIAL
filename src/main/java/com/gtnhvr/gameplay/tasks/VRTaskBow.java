@@ -197,49 +197,49 @@ public class VRTaskBow {
     public void renderTrajectoryArc() {
         if (!drawing || trajectoryPoints.size() < 2) return;
 
-        org.lwjgl.opengl.GLStateManager.glPushAttrib(org.lwjgl.opengl.GL11.GL_ALL_ATTRIB_BITS);
-        org.lwjgl.opengl.GLStateManager.glPushMatrix();
+        com.gtnewhorizons.angelica.glsm.GLStateManager.glPushAttrib(org.lwjgl.opengl.GL11.GL_ALL_ATTRIB_BITS);
+        com.gtnewhorizons.angelica.glsm.GLStateManager.glPushMatrix();
 
         try {
-            org.lwjgl.opengl.GLStateManager.glDisable(org.lwjgl.opengl.GL11.GL_TEXTURE_2D);
-            org.lwjgl.opengl.GLStateManager.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
-            org.lwjgl.opengl.GLStateManager.glEnable(org.lwjgl.opengl.GL11.GL_BLEND);
-            org.lwjgl.opengl.GLStateManager.glBlendFunc(org.lwjgl.opengl.GL11.GL_SRC_ALPHA, org.lwjgl.opengl.GL11.GL_ONE);
-            org.lwjgl.opengl.GLStateManager.glLineWidth(3.5F);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glDisable(org.lwjgl.opengl.GL11.GL_TEXTURE_2D);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glEnable(org.lwjgl.opengl.GL11.GL_BLEND);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glBlendFunc(org.lwjgl.opengl.GL11.GL_SRC_ALPHA, org.lwjgl.opengl.GL11.GL_ONE);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glLineWidth(3.5F);
 
             // Vibrant gradient: cyan transitioning to gold at full tension
             float r = 0.20F + 0.80F * tension;
             float g = 0.85F - 0.20F * tension;
             float b = 0.90F - 0.70F * tension;
-            org.lwjgl.opengl.GLStateManager.glColor4f(r, g, b, 0.85F);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glColor4f(r, g, b, 0.85F);
 
-            org.lwjgl.opengl.GLStateManager.glBegin(org.lwjgl.opengl.GL11.GL_LINE_STRIP);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glBegin(org.lwjgl.opengl.GL11.GL_LINE_STRIP);
             for (Vector3f pt : trajectoryPoints) {
-                org.lwjgl.opengl.GLStateManager.glVertex3f(pt.x, pt.y, pt.z);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glVertex3f(pt.x, pt.y, pt.z);
             }
-            org.lwjgl.opengl.GLStateManager.glEnd();
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glEnd();
 
             // Hit target marker ring
             if (hitPointRoom != null) {
-                org.lwjgl.opengl.GLStateManager.glPushMatrix();
-                org.lwjgl.opengl.GLStateManager.glTranslatef(hitPointRoom.x, hitPointRoom.y + 0.01F, hitPointRoom.z);
-                org.lwjgl.opengl.GLStateManager.glRotatef(90.0F, 1.0F, 0.0F, 0.0F);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glPushMatrix();
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glTranslatef(hitPointRoom.x, hitPointRoom.y + 0.01F, hitPointRoom.z);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glRotatef(90.0F, 1.0F, 0.0F, 0.0F);
 
-                org.lwjgl.opengl.GLStateManager.glColor4f(r, g, b, 0.75F);
-                org.lwjgl.opengl.GLStateManager.glBegin(org.lwjgl.opengl.GL11.GL_LINE_LOOP);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glColor4f(r, g, b, 0.75F);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glBegin(org.lwjgl.opengl.GL11.GL_LINE_LOOP);
                 int segments = 16;
                 float radius = 0.20F;
                 for (int s = 0; s < segments; s++) {
                     double theta = 2.0 * Math.PI * s / segments;
-                    org.lwjgl.opengl.GLStateManager.glVertex2d(Math.cos(theta) * radius, Math.sin(theta) * radius);
+                    com.gtnewhorizons.angelica.glsm.GLStateManager.glVertex2d(Math.cos(theta) * radius, Math.sin(theta) * radius);
                 }
-                org.lwjgl.opengl.GLStateManager.glEnd();
-                org.lwjgl.opengl.GLStateManager.glPopMatrix();
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glEnd();
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glPopMatrix();
             }
 
         } finally {
-            org.lwjgl.opengl.GLStateManager.glPopMatrix();
-            org.lwjgl.opengl.GLStateManager.glPopAttrib();
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glPopMatrix();
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glPopAttrib();
         }
     }
 
