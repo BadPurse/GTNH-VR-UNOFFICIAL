@@ -90,6 +90,13 @@ public final class VRControllerHandler {
     private final Quaternionf leftHandRot = new Quaternionf();
     private boolean leftHandTracked = false;
 
+    // Grip-pose positions are tracked separately from aim poses. Shoulder gestures need the
+    // physical controller location, not the forward-offset ray origin used for laser pointing.
+    private final Vector3f rightGripHandPos = new Vector3f();
+    private boolean rightGripHandTracked = false;
+    private final Vector3f leftGripHandPos = new Vector3f();
+    private boolean leftGripHandTracked = false;
+
     // Input values
     private float rightTriggerValue = 0.0F;
     private float leftTriggerValue = 0.0F;
@@ -395,6 +402,14 @@ public final class VRControllerHandler {
         rightHandRot.set(leftHandRot);
         leftHandRot.set(tmpRot);
 
+        Vector3f tmpGripPos = new Vector3f(rightGripHandPos);
+        rightGripHandPos.set(leftGripHandPos);
+        leftGripHandPos.set(tmpGripPos);
+
+        boolean tmpGripTracked = rightGripHandTracked;
+        rightGripHandTracked = leftGripHandTracked;
+        leftGripHandTracked = tmpGripTracked;
+
         boolean tmpTracked = rightHandTracked;
         rightHandTracked = leftHandTracked;
         leftHandTracked = tmpTracked;
@@ -518,6 +533,27 @@ public final class VRControllerHandler {
             GTNHVRLog.info("Left controller tracking %s (pos=%.2f, %.2f, %.2f)",
                     leftHandTracked ? "ACQUIRED" : "LOST", leftHandPos.x, leftHandPos.y, leftHandPos.z);
         }
+
+        // Independently locate the physical grip origins for reliable shoulder-distance detection.
+        rightGripHandTracked = locateGripPosition(rightGripSpace, localSpace, displayTime, loc, rightGripHandPos);
+        leftGripHandTracked = locateGripPosition(leftGripSpace, localSpace, displayTime, loc, leftGripHandPos);
+    }
+
+    private boolean locateGripPosition(XrSpace gripSpace, XrSpace localSpace, long displayTime,
+                                        XrSpaceLocation location, Vector3f outPosition) {
+        if (gripSpace == null || localSpace == null || displayTime <= 0) return false;
+        try {
+            location.type(XR_TYPE_SPACE_LOCATION);
+            if (xrLocateSpace(gripSpace, localSpace, displayTime, location) != XR_SUCCESS) return false;
+            long flags = location.locationFlags();
+            if ((flags & XR_SPACE_LOCATION_POSITION_VALID_BIT) == 0) return false;
+            XrPosef pose = location.pose();
+            outPosition.set(pose.position$().x(), pose.position$().y(), pose.position$().z());
+            return true;
+        } catch (Throwable t) {
+            GTNHVRLog.throttled("Error locating controller grip pose: %s", t);
+            return false;
+        }
     }
 
     public synchronized void destroy() {
@@ -532,6 +568,7 @@ public final class VRControllerHandler {
         aimAction = null; gripPoseAction = null; triggerAction = null; gripAction = null;
         stickAction = null; stickClickAction = null; primaryAction = null; secondaryAction = null; menuAction = null;
         rightHandTracked = false; leftHandTracked = false;
+        rightGripHandTracked = false; leftGripHandTracked = false;
         session = null;
         initialized = false;
         GTNHVRLog.info("VRControllerHandler destroyed and spaces cleaned up");
@@ -1362,6 +1399,22 @@ public final class VRControllerHandler {
 
     public Quaternionf getLeftHandRot() {
         return leftHandRot;
+    }
+
+    public boolean isRightGripHandTracked() {
+        return rightGripHandTracked;
+    }
+
+    public Vector3f getRightGripHandPos() {
+        return rightGripHandTracked ? rightGripHandPos : rightHandPos;
+    }
+
+    public boolean isLeftGripHandTracked() {
+        return leftGripHandTracked;
+    }
+
+    public Vector3f getLeftGripHandPos() {
+        return leftGripHandTracked ? leftGripHandPos : leftHandPos;
     }
 
     public float getRightTriggerValue() { return rightTriggerValue; }
