@@ -68,7 +68,7 @@ public final class VRHudRenderer {
         GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
         GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
         GLStateManager.glEnable(GL11.GL_BLEND);
-        org.lwjgl.opengl.GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+        com.gtnewhorizons.angelica.glsm.GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
     }
 
     public static void end() {
