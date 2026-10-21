@@ -7,12 +7,12 @@ import net.minecraft.client.Minecraft;
 import org.lwjgl.openxr.XrPosef;
 
 /**
- * 1:1 Visor TaskRoomCrawl & TaskRoomSneak ported to Minecraft 1.7.10:
- * Detects real-life crouching and crawling from the VR headset height.
- * - Sneaking: Triggered when head height drops below roomSneakThreshold (default 0.85).
- * - Crawling: Triggered when head height drops below roomCrawlThreshold (default 0.70),
- *   reducing the player bounding box height to 0.65m to enable crawling through 1-block gaps.
- * Connected directly to VRClientSettings (roomSneakEnabled, roomCrawlEnabled, thresholds).
+ * Physical room-scale sneak/crawl for Minecraft 1.7.10.
+ *
+ * STAGE positions are floor-relative, but they must be compared with a standing-head
+ * baseline, not the configured avatar height: seated users and recentering can make those
+ * values very different. LOCAL positions are measured relative to the most recent standing
+ * pose because that reference space has no fixed floor origin.
  */
 @Lwjgl3Aware
 public class VRTaskRoomCrawl {
@@ -21,8 +21,9 @@ public class VRTaskRoomCrawl {
     private boolean isCrawling = false;
     private boolean isSneaking = false;
 
-    // LOCAL reference space has no floor origin. Track the highest recent standing-head
-    // position and measure crouching as a downward delta instead of treating raw Y as height.
+    private boolean stageHeightCalibrated = false;
+    private float stageStandingHeadY = 0.0F;
+
     private boolean localHeightCalibrated = false;
     private float localStandingHeadY = 0.0F;
 
@@ -38,77 +39,105 @@ public class VRTaskRoomCrawl {
             return;
         }
 
+        // A seated HMD commonly sits around 0.7 m above the floor. Treating that as a
+        // standing-height ratio forced the player into a permanent sneak/crawl state.
+        if (VRClientSettings.seated) {
+            resetPhysicalCrouch(mc);
+            return;
+        }
+
         XrPosef headPose = OpenXRRuntime.getHeadPose();
-        if (headPose == null) return;
+        if (headPose == null) {
+            // Never leave a stale physical crouch latched when tracking is lost.
+            resetPhysicalCrouch(mc);
+            return;
+        }
 
         float headY = headPose.position$().y();
         float baseHeight = Math.max(1.0F, VRClientSettings.playerHeight);
-        final boolean stageSpace = OpenXRRuntime.isStageSpace();
-        final float effectiveHeadHeight;
+        boolean stageSpace = OpenXRRuntime.isStageSpace();
+        float ratio;
 
         if (stageSpace) {
-            // STAGE is floor-relative, so the headset's Y coordinate is its real room height.
-            localHeightCalibrated = false;
-            effectiveHeadHeight = headY;
+            // Capture current posture as the initial baseline. This also handles starting
+            // the game while seated, then raises the baseline once the user stands up.
+            if (!stageHeightCalibrated) {
+                stageStandingHeadY = headY;
+                stageHeightCalibrated = true;
+            } else if (!isSneaking && !isCrawling && headY > stageStandingHeadY + 0.04F) {
+                stageStandingHeadY = headY;
+            }
+
+            // Recenter/tracking jumps should reset the baseline rather than count as a crouch.
+            float rebaseDistance = Math.max(0.90F, baseHeight * 0.75F);
+            if (Math.abs(headY - stageStandingHeadY) > rebaseDistance) {
+                stageStandingHeadY = headY;
+                isSneaking = false;
+                isCrawling = false;
+                restoreStandingHitbox(mc);
+            }
+
+            float standingReference = Math.max(0.50F, stageStandingHeadY);
+            ratio = Math.max(0.0F, headY) / standingReference;
         } else {
-            // LOCAL spaces can be centered around the user's head rather than the floor.
-            // Raw headY is therefore not a valid height-from-floor measurement.
+            // LOCAL reference spaces can be head-centered; use downward movement from a
+            // standing baseline rather than interpreting raw Y as height from the floor.
             if (!localHeightCalibrated) {
                 localStandingHeadY = headY;
                 localHeightCalibrated = true;
             } else if (!isSneaking && !isCrawling && headY > localStandingHeadY + 0.04F) {
-                // Update upward only while standing, allowing a new upright pose after recentering.
                 localStandingHeadY = headY;
             }
 
-            // A discontinuous pose jump is usually recentering or tracking re-acquisition.
-            // Rebase instead of interpreting it as an instant crouch or crawl.
-            if (Math.abs(headY - localStandingHeadY) > baseHeight * 0.75F) {
+            float rebaseDistance = Math.max(0.90F, baseHeight * 0.75F);
+            if (Math.abs(headY - localStandingHeadY) > rebaseDistance) {
                 localStandingHeadY = headY;
                 isSneaking = false;
                 isCrawling = false;
-                mc.thePlayer.boundingBox.maxY = mc.thePlayer.boundingBox.minY + 1.80D;
-                mc.thePlayer.yOffset = 1.62F;
+                restoreStandingHitbox(mc);
             }
+
             float dropFromStanding = Math.max(0.0F, localStandingHeadY - headY);
-            effectiveHeadHeight = Math.max(0.0F, baseHeight - dropFromStanding);
+            ratio = Math.max(0.0F, baseHeight - dropFromStanding) / baseHeight;
         }
 
-        float ratio = effectiveHeadHeight / baseHeight;
-
-        // 1. Room Sneak (with hysteresis to prevent rapid boundary flicker)
-        boolean allowSneak = (VRClientSettings.roomSneakEnabled || VRClientSettings.roomSneak);
+        // Hysteresis prevents flicker at the configured sneak/crawl thresholds.
+        boolean allowSneak = VRClientSettings.roomSneakEnabled || VRClientSettings.roomSneak;
         float sneakEnter = VRClientSettings.roomSneakThreshold - 0.02F;
         float sneakExit = VRClientSettings.roomSneakThreshold + 0.02F;
-        boolean validHeight = stageSpace ? headY > 0.30F : localHeightCalibrated;
-        if (allowSneak && validHeight) {
-            isSneaking = isSneaking ? (ratio <= sneakExit) : (ratio <= sneakEnter);
-        } else {
-            isSneaking = false;
-        }
+        isSneaking = allowSneak && (isSneaking ? ratio <= sneakExit : ratio <= sneakEnter);
 
-        // 2. Room Crawl (with hysteresis)
-        boolean allowCrawl = (VRClientSettings.roomCrawlEnabled || VRClientSettings.roomCrawl);
+        boolean allowCrawl = VRClientSettings.roomCrawlEnabled || VRClientSettings.roomCrawl;
         float crawlEnter = VRClientSettings.roomCrawlThreshold - 0.02F;
         float crawlExit = VRClientSettings.roomCrawlThreshold + 0.02F;
-        boolean shouldCrawl = false;
-        if (allowCrawl && validHeight) {
-            shouldCrawl = isCrawling ? (ratio <= crawlExit) : (ratio <= crawlEnter);
-        }
+        boolean shouldCrawl = allowCrawl && (isCrawling ? ratio <= crawlExit : ratio <= crawlEnter);
 
         if (shouldCrawl) {
-            if (!isCrawling) {
-                isCrawling = true;
-            }
-            // Shrink bounding box for 1-block crawling
+            isCrawling = true;
             mc.thePlayer.boundingBox.maxY = mc.thePlayer.boundingBox.minY + 0.65D;
             mc.thePlayer.yOffset = 0.35F;
         } else if (isCrawling) {
             isCrawling = false;
-            // Restore normal height if clear above
-            mc.thePlayer.boundingBox.maxY = mc.thePlayer.boundingBox.minY + 1.80D;
-            mc.thePlayer.yOffset = 1.62F;
+            restoreStandingHitbox(mc);
         }
+    }
+
+    private void resetPhysicalCrouch(Minecraft mc) {
+        if (isCrawling) {
+            restoreStandingHitbox(mc);
+        }
+        isCrawling = false;
+        isSneaking = false;
+        stageHeightCalibrated = false;
+        stageStandingHeadY = 0.0F;
+        localHeightCalibrated = false;
+        localStandingHeadY = 0.0F;
+    }
+
+    private static void restoreStandingHitbox(Minecraft mc) {
+        if (mc == null || mc.thePlayer == null || mc.thePlayer.boundingBox == null) return;
+        mc.thePlayer.boundingBox.maxY = mc.thePlayer.boundingBox.minY + 1.80D;
+        mc.thePlayer.yOffset = 1.62F;
     }
 
     public boolean isSneaking() {
@@ -119,13 +148,23 @@ public class VRTaskRoomCrawl {
         return isCrawling;
     }
 
+    /** Reset posture calibration after GUI transitions, tracking loss, or height changes. */
     public void clear(Minecraft mc) {
-        if (isCrawling && mc != null && mc.thePlayer != null) {
-            mc.thePlayer.boundingBox.maxY = mc.thePlayer.boundingBox.minY + 1.80D;
-            mc.thePlayer.yOffset = 1.62F;
+        if (isCrawling) {
+            restoreStandingHitbox(mc);
         }
         isCrawling = false;
         isSneaking = false;
+        stageHeightCalibrated = false;
+        stageStandingHeadY = 0.0F;
+        localHeightCalibrated = false;
+        localStandingHeadY = 0.0F;
+    }
+
+    /** Rebase the next room-scale sample after the avatar height has been changed. */
+    public void resetHeightCalibration() {
+        stageHeightCalibrated = false;
+        stageStandingHeadY = 0.0F;
         localHeightCalibrated = false;
         localStandingHeadY = 0.0F;
     }
