@@ -18,7 +18,7 @@ public abstract class MixinGuiIngame {
     @Inject(method = {"renderVignette", "func_73829_a"}, at = @At("HEAD"), cancellable = true)
     private void gtnhvr$cancelVanillaVignette(float light, int width, int height, CallbackInfo ci) {
         if (OpenXRRuntime.isSessionRunning()) {
-            GLStateManager.glBlendFunc(770, 771, 1, 0);
+            GLStateManager.glBlendFuncSeparate(770, 771, 1, 0);
             ci.cancel();
         }
     }
