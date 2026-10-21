@@ -213,11 +213,21 @@ public final class VRHotbarRenderer {
         if (slice == HotBarSlice.NOT_SELECTED) {
             return;
         }
-        mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
-        // Apply tint after binding, so a texture bind/reload cannot leave the ring white.
-        GL11.glColor4f(red, green, blue, 1.0F);
-        drawTexturedRect(imageX + slice.getItemX() - RING_INSET, imageY + slice.getItemY() - RING_INSET,
-                RING_SIZE, RING_SIZE);
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        try {
+            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            GL11.glEnable(GL11.GL_BLEND);
+            GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+            GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
+            mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
+            // Explicitly use MODULATE: other GUI/item renderers can leave the texture environment
+            // in REPLACE mode, which ignores the cyan/orange vertex tint.
+            GL11.glColor4f(red, green, blue, 1.0F);
+            drawTexturedRect(imageX + slice.getItemX() - RING_INSET, imageY + slice.getItemY() - RING_INSET,
+                    RING_SIZE, RING_SIZE);
+        } finally {
+            GL11.glPopAttrib();
+        }
     }
 
     private void drawSelectedItemName(Minecraft mc, int selectedSlice, int imageY) {
