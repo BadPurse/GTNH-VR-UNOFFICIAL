@@ -109,6 +109,7 @@ public final class GuiEventHandler {
         VRVirtualScreen.getInstance().resetOrientation();
 
         VRVirtualKeyboard keyboard = VRVirtualKeyboard.getInstance();
+        keyboard.onGuiOpen(event.gui);
         boolean textEntryScreen = event.gui instanceof net.minecraft.client.gui.GuiChat
                 || event.gui instanceof net.minecraft.client.gui.inventory.GuiEditSign
                 || event.gui instanceof net.minecraft.client.gui.GuiScreenBook;
