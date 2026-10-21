@@ -524,6 +524,13 @@ public final class VRHandRenderer {
 
         if (heldItem == null || heldItem.getItem() == null) return;
 
+        // Visor's notched bow state renders the string hand/arm without its held item.
+        // Avoid showing a second miniature item (usually the arrow) inside the drawn bow.
+        com.gtnhvr.gameplay.tasks.VRTaskBow bowTask = com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance();
+        if (preview == null && bowTask.isDrawing() && isRight != bowTask.isBowInMainHand()) {
+            return;
+        }
+
         GLStateManager.glPushMatrix();
         GLStateManager.glTranslatef(pos.x, pos.y, pos.z);
         applyQuaternionRotation(rot);
@@ -613,16 +620,23 @@ public final class VRHandRenderer {
                         break;
                     }
                     case BOW: {
-                        GLStateManager.glTranslatef(handX + offset.posX, 0.015F + offset.posY, -0.055F + offset.posZ);
-                        GLStateManager.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
-                        if (offset.yaw != 0.0F) GLStateManager.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
-                        if (offset.pitch != 0.0F) GLStateManager.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
-                        if (offset.roll != 0.0F) GLStateManager.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
-                        GLStateManager.glScalef(offset.scale, offset.scale, offset.scale);
-                        GLStateManager.glTranslatef(-0.103F, -0.646F, 0.0F);
-                        GLStateManager.glRotatef(-160.0F, 0.0F, 0.0F, 1.0F);
-                        GLStateManager.glRotatef(50.0F, 0.0F, 1.0F, 0.0F);
-                        GLStateManager.glRotatef(-180.0F, 1.0F, 0.0F, 0.0F);
+                        // VisorEssentials BowItemPose: translate the bow out from the grip,
+                        // cant it by hand side, and rotate it using the controller's live
+                        // aim-to-grip "gun angle" rather than a fixed upright model transform.
+                        float handDir = isRight ? 1.0F : -1.0F;
+                        float gunAngle = VRControllerHandler.getInstance().getControllerGunAngle(isRight);
+                        GLStateManager.glTranslatef(handDir * 0.10F + offset.posX,
+                                offset.posY, -0.10F + offset.posZ);
+                        GLStateManager.glRotatef(handDir * -10.0F + offset.roll, 0.0F, 0.0F, 1.0F);
+                        if (offset.yaw != 0.0F) {
+                            GLStateManager.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
+                        }
+                        GLStateManager.glRotatef(gunAngle - 67.0F + offset.pitch, 1.0F, 0.0F, 0.0F);
+
+                        // BowItemPose uses a 1.4 model scale. The existing bow offset slider
+                        // is normalized around 0.28, so its user's setting still scales it.
+                        float bowScale = 1.4F * Math.max(0.0F, offset.scale / 0.28F);
+                        GLStateManager.glScalef(bowScale, bowScale, bowScale);
                         break;
                     }
                     case TORCH: {
