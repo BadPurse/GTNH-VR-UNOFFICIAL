@@ -559,3 +559,23 @@ visor.options.item_offsets.preview_item.held=Held from Inventory
 visor.options.item_offsets.preview_item.offhand=Offhand from Inventory
 visor.options.item_offsets.done=Done / Back
 visor.options.item_offsets.done.tooltip=Save and return to menu
+
+# Shoulder gesture controls
+gtnhvr.controls.shoulder.title=Shoulder Gestures
+gtnhvr.controls.shoulder.tooltip=Configure controller-to-opposite-shoulder gestures for jetpacks and hover/glide.
+gtnhvr.controls.shoulder.enabled=Shoulder Gestures
+gtnhvr.controls.shoulder.enabled.tooltip=Master switch for shoulder gestures.
+gtnhvr.controls.shoulder.jetpack=Jetpack (R -> L shoulder)
+gtnhvr.controls.shoulder.jetpack.tooltip=Hold the right controller/grip at the left shoulder to activate the selected jetpack toggle.
+gtnhvr.controls.shoulder.glide=Glide (L -> R shoulder)
+gtnhvr.controls.shoulder.glide.tooltip=Hold the left controller/grip at the right shoulder to activate the selected hover/glide toggle.
+gtnhvr.controls.shoulder.jetpack_key=Jetpack key
+gtnhvr.controls.shoulder.jetpack_key.tooltip=Cycles through AUTO and registered jetpack-related key bindings. Pick the same binding used by the jetpack mod.
+gtnhvr.controls.shoulder.glide_key=Glide key
+gtnhvr.controls.shoulder.glide_key.tooltip=Cycles through AUTO and registered hover/glide-related key bindings.
+gtnhvr.controls.shoulder.distance=Reach
+gtnhvr.controls.shoulder.distance.tooltip=Maximum distance between the controller grip and the estimated shoulder point.
+gtnhvr.controls.shoulder.hold=Hold
+gtnhvr.controls.shoulder.hold.tooltip=How long the controller must remain near the shoulder before activation.
+gtnhvr.controls.shoulder.binding.auto=Auto
+gtnhvr.controls.shoulder.binding.missing=Missing binding:
