@@ -148,7 +148,10 @@ public final class VRShoulderGestures {
         if (!jetpackGestureEnabled && !glideGestureEnabled) return;
 
         XrPosef headPose = OpenXRRuntime.getHeadPose();
-        if (headPose == null) return;
+        if (headPose == null) {
+            resetState();
+            return;
+        }
 
         Vector3f headPos = new Vector3f(
                 headPose.position$().x(),
@@ -336,23 +339,25 @@ public final class VRShoulderGestures {
     }
 
     private int pendingKeyRelease = 0;
-    private int keyReleaseDelay = 0;
+    private long pendingKeyReleaseAtNanos = 0L;
 
     private void scheduleKeyRelease(int keyCode) {
+        if (pendingKeyRelease != 0 && pendingKeyRelease != keyCode) {
+            net.minecraft.client.settings.KeyBinding.setKeyBindState(pendingKeyRelease, false);
+        }
         pendingKeyRelease = keyCode;
-        keyReleaseDelay = 3; // Release after 3 ticks
+        // Controller updates can happen at 72-120 Hz, not at Minecraft's 20 TPS. A frame-count
+        // delay could release the key before the next game tick polls it, so use wall-clock time.
+        pendingKeyReleaseAtNanos = System.nanoTime() + 120_000_000L;
     }
 
-    /**
-     * Must be called each tick to handle scheduled key releases.
-     */
+    /** Release synthetic key presses only after they have survived at least one Minecraft tick. */
     public void tick() {
-        if (pendingKeyRelease != 0 && keyReleaseDelay > 0) {
-            keyReleaseDelay--;
-            if (keyReleaseDelay <= 0) {
-                net.minecraft.client.settings.KeyBinding.setKeyBindState(pendingKeyRelease, false);
-                pendingKeyRelease = 0;
-            }
+        if (pendingKeyRelease != 0 && pendingKeyReleaseAtNanos != 0L
+                && System.nanoTime() >= pendingKeyReleaseAtNanos) {
+            net.minecraft.client.settings.KeyBinding.setKeyBindState(pendingKeyRelease, false);
+            pendingKeyRelease = 0;
+            pendingKeyReleaseAtNanos = 0L;
         }
     }
 
@@ -532,7 +537,10 @@ public final class VRShoulderGestures {
 
     public void clear() {
         resetState();
+        if (pendingKeyRelease != 0) {
+            net.minecraft.client.settings.KeyBinding.setKeyBindState(pendingKeyRelease, false);
+        }
         pendingKeyRelease = 0;
-        keyReleaseDelay = 0;
+        pendingKeyReleaseAtNanos = 0L;
     }
 }
