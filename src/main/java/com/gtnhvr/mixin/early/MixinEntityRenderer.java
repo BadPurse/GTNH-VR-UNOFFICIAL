@@ -1,5 +1,6 @@
 package com.gtnhvr.mixin.early;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.OpenXRRuntime;
 import com.gtnhvr.gui.VRGuiRenderer;
 import net.minecraft.client.Minecraft;
@@ -38,20 +39,20 @@ public abstract class MixinEntityRenderer {
                 : 256.0F;
 
         // Set eye swapchain viewport to native headset resolution
-        GL11.glViewport(0, 0, OpenXRRuntime.getEyeWidth(eyeIndex), OpenXRRuntime.getEyeHeight(eyeIndex));
+        GLStateManager.glViewport(0, 0, OpenXRRuntime.getEyeWidth(eyeIndex), OpenXRRuntime.getEyeHeight(eyeIndex));
 
         // 1. Asymmetric OpenXR optical FOV projection matrix
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
+        GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
         FloatBuffer proj = OpenXRRuntime.getEyeProjectionBuffer(eyeIndex, 0.05F, farPlane);
         if (proj != null) {
-            GL11.glLoadMatrixf(proj);
+            GLStateManager.glLoadMatrix(proj);
         }
 
         // 2. 6-DoF OpenXR eye orientation and IPD translation
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
         FloatBuffer modelView = OpenXRRuntime.getEyeModelViewBuffer(eyeIndex, partialTicks);
         if (modelView != null) {
-            GL11.glLoadMatrixf(modelView);
+            GLStateManager.glLoadMatrix(modelView);
         }
 
         // 3. Update ActiveRenderInfo so Angelica and vanilla frustum culling use eye matrices
