@@ -203,6 +203,11 @@ public final class GuiHelper {
 
     private static boolean isGuiObject(Object value) {
         if (value == null) return false;
+        // A child widget can belong to this screen, but a GuiScreen reference is usually a
+        // parent/previous screen. Following that link would incorrectly validate a stale field
+        // from the screen we just left and could auto-open the VR keyboard in an unrelated GUI.
+        if (value instanceof GuiScreen) return false;
+
         String name = value.getClass().getName();
         return name.startsWith("net.minecraft.client.gui.")
                 || name.startsWith("cpw.mods.fml.client.config.")
