@@ -799,12 +799,21 @@ public final class VRWristInventory {
             green = 0.85F;
             blue = 1.0F;
         }
-        mc.getTextureManager().bindTexture(new ResourceLocation(
-                "gtnhvr", "textures/gui/overlays/hotbar/" + textureName));
-        // Use the radial menu's original 26x26 ring geometry, not an 18x18 slot-sized quad.
-        GL11.glColor4f(red, green, blue, 1.0F);
-        drawTexturedRect(x - 5.0F, y - 5.0F, 26.0F, 26.0F);
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        try {
+            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            GL11.glEnable(GL11.GL_BLEND);
+            GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+            GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
+            mc.getTextureManager().bindTexture(new ResourceLocation(
+                    "gtnhvr", "textures/gui/overlays/hotbar/" + textureName));
+            // Use the radial menu's original 26x26 ring geometry, not an 18x18 slot-sized quad.
+            // MODULATE is explicit so the selection tint is not lost to GUI texture state.
+            GL11.glColor4f(red, green, blue, 1.0F);
+            drawTexturedRect(x - 5.0F, y - 5.0F, 26.0F, 26.0F);
+        } finally {
+            GL11.glPopAttrib();
+        }
     }
 
     private static void drawTexturedRect(float x, float y, float w, float h) {
