@@ -634,6 +634,8 @@ public final class VRControllerHandler {
     private void handleInteraction() {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc == null) return;
+        // Synthetic shoulder-key releases must continue while Minecraft is in menus too.
+        com.gtnhvr.gameplay.VRShoulderGestures.getInstance().tick();
 
         if (mc.theWorld != lastWorld) {
             // A world transition invalidates the previous press edge and any trigger latch.
@@ -718,14 +720,20 @@ public final class VRControllerHandler {
      * True while any remapped controller control is emitting the supplied keyboard key.
      * This allows remaps to drive vanilla actions too (jump, attack, movement, etc.).
      */
-    private boolean isMappedControllerKeyHeld(int keyCode) {
+    public boolean isControllerMappedKeyHeld(int keyCode) {
         if (keyCode <= 0) return false;
         for (int i = 0; i < mappedControllerKeyHeld.length; i++) {
             if (mappedControllerKeyHeld[i] && mappedControllerKeyCodes[i] == keyCode) return true;
         }
-        // Shoulder gestures are another source of synthetic key presses; treat them as
-        // part of the same aggregate state so the gameplay loop cannot release their key.
-        return com.gtnhvr.gameplay.VRShoulderGestures.getInstance().isSyntheticKeyHeld(keyCode);
+        return false;
+    }
+
+    private boolean isMappedControllerKeyHeld(int keyCode) {
+        if (keyCode <= 0) return false;
+        return isControllerMappedKeyHeld(keyCode)
+                // Shoulder gestures are another source of synthetic key presses; treat them as
+                // part of the same aggregate state so the gameplay loop cannot release their key.
+                || com.gtnhvr.gameplay.VRShoulderGestures.getInstance().isSyntheticKeyHeld(keyCode);
     }
 
     private boolean isMappedControllerKeyHeldByOther(int index, int keyCode) {
@@ -1059,7 +1067,6 @@ public final class VRControllerHandler {
         com.gtnhvr.gui.VRWristPotionOverlay.getInstance().update(mc, this);
         com.gtnhvr.gui.VRMobSpawnOverlay.getInstance().update(mc);
         com.gtnhvr.gameplay.VRShoulderGestures.getInstance().update(mc, this);
-        com.gtnhvr.gameplay.VRShoulderGestures.getInstance().tick();
 
         if (worldLoadGraceTicks > 0) {
             worldLoadGraceTicks--;
