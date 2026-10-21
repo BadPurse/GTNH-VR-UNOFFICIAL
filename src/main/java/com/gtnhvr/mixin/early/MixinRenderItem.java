@@ -1,5 +1,6 @@
 package com.gtnhvr.mixin.early;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.client.renderer.texture.TextureManager;
@@ -38,6 +39,6 @@ public abstract class MixinRenderItem {
         require = 0
     )
     private void gtnhvr$enableBlendBeforeStackNumber(FontRenderer fr, TextureManager tm, ItemStack is, int x, int y, String custom, CallbackInfo ci) {
-        GL11.glEnable(GL11.GL_BLEND);
+        GLStateManager.glEnable(GL11.GL_BLEND);
     }
 }
