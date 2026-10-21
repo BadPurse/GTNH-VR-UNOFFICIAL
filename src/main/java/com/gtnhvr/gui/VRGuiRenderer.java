@@ -37,19 +37,35 @@ public final class VRGuiRenderer {
     private static int savedDisplayWidth = -1;
     private static int savedDisplayHeight = -1;
 
+    /**
+     * A menu is shown before a world exists. Render that whole no-world screen flow
+     * at the configured virtual-screen resolution instead of inheriting the desktop
+     * window size. This intentionally includes GTNH/CustomMainMenu screens and
+     * Angelica's video-options screens opened from the title menu.
+     *
+     * In-world GUIs keep the existing autonomous-resolution setting behavior.
+     */
+    private static boolean useVirtualResolutionForMenu(Minecraft mc) {
+        return mc != null
+                && com.gtnhvr.OpenXRRuntime.isSessionRunning()
+                && mc.theWorld == null;
+    }
+
     public static int getCaptureWidth() {
-        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution
+                || useVirtualResolutionForMenu(mc)) {
             return Math.max(320, com.gtnhvr.settings.VRClientSettings.virtualScreenWidth);
         }
-        Minecraft mc = Minecraft.getMinecraft();
         return (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 1920;
     }
 
     public static int getCaptureHeight() {
-        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution
+                || useVirtualResolutionForMenu(mc)) {
             return Math.max(240, com.gtnhvr.settings.VRClientSettings.virtualScreenHeight);
         }
-        Minecraft mc = Minecraft.getMinecraft();
         return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 1080;
     }
 
