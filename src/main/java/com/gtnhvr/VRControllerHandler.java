@@ -152,6 +152,8 @@ public final class VRControllerHandler {
     private boolean leftBindingTriggerHeld = false;
     private final int[] mappedControllerKeyCodes = new int[MAPPED_CONTROLLER_KEY_COUNT];
     private final boolean[] mappedControllerKeyHeld = new boolean[MAPPED_CONTROLLER_KEY_COUNT];
+    /** Separate latch so analog grips and stick directions don't flicker around one cutoff. */
+    private final boolean[] mappedAnalogLatch = new boolean[MAPPED_CONTROLLER_KEY_COUNT];
     private boolean inGameUseItemHeld = false;
     private int inGameUseItemRepeatDelay = 0;
     private boolean snapTurnCooldown = false;
@@ -770,17 +772,31 @@ public final class VRControllerHandler {
 
     private void releaseAllMappedControllerKeys() {
         for (int i = 0; i < MAPPED_CONTROLLER_KEY_COUNT; i++) {
-            if (mappedControllerKeyHeld[i] && mappedControllerKeyCodes[i] > 0) {
+            if (mappedControllerKeyHeld[i] && mappedControllerKeyCodes[i] > 0
+                    && !com.gtnhvr.gameplay.VRShoulderGestures.getInstance().isSyntheticKeyHeld(mappedControllerKeyCodes[i])) {
                 KeyBinding.setKeyBindState(mappedControllerKeyCodes[i], false);
             }
             mappedControllerKeyHeld[i] = false;
+            mappedAnalogLatch[i] = false;
         }
         rightAttackTriggerHeld = false;
         leftBindingTriggerHeld = false;
     }
 
+    private boolean updateAnalogLatch(int index, float value, boolean positive, float pressThreshold, float releaseThreshold) {
+        if (index < 0 || index >= MAPPED_CONTROLLER_KEY_COUNT) return false;
+        if (positive) {
+            if (value >= pressThreshold) mappedAnalogLatch[index] = true;
+            else if (value <= releaseThreshold) mappedAnalogLatch[index] = false;
+        } else {
+            if (value <= -pressThreshold) mappedAnalogLatch[index] = true;
+            else if (value >= -releaseThreshold) mappedAnalogLatch[index] = false;
+        }
+        return mappedAnalogLatch[index];
+    }
+
     private void updateMappedControllerKeys() {
-        // Hysteresis on both analog triggers keeps emitted keys stable at the threshold.
+        // Hysteresis on analog triggers, grips and stick directions keeps key output stable.
         if (rightTriggerValue >= 0.45F) rightAttackTriggerHeld = true;
         else if (rightTriggerValue <= 0.25F) rightAttackTriggerHeld = false;
         if (leftTriggerValue >= 0.45F) leftBindingTriggerHeld = true;
@@ -796,17 +812,27 @@ public final class VRControllerHandler {
         updateMappedControllerKey(MAP_LEFT_MENU, VRClientSettings.controllerLeftMenuKeyCode, leftMenuValue);
         updateMappedControllerKey(MAP_RIGHT_STICK_CLICK, VRClientSettings.controllerRightStickClickKeyCode, rightStickClick);
         updateMappedControllerKey(MAP_LEFT_STICK_CLICK, VRClientSettings.controllerLeftStickClickKeyCode, leftStickClick);
-        updateMappedControllerKey(MAP_RIGHT_GRIP, VRClientSettings.controllerRightGripKeyCode, rightGripValue >= 0.45F);
-        updateMappedControllerKey(MAP_LEFT_GRIP, VRClientSettings.controllerLeftGripKeyCode, leftGripValue >= 0.45F);
+        updateMappedControllerKey(MAP_RIGHT_GRIP, VRClientSettings.controllerRightGripKeyCode,
+                updateAnalogLatch(MAP_RIGHT_GRIP, rightGripValue, true, 0.45F, 0.25F));
+        updateMappedControllerKey(MAP_LEFT_GRIP, VRClientSettings.controllerLeftGripKeyCode,
+                updateAnalogLatch(MAP_LEFT_GRIP, leftGripValue, true, 0.45F, 0.25F));
 
-        updateMappedControllerKey(MAP_LEFT_STICK_UP, VRClientSettings.controllerLeftStickUpKeyCode, leftStickY > 0.55F);
-        updateMappedControllerKey(MAP_LEFT_STICK_DOWN, VRClientSettings.controllerLeftStickDownKeyCode, leftStickY < -0.55F);
-        updateMappedControllerKey(MAP_LEFT_STICK_LEFT, VRClientSettings.controllerLeftStickLeftKeyCode, leftStickX < -0.55F);
-        updateMappedControllerKey(MAP_LEFT_STICK_RIGHT, VRClientSettings.controllerLeftStickRightKeyCode, leftStickX > 0.55F);
-        updateMappedControllerKey(MAP_RIGHT_STICK_UP, VRClientSettings.controllerRightStickUpKeyCode, !selectorActive && rightStickY > 0.55F);
-        updateMappedControllerKey(MAP_RIGHT_STICK_DOWN, VRClientSettings.controllerRightStickDownKeyCode, !selectorActive && rightStickY < -0.55F);
-        updateMappedControllerKey(MAP_RIGHT_STICK_LEFT, VRClientSettings.controllerRightStickLeftKeyCode, !selectorActive && rightStickX < -0.55F);
-        updateMappedControllerKey(MAP_RIGHT_STICK_RIGHT, VRClientSettings.controllerRightStickRightKeyCode, !selectorActive && rightStickX > 0.55F);
+        updateMappedControllerKey(MAP_LEFT_STICK_UP, VRClientSettings.controllerLeftStickUpKeyCode,
+                updateAnalogLatch(MAP_LEFT_STICK_UP, leftStickY, true, 0.60F, 0.40F));
+        updateMappedControllerKey(MAP_LEFT_STICK_DOWN, VRClientSettings.controllerLeftStickDownKeyCode,
+                updateAnalogLatch(MAP_LEFT_STICK_DOWN, leftStickY, false, 0.60F, 0.40F));
+        updateMappedControllerKey(MAP_LEFT_STICK_LEFT, VRClientSettings.controllerLeftStickLeftKeyCode,
+                updateAnalogLatch(MAP_LEFT_STICK_LEFT, leftStickX, false, 0.60F, 0.40F));
+        updateMappedControllerKey(MAP_LEFT_STICK_RIGHT, VRClientSettings.controllerLeftStickRightKeyCode,
+                updateAnalogLatch(MAP_LEFT_STICK_RIGHT, leftStickX, true, 0.60F, 0.40F));
+        updateMappedControllerKey(MAP_RIGHT_STICK_UP, VRClientSettings.controllerRightStickUpKeyCode,
+                !selectorActive && updateAnalogLatch(MAP_RIGHT_STICK_UP, rightStickY, true, 0.60F, 0.40F));
+        updateMappedControllerKey(MAP_RIGHT_STICK_DOWN, VRClientSettings.controllerRightStickDownKeyCode,
+                !selectorActive && updateAnalogLatch(MAP_RIGHT_STICK_DOWN, rightStickY, false, 0.60F, 0.40F));
+        updateMappedControllerKey(MAP_RIGHT_STICK_LEFT, VRClientSettings.controllerRightStickLeftKeyCode,
+                !selectorActive && updateAnalogLatch(MAP_RIGHT_STICK_LEFT, rightStickX, false, 0.60F, 0.40F));
+        updateMappedControllerKey(MAP_RIGHT_STICK_RIGHT, VRClientSettings.controllerRightStickRightKeyCode,
+                !selectorActive && updateAnalogLatch(MAP_RIGHT_STICK_RIGHT, rightStickX, true, 0.60F, 0.40F));
     }
 
     private void handleMenuInteraction(Minecraft mc) {
