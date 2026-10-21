@@ -21,6 +21,11 @@ public class VRTaskRoomCrawl {
     private boolean isCrawling = false;
     private boolean isSneaking = false;
 
+    // LOCAL reference space has no floor origin. Track the highest recent standing-head
+    // position and measure crouching as a downward delta instead of treating raw Y as height.
+    private boolean localHeightCalibrated = false;
+    private float localStandingHeadY = 0.0F;
+
     private VRTaskRoomCrawl() {}
 
     public static VRTaskRoomCrawl getInstance() {
@@ -37,14 +42,46 @@ public class VRTaskRoomCrawl {
         if (headPose == null) return;
 
         float headY = headPose.position$().y();
-        float baseHeight = VRClientSettings.playerHeight;
-        float ratio = headY / Math.max(1.0F, baseHeight);
+        float baseHeight = Math.max(1.0F, VRClientSettings.playerHeight);
+        final boolean stageSpace = OpenXRRuntime.isStageSpace();
+        final float effectiveHeadHeight;
+
+        if (stageSpace) {
+            // STAGE is floor-relative, so the headset's Y coordinate is its real room height.
+            localHeightCalibrated = false;
+            effectiveHeadHeight = headY;
+        } else {
+            // LOCAL spaces can be centered around the user's head rather than the floor.
+            // Raw headY is therefore not a valid height-from-floor measurement.
+            if (!localHeightCalibrated) {
+                localStandingHeadY = headY;
+                localHeightCalibrated = true;
+            } else if (!isSneaking && !isCrawling && headY > localStandingHeadY + 0.04F) {
+                // Update upward only while standing, allowing a new upright pose after recentering.
+                localStandingHeadY = headY;
+            }
+
+            // A discontinuous pose jump is usually recentering or tracking re-acquisition.
+            // Rebase instead of interpreting it as an instant crouch or crawl.
+            if (Math.abs(headY - localStandingHeadY) > baseHeight * 0.75F) {
+                localStandingHeadY = headY;
+                isSneaking = false;
+                isCrawling = false;
+                mc.thePlayer.boundingBox.maxY = mc.thePlayer.boundingBox.minY + 1.80D;
+                mc.thePlayer.yOffset = 1.62F;
+            }
+            float dropFromStanding = Math.max(0.0F, localStandingHeadY - headY);
+            effectiveHeadHeight = Math.max(0.0F, baseHeight - dropFromStanding);
+        }
+
+        float ratio = effectiveHeadHeight / baseHeight;
 
         // 1. Room Sneak (with hysteresis to prevent rapid boundary flicker)
         boolean allowSneak = (VRClientSettings.roomSneakEnabled || VRClientSettings.roomSneak);
         float sneakEnter = VRClientSettings.roomSneakThreshold - 0.02F;
         float sneakExit = VRClientSettings.roomSneakThreshold + 0.02F;
-        if (allowSneak && headY > 0.30F) {
+        boolean validHeight = stageSpace ? headY > 0.30F : localHeightCalibrated;
+        if (allowSneak && validHeight) {
             isSneaking = isSneaking ? (ratio <= sneakExit) : (ratio <= sneakEnter);
         } else {
             isSneaking = false;
@@ -55,7 +92,7 @@ public class VRTaskRoomCrawl {
         float crawlEnter = VRClientSettings.roomCrawlThreshold - 0.02F;
         float crawlExit = VRClientSettings.roomCrawlThreshold + 0.02F;
         boolean shouldCrawl = false;
-        if (allowCrawl && headY > 0.15F) {
+        if (allowCrawl && validHeight) {
             shouldCrawl = isCrawling ? (ratio <= crawlExit) : (ratio <= crawlEnter);
         }
 
@@ -89,5 +126,7 @@ public class VRTaskRoomCrawl {
         }
         isCrawling = false;
         isSneaking = false;
+        localHeightCalibrated = false;
+        localStandingHeadY = 0.0F;
     }
 }
