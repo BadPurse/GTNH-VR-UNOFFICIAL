@@ -5,6 +5,7 @@ import com.gtnhvr.gui.settings.OptionWidget;
 import com.gtnhvr.gui.settings.OptionWidgetPosition;
 import com.gtnhvr.gui.settings.VROptionsSet;
 import com.gtnhvr.settings.VRClientSettings;
+import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.resources.I18n;
 import org.lwjgl.input.Keyboard;
 
@@ -14,6 +15,7 @@ import org.lwjgl.input.Keyboard;
  * Click a binding button, then press the keyboard key whose Minecraft/Forge/mod action
  * should be emitted by that gesture. This intentionally does not inspect or guess mod names.
  */
+@Lwjgl3Aware
 public final class VRSettingsShoulderGestures extends VROptionsSet {
     private static final int CAPTURE_NONE = 0;
     private static final int CAPTURE_RIGHT_TO_LEFT = 1;
