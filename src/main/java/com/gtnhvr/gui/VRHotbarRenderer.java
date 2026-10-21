@@ -198,34 +198,13 @@ public final class VRHotbarRenderer {
         // Main Hand (Right Hand): vibrant Cyan/Blue (#26D9FF)
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         drawRing(mc, slotMain, imageX, imageY, OFF_SEL0, OFF_SEL1);
-        drawColoredSlotBorder(slotMain, imageX, imageY, 0.15F, 0.85F, 1.0F, 0.95F);
 
         // Off Hand (Left Hand): vibrant Orange (#FFA61A)
         if (slotOffhand >= 0 && slotOffhand < 9) {
             GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
             drawRing(mc, slotOffhand, imageX, imageY, MAIN_SEL0, MAIN_SEL1);
-            drawColoredSlotBorder(slotOffhand, imageX, imageY, 1.0F, 0.65F, 0.10F, 0.95F);
         }
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-    }
-
-    private void drawColoredSlotBorder(int slot, int imageX, int imageY, float r, float g, float b, float a) {
-        HotBarSlice slice = HotBarSlice.fromSlot(slot);
-        if (slice == HotBarSlice.NOT_SELECTED) return;
-        float x = imageX + slice.getItemX() - 3;
-        float y = imageY + slice.getItemY() - 3;
-        float size = 22.0F;
-
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glLineWidth(2.5F);
-        GL11.glColor4f(r, g, b, a);
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        GL11.glVertex2f(x, y);
-        GL11.glVertex2f(x + size, y);
-        GL11.glVertex2f(x + size, y + size);
-        GL11.glVertex2f(x, y + size);
-        GL11.glEnd();
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
     }
 
     private void drawRing(Minecraft mc, int slot, int imageX, int imageY,
