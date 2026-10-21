@@ -206,6 +206,16 @@ public final class VRShoulderGestures {
         }
     }
 
+    /**
+     * Whether an opposite-shoulder gesture is currently holding a synthetic key down.
+     * Gameplay bindings use this to avoid immediately overwriting a shoulder-button press.
+     */
+    public boolean isSyntheticKeyHeld(int keyCode) {
+        if (keyCode <= 0) return false;
+        Long releaseAt = pendingKeyReleases.get(keyCode);
+        return releaseAt != null && System.nanoTime() < releaseAt;
+    }
+
     private void resetGestureState() {
         rightHandWasOnShoulder = false;
         rightHandGestureFired = false;
