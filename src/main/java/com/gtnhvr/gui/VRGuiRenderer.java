@@ -48,6 +48,13 @@ public final class VRGuiRenderer {
     private static int[] savedMouseCoordinates;
     private static boolean mouseCoordinatesAdjusted = false;
 
+    // Some mod GUIs (notably scrollable option screens) consume Mouse.next() from inside
+    // drawScreen(). Their event coordinates are window pixels, so input handling must see
+    // the original window dimensions even while the surrounding GUI is rendered to 1920x1080.
+    private static int mouseInputScopeDepth = 0;
+    private static int mouseInputSavedDisplayWidth = -1;
+    private static int mouseInputSavedDisplayHeight = -1;
+
     // Same fixed GUI target as Visor's VRGuiManagerImpl. The screen canvas must not
     // inherit the desktop aspect ratio or the custom 2388x1668 default, which is not 16:9.
     private static final int VR_GUI_WIDTH = 1920;
@@ -198,6 +205,52 @@ public final class VRGuiRenderer {
         }
     }
 
+    /**
+     * Temporarily restore the physical window coordinate space while a screen consumes
+     * queued mouse events from inside rendering. This is needed by custom GUIs that call
+     * handleMouseInput() during drawScreen(), rather than during Minecraft's normal tick.
+     */
+    public static void beginMouseInputScope() {
+        if (!capturing || savedDisplayWidth <= 0 || savedDisplayHeight <= 0) return;
+        if (mouseInputScopeDepth++ > 0) return;
+
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null) {
+            mouseInputScopeDepth = 0;
+            return;
+        }
+
+        mouseInputSavedDisplayWidth = mc.displayWidth;
+        mouseInputSavedDisplayHeight = mc.displayHeight;
+
+        // Restore the raw cursor fields too. Queued Mouse events are still stored in physical
+        // window pixels; leaving only the current x/y fields scaled would mix coordinate spaces.
+        restoreMouseCoordinates();
+        mc.displayWidth = savedDisplayWidth;
+        mc.displayHeight = savedDisplayHeight;
+        logicalGuiResolutionActive = false;
+    }
+
+    public static void endMouseInputScope() {
+        if (mouseInputScopeDepth <= 0) return;
+        if (--mouseInputScopeDepth > 0) return;
+
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc != null && mouseInputSavedDisplayWidth > 0 && mouseInputSavedDisplayHeight > 0) {
+            mc.displayWidth = mouseInputSavedDisplayWidth;
+            mc.displayHeight = mouseInputSavedDisplayHeight;
+        }
+        mouseInputSavedDisplayWidth = -1;
+        mouseInputSavedDisplayHeight = -1;
+
+        if (capturing) {
+            logicalGuiResolutionActive = true;
+            // Re-enter the logical render coordinate space and preserve the physical values
+            // for VRGuiRenderer.end(), which restores them after this screen is drawn.
+            adjustMouseCoordinatesForVirtualCanvas();
+        }
+    }
+
     /** Called once at the start of every render tick; allows exactly one clear per frame. */
     public static void newFrame() {
         frameId++;
@@ -306,6 +359,19 @@ public final class VRGuiRenderer {
 
     public static void end() {
         if (!capturing) return;
+
+        // Defensive recovery if a third-party screen threw while processing a nested input loop.
+        if (mouseInputScopeDepth > 0) {
+            mouseInputScopeDepth = 0;
+            Minecraft scopeMc = Minecraft.getMinecraft();
+            if (scopeMc != null && mouseInputSavedDisplayWidth > 0 && mouseInputSavedDisplayHeight > 0) {
+                scopeMc.displayWidth = mouseInputSavedDisplayWidth;
+                scopeMc.displayHeight = mouseInputSavedDisplayHeight;
+            }
+            mouseInputSavedDisplayWidth = -1;
+            mouseInputSavedDisplayHeight = -1;
+        }
+
         capturing = false;
         GLStateManager.glColorMask(true, true, true, true);
         GLStateManager.glFlush();
