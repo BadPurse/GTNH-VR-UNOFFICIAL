@@ -295,7 +295,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         // Solid opaque backing rect matching Visor to prevent any VR alpha see-through
         drawRect(bgX, bgY, extraX + extraW, bgY + bgH, 0xFF18181A);
 
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
         // 1. Draw Main Background (bg_main_1 for Overlays, bg_main_2 for Create)
         ResourceLocation mainBg = (currentTab == Tab.OVERLAYS) ? BG_MAIN_1 : BG_MAIN_2;
@@ -321,7 +321,7 @@ public class GuiSettingsOverlays extends GuiScreen {
             // "Create Overlay" tab button on right (u: 64, v: 0, w: 115, h: 23)
             int tabRightX = bgX + tabW;
             boolean tabHover = isHovered(mouseX, mouseY, tabRightX, tabY, tabW, tabH);
-            GL11.glColor4f(tabHover ? 1.0F : 0.85F, tabHover ? 1.0F : 0.85F, 1.0F, 1.0F);
+            GLStateManager.glColor4f(tabHover ? 1.0F : 0.85F, tabHover ? 1.0F : 0.85F, 1.0F, 1.0F);
             drawTexturedQuad(tabRightX, tabY, tabW, tabH, 64, 0, 115, 23, 179, 188);
             drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays.create_overlay"),
                     tabRightX + tabW / 2, tabY + (tabH - 8) / 2, tabHover ? 0xFFFFA0 : 0xCCCCCC);
@@ -329,7 +329,7 @@ public class GuiSettingsOverlays extends GuiScreen {
             // "Overlays" tab button on left (u: 64, v: 24, w: 115, h: 23)
             int tabLeftX = bgX;
             boolean tabHover = isHovered(mouseX, mouseY, tabLeftX, tabY, tabW, tabH);
-            GL11.glColor4f(tabHover ? 1.0F : 0.85F, tabHover ? 1.0F : 0.85F, 1.0F, 1.0F);
+            GLStateManager.glColor4f(tabHover ? 1.0F : 0.85F, tabHover ? 1.0F : 0.85F, 1.0F, 1.0F);
             drawTexturedQuad(tabLeftX, tabY, tabW, tabH, 64, 24, 115, 23, 179, 188);
             drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays"),
                     tabLeftX + tabW / 2, tabY + (tabH - 8) / 2, tabHover ? 0xFFFFA0 : 0xCCCCCC);
@@ -345,7 +345,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         int btnSz = scaleHelper.scaledSize(19);
         boolean closeHover = isHovered(mouseX, mouseY, closeBtnX, closeBtnY, btnSz, btnSz);
         int closeU = closeHover ? 145 : 110;
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         this.mc.getTextureManager().bindTexture(GENERAL_1);
         drawTexturedQuad(closeBtnX, closeBtnY, btnSz, btnSz, closeU, 112, 34, 34, 179, 188);
 
