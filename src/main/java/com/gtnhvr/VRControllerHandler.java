@@ -1413,13 +1413,13 @@ public final class VRControllerHandler {
             strafe = rotStrafe;
         }
 
-        // Auto-sprinting when pushed forward (connected to VRClientSettings.sprintThreshold)
+        // Sneaking takes priority over auto-sprint. In particular, don't clear a deliberate
+        // sneak toggle just because the player pushes the movement stick forward; mods such as
+        // Tinkers' Construct use the sneak state to select single-block mining.
+        boolean sneaking = input.sneak || isSneakActive() || mc.thePlayer.isSneaking();
         boolean mappedSprint = isMappedControllerKeyHeld(mc.gameSettings.keyBindSprint.getKeyCode());
-        boolean sprint = ((leftStickClick && VRClientSettings.controllerLeftStickClickKeyCode <= 0)
+        boolean sprint = !sneaking && ((leftStickClick && VRClientSettings.controllerLeftStickClickKeyCode <= 0)
                 || mappedSprint || forward >= com.gtnhvr.settings.VRClientSettings.sprintThreshold);
-        if (sprint) {
-            sneakToggled = false;
-        }
         if (sprint && !mc.thePlayer.isSneaking()) {
             mc.thePlayer.setSprinting(true);
             forward = 1.0F;
@@ -1442,8 +1442,7 @@ public final class VRControllerHandler {
                 strafe > 0.20F || isMappedControllerKeyHeld(mc.gameSettings.keyBindLeft.getKeyCode()));
         KeyBinding.setKeyBindState(mc.gameSettings.keyBindRight.getKeyCode(),
                 strafe < -0.20F || isMappedControllerKeyHeld(mc.gameSettings.keyBindRight.getKeyCode()));
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(),
-                sprint || isMappedControllerKeyHeld(mc.gameSettings.keyBindSprint.getKeyCode()));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), sprint);
     }
 
     public void setKbDragHand(boolean isLeft) {
@@ -1649,8 +1648,14 @@ public final class VRControllerHandler {
         if (rightStickY < 0.0F && VRClientSettings.controllerRightStickDownKeyCode > 0) return 0.0F;
         return rightStickY;
     }
+    /** True while VR crouch/crawl, the toggle, or a mapped keyboard sneak binding is active. */
     public boolean isSneakActive() {
-        return sneakToggled || (com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance().isSneaking());
+        Minecraft mc = Minecraft.getMinecraft();
+        boolean mappedSneak = mc != null && mc.gameSettings != null
+                && isMappedControllerKeyHeld(mc.gameSettings.keyBindSneak.getKeyCode());
+        return sneakToggled
+                || com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance().isSneaking()
+                || mappedSneak;
     }
     public boolean isLeftCursorHand() { return isLeftCursorHand; }
     public boolean isLeftPrimaryValue() { return VRClientSettings.controllerLeftXKeyCode <= 0 && leftPrimaryValue; }
