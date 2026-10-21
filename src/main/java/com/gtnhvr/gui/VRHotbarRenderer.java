@@ -14,6 +14,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
 /**
@@ -214,13 +215,15 @@ public final class VRHotbarRenderer {
         if (slice == HotBarSlice.NOT_SELECTED) {
             return;
         }
+        int previousProgram = GLStateManager.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         int previousActiveTexture = GLStateManager.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
         int textureUnitCount = Math.max(1, GLStateManager.glGetInteger(GL13.GL_MAX_TEXTURE_UNITS));
         boolean[] extraTextureUnitsEnabled = new boolean[textureUnitCount];
         GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
-            // RenderItem can switch to the lightmap/additional texture units. GuiTexture.blit in
-            // Visor renders through the GUI pipeline; this legacy GL path must normalize it first.
+            // RenderItem can leave its item shader active. Visor's GuiTexture.blit uses the GUI
+            // pipeline; force Angelica's fixed-function emulation for this textured overlay pass. 
+            GLStateManager.glUseProgram(0);
             for (int unit = 1; unit < textureUnitCount; unit++) {
                 GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
                 extraTextureUnitsEnabled[unit] = GLStateManager.glIsEnabled(GL11.GL_TEXTURE_2D);
@@ -249,6 +252,7 @@ public final class VRHotbarRenderer {
                 }
             }
             GLStateManager.glActiveTexture(previousActiveTexture);
+            GLStateManager.glUseProgram(previousProgram);
         }
     }
 
