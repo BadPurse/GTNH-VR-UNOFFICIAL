@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.settings.VROverlayConfig;
 import com.gtnhvr.GTNHVRLog;
 import com.gtnhvr.OpenXRRuntime;
@@ -628,24 +629,24 @@ public final class VRVirtualKeyboard {
     private void checkFbo() {
         if (fbo == 0) {
             try {
-                fbo = GL30.glGenFramebuffers();
-                textureId = GL11.glGenTextures();
-                depthRb = GL30.glGenRenderbuffers();
+                fbo = GLStateManager.glGenFramebuffers();
+                textureId = GLStateManager.glGenTextures();
+                depthRb = GLStateManager.glGenRenderbuffers();
 
-                GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
-                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, TEX_W, TEX_H, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+                GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+                GLStateManager.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, TEX_W, TEX_H, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+                GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+                GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+                GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+                GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 
-                GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
-                GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, TEX_W, TEX_H);
+                GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
+                GLStateManager.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, TEX_W, TEX_H);
 
-                GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-                GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, textureId, 0);
-                GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
-                GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+                GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+                GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, textureId, 0);
+                GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
+                GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
             } catch (Throwable t) {
                 GTNHVRLog.warn("Failed to create virtual keyboard FBO: %s", t);
             }
@@ -656,30 +657,30 @@ public final class VRVirtualKeyboard {
         checkFbo();
         if (fbo == 0 || mc == null) return;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS | GL11.GL_VIEWPORT_BIT);
-        int prevFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS | GL11.GL_VIEWPORT_BIT);
+        int prevFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
 
         try {
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-            GL11.glViewport(0, 0, TEX_W, TEX_H);
-            GL11.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+            GLStateManager.glViewport(0, 0, TEX_W, TEX_H);
+            GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+            GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-            GL11.glOrtho(0, TEX_W, TEX_H, 0, 1000, 3000);
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glLoadIdentity();
+            GLStateManager.glOrtho(0, TEX_W, TEX_H, 0, 1000, 3000);
 
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-            GL11.glTranslatef(0.0F, 0.0F, -2000.0F);
-            GL11.glScalef(RENDER_SCALE, RENDER_SCALE, 1.0F);
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glLoadIdentity();
+            GLStateManager.glTranslatef(0.0F, 0.0F, -2000.0F);
+            GLStateManager.glScalef(RENDER_SCALE, RENDER_SCALE, 1.0F);
 
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
             // Subtle dark translucent backing panel
             Gui.drawRect(0, 0, KB_PIXEL_W, KB_PIXEL_H, 0x88121620);
@@ -695,13 +696,13 @@ public final class VRVirtualKeyboard {
                 btn.drawButton(mc, mouseX, mouseY);
             }
 
-            GL11.glPopMatrix();
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glPopMatrix();
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glPopMatrix();
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPopMatrix();
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
         } finally {
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
-            GL11.glPopAttrib();
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
+            GLStateManager.glPopAttrib();
             needsRedraw = false;
             lastMouseX = mouseX;
             lastMouseY = mouseY;
@@ -1004,101 +1005,101 @@ public final class VRVirtualKeyboard {
         float resizeBottom = barCenterY - handleSide;
         float resizeTop = barCenterY + handleSide;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
 
         try {
-            GL11.glDisable(GL11.GL_CULL_FACE);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL11.GL_LEQUAL);
-            GL11.glDepthMask(true);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthFunc(GL11.GL_LEQUAL);
+            GLStateManager.glDepthMask(true);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
             // 6-DoF Transform into keyboard pose
-            GL11.glTranslatef(kbPos.x, kbPos.y, kbPos.z);
+            GLStateManager.glTranslatef(kbPos.x, kbPos.y, kbPos.z);
             AxisAngle4f aa = new AxisAngle4f(kbRot);
             if (aa.angle != 0.0F && (aa.x != 0.0F || aa.y != 0.0F || aa.z != 0.0F)) {
-                GL11.glRotatef((float) Math.toDegrees(aa.angle), aa.x, aa.y, aa.z);
+                GLStateManager.glRotatef((float) Math.toDegrees(aa.angle), aa.x, aa.y, aa.z);
             }
 
             // 1. Textured Keyboard Quad
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
             float uMax = (float) (KB_PIXEL_W * RENDER_SCALE) / (float) TEX_W;
             float vMax = (float) (KB_PIXEL_H * RENDER_SCALE) / (float) TEX_H;
 
-            GL11.glBegin(GL11.GL_QUADS);
-            GL11.glTexCoord2f(0.0F, 1.0F);        GL11.glVertex3f(-halfW,  halfH, 0.0F);
-            GL11.glTexCoord2f(uMax, 1.0F);        GL11.glVertex3f( halfW,  halfH, 0.0F);
-            GL11.glTexCoord2f(uMax, 1.0F - vMax); GL11.glVertex3f( halfW, -halfH, 0.0F);
-            GL11.glTexCoord2f(0.0F, 1.0F - vMax); GL11.glVertex3f(-halfW, -halfH, 0.0F);
-            GL11.glEnd();
+            GLStateManager.glBegin(GL11.GL_QUADS);
+            GLStateManager.glTexCoord2f(0.0F, 1.0F);        GLStateManager.glVertex3f(-halfW,  halfH, 0.0F);
+            GLStateManager.glTexCoord2f(uMax, 1.0F);        GLStateManager.glVertex3f( halfW,  halfH, 0.0F);
+            GLStateManager.glTexCoord2f(uMax, 1.0F - vMax); GLStateManager.glVertex3f( halfW, -halfH, 0.0F);
+            GLStateManager.glTexCoord2f(0.0F, 1.0F - vMax); GLStateManager.glVertex3f(-halfW, -halfH, 0.0F);
+            GLStateManager.glEnd();
 
             // 2. Visor 1:1 Drag Bar & Resize Handle (disabled in Main Menu)
             boolean allowHandles = (mc != null && mc.theWorld != null);
             if (allowHandles && (isDragging || isResizing || hoveredHandle != KeyboardHandle.NONE)) {
-                GL11.glDisable(GL11.GL_TEXTURE_2D);
+                GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
 
                 // Visor 1:1 Handle Colors
                 // Drag bar
                 if (isDragging) {
-                    GL11.glColor4f(0.863F, 0.863F, 0.863F, 0.431F);
+                    GLStateManager.glColor4f(0.863F, 0.863F, 0.863F, 0.431F);
                 } else if (hoveredHandle == KeyboardHandle.DRAG_BAR) {
-                    GL11.glColor4f(0.863F, 0.863F, 0.863F, 0.470F);
+                    GLStateManager.glColor4f(0.863F, 0.863F, 0.863F, 0.470F);
                 } else {
-                    GL11.glColor4f(0.745F, 0.745F, 0.745F, 0.333F);
+                    GLStateManager.glColor4f(0.745F, 0.745F, 0.745F, 0.333F);
                 }
-                GL11.glBegin(GL11.GL_QUADS);
-                GL11.glVertex3f(barLeft, barBottom, 0.001F);
-                GL11.glVertex3f(barRight, barBottom, 0.001F);
-                GL11.glVertex3f(barRight, barTop, 0.001F);
-                GL11.glVertex3f(barLeft, barTop, 0.001F);
-                GL11.glEnd();
+                GLStateManager.glBegin(GL11.GL_QUADS);
+                GLStateManager.glVertex3f(barLeft, barBottom, 0.001F);
+                GLStateManager.glVertex3f(barRight, barBottom, 0.001F);
+                GLStateManager.glVertex3f(barRight, barTop, 0.001F);
+                GLStateManager.glVertex3f(barLeft, barTop, 0.001F);
+                GLStateManager.glEnd();
 
                 // Resize square
                 if (isResizing) {
-                    GL11.glColor4f(0.470F, 0.863F, 1.000F, 0.627F);
+                    GLStateManager.glColor4f(0.470F, 0.863F, 1.000F, 0.627F);
                 } else if (hoveredHandle == KeyboardHandle.RESIZE_HANDLE) {
-                    GL11.glColor4f(0.863F, 0.863F, 0.863F, 0.470F);
+                    GLStateManager.glColor4f(0.863F, 0.863F, 0.863F, 0.470F);
                 } else {
-                    GL11.glColor4f(0.745F, 0.745F, 0.745F, 0.333F);
+                    GLStateManager.glColor4f(0.745F, 0.745F, 0.745F, 0.333F);
                 }
-                GL11.glBegin(GL11.GL_QUADS);
-                GL11.glVertex3f(resizeLeft, resizeBottom, 0.001F);
-                GL11.glVertex3f(resizeRight, resizeBottom, 0.001F);
-                GL11.glVertex3f(resizeRight, resizeTop, 0.001F);
-                GL11.glVertex3f(resizeLeft, resizeTop, 0.001F);
-                GL11.glEnd();
+                GLStateManager.glBegin(GL11.GL_QUADS);
+                GLStateManager.glVertex3f(resizeLeft, resizeBottom, 0.001F);
+                GLStateManager.glVertex3f(resizeRight, resizeBottom, 0.001F);
+                GLStateManager.glVertex3f(resizeRight, resizeTop, 0.001F);
+                GLStateManager.glVertex3f(resizeLeft, resizeTop, 0.001F);
+                GLStateManager.glEnd();
 
                 // Resizing outline (all 4 edges, Visor 1:1)
                 if (isResizing) {
-                    GL11.glColor4f(0.470F, 0.863F, 1.000F, 0.627F);
+                    GLStateManager.glColor4f(0.470F, 0.863F, 1.000F, 0.627F);
                     float thick = Math.max(0.004F, halfW * 0.012F);
-                    GL11.glBegin(GL11.GL_QUADS);
+                    GLStateManager.glBegin(GL11.GL_QUADS);
                     // Top edge
-                    GL11.glVertex3f(-halfW, halfH - thick, 0.002F);
-                    GL11.glVertex3f( halfW, halfH - thick, 0.002F);
-                    GL11.glVertex3f( halfW, halfH,         0.002F);
-                    GL11.glVertex3f(-halfW, halfH,         0.002F);
+                    GLStateManager.glVertex3f(-halfW, halfH - thick, 0.002F);
+                    GLStateManager.glVertex3f( halfW, halfH - thick, 0.002F);
+                    GLStateManager.glVertex3f( halfW, halfH,         0.002F);
+                    GLStateManager.glVertex3f(-halfW, halfH,         0.002F);
                     // Bottom edge
-                    GL11.glVertex3f(-halfW, -halfH,         0.002F);
-                    GL11.glVertex3f( halfW, -halfH,         0.002F);
-                    GL11.glVertex3f( halfW, -halfH + thick, 0.002F);
-                    GL11.glVertex3f(-halfW, -halfH + thick, 0.002F);
+                    GLStateManager.glVertex3f(-halfW, -halfH,         0.002F);
+                    GLStateManager.glVertex3f( halfW, -halfH,         0.002F);
+                    GLStateManager.glVertex3f( halfW, -halfH + thick, 0.002F);
+                    GLStateManager.glVertex3f(-halfW, -halfH + thick, 0.002F);
                     // Left edge
-                    GL11.glVertex3f(-halfW,         -halfH + thick, 0.002F);
-                    GL11.glVertex3f(-halfW + thick, -halfH + thick, 0.002F);
-                    GL11.glVertex3f(-halfW + thick,  halfH - thick, 0.002F);
-                    GL11.glVertex3f(-halfW,          halfH - thick, 0.002F);
+                    GLStateManager.glVertex3f(-halfW,         -halfH + thick, 0.002F);
+                    GLStateManager.glVertex3f(-halfW + thick, -halfH + thick, 0.002F);
+                    GLStateManager.glVertex3f(-halfW + thick,  halfH - thick, 0.002F);
+                    GLStateManager.glVertex3f(-halfW,          halfH - thick, 0.002F);
                     // Right edge
-                    GL11.glVertex3f(halfW - thick, -halfH + thick, 0.002F);
-                    GL11.glVertex3f(halfW,         -halfH + thick, 0.002F);
-                    GL11.glVertex3f(halfW,          halfH - thick, 0.002F);
-                    GL11.glVertex3f(halfW - thick,  halfH - thick, 0.002F);
-                    GL11.glEnd();
+                    GLStateManager.glVertex3f(halfW - thick, -halfH + thick, 0.002F);
+                    GLStateManager.glVertex3f(halfW,         -halfH + thick, 0.002F);
+                    GLStateManager.glVertex3f(halfW,          halfH - thick, 0.002F);
+                    GLStateManager.glVertex3f(halfW - thick,  halfH - thick, 0.002F);
+                    GLStateManager.glEnd();
                 }
             }
 
@@ -1109,15 +1110,15 @@ public final class VRVirtualKeyboard {
                 float curY = halfH - leftPointer.hitUV.y * kbHeight;
                 float r = 0.009F;
 
-                GL11.glDisable(GL11.GL_TEXTURE_2D);
-                GL11.glColor4f(1.0F, 0.65F, 0.10F, 0.95F);
-                GL11.glBegin(GL11.GL_TRIANGLE_FAN);
-                GL11.glVertex3f(curX, curY, 0.003F);
+                GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+                GLStateManager.glColor4f(1.0F, 0.65F, 0.10F, 0.95F);
+                GLStateManager.glBegin(GL11.GL_TRIANGLE_FAN);
+                GLStateManager.glVertex3f(curX, curY, 0.003F);
                 for (int i = 0; i <= 16; i++) {
                     double angle = i * (Math.PI * 2.0 / 16.0);
-                    GL11.glVertex3f(curX + (float) Math.cos(angle) * r, curY + (float) Math.sin(angle) * r, 0.003F);
+                    GLStateManager.glVertex3f(curX + (float) Math.cos(angle) * r, curY + (float) Math.sin(angle) * r, 0.003F);
                 }
-                GL11.glEnd();
+                GLStateManager.glEnd();
             }
 
             // Right pointer reticle dot (Cyan / Blue: #26D9FF, 0.15F, 0.85F, 1.0F)
@@ -1126,34 +1127,34 @@ public final class VRVirtualKeyboard {
                 float curY = halfH - rightPointer.hitUV.y * kbHeight;
                 float r = 0.009F;
 
-                GL11.glDisable(GL11.GL_TEXTURE_2D);
-                GL11.glColor4f(0.15F, 0.85F, 1.0F, 0.95F);
-                GL11.glBegin(GL11.GL_TRIANGLE_FAN);
-                GL11.glVertex3f(curX, curY, 0.003F);
+                GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+                GLStateManager.glColor4f(0.15F, 0.85F, 1.0F, 0.95F);
+                GLStateManager.glBegin(GL11.GL_TRIANGLE_FAN);
+                GLStateManager.glVertex3f(curX, curY, 0.003F);
                 for (int i = 0; i <= 16; i++) {
                     double angle = i * (Math.PI * 2.0 / 16.0);
-                    GL11.glVertex3f(curX + (float) Math.cos(angle) * r, curY + (float) Math.sin(angle) * r, 0.003F);
+                    GLStateManager.glVertex3f(curX + (float) Math.cos(angle) * r, curY + (float) Math.sin(angle) * r, 0.003F);
                 }
-                GL11.glEnd();
+                GLStateManager.glEnd();
             }
 
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
         }
     }
 
     public void destroy() {
         if (fbo != 0) {
-            GL30.glDeleteFramebuffers(fbo);
+            GLStateManager.glDeleteFramebuffers(fbo);
             fbo = 0;
         }
         if (textureId != 0) {
-            GL11.glDeleteTextures(textureId);
+            GLStateManager.glDeleteTextures(textureId);
             textureId = 0;
         }
         if (depthRb != 0) {
-            GL30.glDeleteRenderbuffers(depthRb);
+            GLStateManager.glDeleteRenderbuffers(depthRb);
             depthRb = 0;
         }
     }
