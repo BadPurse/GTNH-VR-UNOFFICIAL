@@ -378,7 +378,7 @@ public final class GuiHelper {
         if (com.gtnhvr.settings.VRClientSettings.keyboardAutoLayout) {
             boolean hasFocused = hasAnyFocusedTextField(screen);
             if (hasFocused) {
-                VRVirtualKeyboard.getInstance().showAutoKeyboard();
+                VRVirtualKeyboard.getInstance().showAutoKeyboard(screen);
             } else if (!(screen instanceof net.minecraft.client.gui.GuiChat)
                     && !(screen instanceof net.minecraft.client.gui.inventory.GuiEditSign)
                     && !(screen instanceof net.minecraft.client.gui.GuiScreenBook)) {
