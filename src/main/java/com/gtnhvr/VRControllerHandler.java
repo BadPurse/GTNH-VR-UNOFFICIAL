@@ -1034,8 +1034,11 @@ public final class VRControllerHandler {
             // coordinates. GuiScreen.handleMouseInput then maps those pixels into its own
             // width/height. Do not apply ScaledResolution here: that would scale the pointer
             // a second time when the virtual GUI resolution differs from the desktop window.
-            int cursorW = (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 1;
-            int cursorH = (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 1;
+            // The queued cursor position is expressed in physical pixels. The mouse-event
+            // mixin converts it to the virtual canvas during capture; using mc.displayWidth
+            // here could feed virtual pixels into that conversion and double-scale clicks.
+            int cursorW = com.gtnhvr.gui.VRGuiRenderer.getPhysicalWindowWidth();
+            int cursorH = com.gtnhvr.gui.VRGuiRenderer.getPhysicalWindowHeight();
             float curU = Math.max(0.0F, Math.min(1.0F, screenUV.x));
             float curV = Math.max(0.0F, Math.min(1.0F, screenUV.y));
             int screenX = Math.round(curU * cursorW);
