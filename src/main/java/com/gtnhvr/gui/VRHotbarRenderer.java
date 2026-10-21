@@ -217,7 +217,7 @@ public final class VRHotbarRenderer {
         int previousActiveTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
         int textureUnitCount = Math.max(1, GL11.glGetInteger(GL13.GL_MAX_TEXTURE_UNITS));
         boolean[] extraTextureUnitsEnabled = new boolean[textureUnitCount];
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
             // RenderItem can switch to the lightmap/additional texture units. GuiTexture.blit in
             // Visor renders through the GUI pipeline; this legacy GL path must normalize it first.
@@ -227,19 +227,19 @@ public final class VRHotbarRenderer {
                 GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
             }
             GLStateManager.glActiveTexture(GL13.GL_TEXTURE0);
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            GL11.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
             GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
             GLStateManager.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
             mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
             // The Visor PNG is already cyan/orange. Draw it un-tinted on texture unit 0.
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
             drawTexturedRect(imageX + slice.getItemX() - RING_INSET, imageY + slice.getItemY() - RING_INSET,
                     RING_SIZE, RING_SIZE);
         } finally {
-            GL11.glPopAttrib();
+            GLStateManager.glPopAttrib();
             for (int unit = 1; unit < textureUnitCount; unit++) {
                 GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
                 if (extraTextureUnitsEnabled[unit]) {
