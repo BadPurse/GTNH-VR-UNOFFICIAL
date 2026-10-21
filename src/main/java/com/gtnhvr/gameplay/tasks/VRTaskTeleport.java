@@ -159,50 +159,50 @@ public class VRTaskTeleport {
     public void renderTeleportArc() {
         if (!isAiming || arcPoints.size() < 2) return;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
 
         try {
-            GL11.glDisable(GL11.GL_TEXTURE_2D);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-            GL11.glLineWidth(4.0F);
+            GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+            GLStateManager.glLineWidth(4.0F);
 
             if (validLanding) {
-                GL11.glColor4f(0.20F, 0.80F, 1.0F, 0.85F); // Vibrant cyan
+                GLStateManager.glColor4f(0.20F, 0.80F, 1.0F, 0.85F); // Vibrant cyan
             } else {
-                GL11.glColor4f(1.0F, 0.25F, 0.25F, 0.70F); // Red (invalid)
+                GLStateManager.glColor4f(1.0F, 0.25F, 0.25F, 0.70F); // Red (invalid)
             }
 
-            GL11.glBegin(GL11.GL_LINE_STRIP);
+            GLStateManager.glBegin(GL11.GL_LINE_STRIP);
             for (Vector3f pt : arcPoints) {
-                GL11.glVertex3f(pt.x, pt.y, pt.z);
+                GLStateManager.glVertex3f(pt.x, pt.y, pt.z);
             }
-            GL11.glEnd();
+            GLStateManager.glEnd();
 
             // Landing reticle disk if valid
             if (validLanding && destination != null && !arcPoints.isEmpty()) {
                 Vector3f lastPt = arcPoints.get(arcPoints.size() - 1);
-                GL11.glPushMatrix();
-                GL11.glTranslatef(lastPt.x, lastPt.y + 0.02F, lastPt.z);
-                GL11.glRotatef(90.0F, 1.0F, 0.0F, 0.0F);
+                GLStateManager.glPushMatrix();
+                GLStateManager.glTranslatef(lastPt.x, lastPt.y + 0.02F, lastPt.z);
+                GLStateManager.glRotatef(90.0F, 1.0F, 0.0F, 0.0F);
 
-                GL11.glColor4f(0.20F, 0.90F, 1.0F, 0.60F);
-                GL11.glBegin(GL11.GL_LINE_LOOP);
+                GLStateManager.glColor4f(0.20F, 0.90F, 1.0F, 0.60F);
+                GLStateManager.glBegin(GL11.GL_LINE_LOOP);
                 int segments = 24;
                 float radius = 0.50F / Math.max(0.25F, Math.min(4.0F, VRClientSettings.worldScale));
                 for (int s = 0; s < segments; s++) {
                     double theta = 2.0 * Math.PI * s / segments;
-                    GL11.glVertex2d(Math.cos(theta) * radius, Math.sin(theta) * radius);
+                    GLStateManager.glVertex2d(Math.cos(theta) * radius, Math.sin(theta) * radius);
                 }
-                GL11.glEnd();
-                GL11.glPopMatrix();
+                GLStateManager.glEnd();
+                GLStateManager.glPopMatrix();
             }
 
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
         }
     }
 
