@@ -165,6 +165,10 @@ public final class VRGuiRenderer {
                 if (field != null) saved[i] = field.getInt(null);
             }
 
+            // Mark the snapshot before mutating fields so a partial reflection failure can roll back.
+            savedMouseCoordinates = saved;
+            mouseCoordinatesAdjusted = true;
+
             float scaleX = width / (float) savedDisplayWidth;
             float scaleY = height / (float) savedDisplayHeight;
             for (int i = 0; i < mouseCoordinateFields.length; i++) {
@@ -173,9 +177,6 @@ public final class VRGuiRenderer {
                     field.setInt(null, Math.round(saved[i] * ((i % 2 == 0) ? scaleX : scaleY)));
                 }
             }
-
-            savedMouseCoordinates = saved;
-            mouseCoordinatesAdjusted = true;
         } catch (Throwable ignored) {
             restoreMouseCoordinates();
         }
