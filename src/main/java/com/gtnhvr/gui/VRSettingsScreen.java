@@ -336,6 +336,11 @@ public class VRSettingsScreen extends GuiScreen {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) {
+        // Binding screens consume key presses before the global Escape/back handler.
+        // This lets Escape cancel capture instead of unexpectedly closing VR settings.
+        if (currentOptionsSet != null && currentOptionsSet.handleKeyTyped(typedChar, keyCode)) {
+            return;
+        }
         if (keyCode == 1) { // ESCAPE
             VRClientSettings.save();
             if (this.mc != null && this.mc.theWorld != null) {
