@@ -327,8 +327,15 @@ public final class GuiHelper {
         return null;
     }
 
-    /** Queue input only for editors that consume LWJGL's keyboard event queue directly. */
+    /** Queue input for editors that consume LWJGL events; replace rather than retain stale char-buffer contents. */
     public static void queueKeyboardEvent(char character, int keyCode) {
+        try {
+            me.eigenraven.lwjgl3ify.client.TextFieldHandler.textBuffer.setLength(0);
+            if (character != '\0' && character != '\b' && character != '\r'
+                    && character != '\t' && character != '\u001b') {
+                me.eigenraven.lwjgl3ify.client.TextFieldHandler.textBuffer.append(character);
+            }
+        } catch (Throwable ignored) {}
         try {
             org.lwjglx.input.Keyboard.addCharEvent(character, keyCode);
         } catch (Throwable ignored) {}
@@ -416,19 +423,8 @@ public final class GuiHelper {
     public static void keyTyped(GuiScreen screen, char character, int keyCode) {
         if (screen == null) return;
 
-        // 1. Populate LWJGL3ify TextFieldHandler.textBuffer for printable chars
-        if (character != '\0' && character != '\b' && character != '\r' && character != '\t' && character != '\u001b') {
-            try {
-                if (me.eigenraven.lwjgl3ify.client.TextFieldHandler.textBuffer.length() == 0) {
-                    me.eigenraven.lwjgl3ify.client.TextFieldHandler.textBuffer.append(character);
-                }
-            } catch (Throwable ignored) {}
-        }
-
-        // 2. Queue char event into org.lwjglx.input.Keyboard for screens/mods polling Keyboard.next()
-        try {
-            org.lwjglx.input.Keyboard.addCharEvent(character, keyCode);
-        } catch (Throwable ignored) {}
+        // Keep LWJGL3ify's buffer and queued key event in sync, including delete/enter events.
+        queueKeyboardEvent(character, keyCode);
 
         // Check text field state before invoking screen.keyTyped to detect if it was handled
         net.minecraft.client.gui.GuiTextField focused = getFocusedTextField();
