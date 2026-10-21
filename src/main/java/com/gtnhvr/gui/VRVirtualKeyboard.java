@@ -578,7 +578,7 @@ public final class VRVirtualKeyboard {
 
         // 4. Clear the selected binding in capture mode; otherwise PASTE.
         buttons.add(new KeyBtn(id++, gridStart + 2 * (sideButtonWidth + keyGap), topY, sideButtonWidth, keyHeight,
-                bindingCapture ? "CLEAR" : "PASTE", (isLeft) -> {
+                bindingCapture ? "CLR" : "PASTE", (isLeft) -> {
             if (clearVirtualBindingCapture()) {
                 triggerHaptic(isLeft);
                 return;
