@@ -26,6 +26,16 @@ public final class GuiEventHandler {
     private static int originalGuiScale = -1;
     private static boolean reinitializingGui = false;
 
+    private static int guiPixelWidth(Minecraft mc) {
+        return com.gtnhvr.OpenXRRuntime.isSessionRunning()
+                ? VRGuiRenderer.getCaptureWidth() : mc.displayWidth;
+    }
+
+    private static int guiPixelHeight(Minecraft mc) {
+        return com.gtnhvr.OpenXRRuntime.isSessionRunning()
+                ? VRGuiRenderer.getCaptureHeight() : mc.displayHeight;
+    }
+
     private static final Field FIELD_X_SIZE = findField(GuiContainer.class, "xSize", "field_146999_f");
     private static final Field FIELD_Y_SIZE = findField(GuiContainer.class, "ySize", "field_147000_g");
     private static final Field FIELD_GUI_LEFT = findField(GuiContainer.class, "guiLeft", "field_147003_i");
@@ -64,13 +74,15 @@ public final class GuiEventHandler {
     }
 
     private static int computeScaleFactor(Minecraft mc, int guiScaleSetting) {
-        if (mc.displayWidth <= 0 || mc.displayHeight <= 0) return 1;
+        int pixelWidth = guiPixelWidth(mc);
+        int pixelHeight = guiPixelHeight(mc);
+        if (pixelWidth <= 0 || pixelHeight <= 0) return 1;
         int scale = 1;
         int k = guiScaleSetting;
         if (k == 0) {
             k = 1000;
         }
-        while (scale < k && mc.displayWidth / (scale + 1) >= 320 && mc.displayHeight / (scale + 1) >= 240) {
+        while (scale < k && pixelWidth / (scale + 1) >= 320 && pixelHeight / (scale + 1) >= 240) {
             scale++;
         }
         return scale;
@@ -121,7 +133,7 @@ public final class GuiEventHandler {
             if (xSize > 0 && ySize > 0) {
                 int pad = 10;
                 int targetScale = currentScale;
-                while (targetScale > 1 && (mc.displayWidth / targetScale < xSize + pad || mc.displayHeight / targetScale < ySize + pad)) {
+                while (targetScale > 1 && (guiPixelWidth(mc) / targetScale < xSize + pad || guiPixelHeight(mc) / targetScale < ySize + pad)) {
                     targetScale--;
                 }
                 if (targetScale < currentScale) {
@@ -211,7 +223,7 @@ public final class GuiEventHandler {
                     int curEff = computeScaleFactor(mc, mc.gameSettings.guiScale);
                     int pad = 10;
                     int target = curEff;
-                    while (target > 1 && (mc.displayWidth / target < xSize + pad || mc.displayHeight / target < ySize + pad)) {
+                    while (target > 1 && (guiPixelWidth(mc) / target < xSize + pad || guiPixelHeight(mc) / target < ySize + pad)) {
                         target--;
                     }
                     if (target < curEff) {
@@ -219,7 +231,7 @@ public final class GuiEventHandler {
                         try {
                             mc.gameSettings.guiScale = target;
                             net.minecraft.client.gui.ScaledResolution scaled =
-                                    new net.minecraft.client.gui.ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+                                    new net.minecraft.client.gui.ScaledResolution(mc, guiPixelWidth(mc), guiPixelHeight(mc));
                             gui.setWorldAndResolution(mc, scaled.getScaledWidth(), scaled.getScaledHeight());
                         } finally {
                             reinitializingGui = false;
