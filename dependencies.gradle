@@ -60,4 +60,5 @@ dependencies {
     // Angelica & Sodium options integration
     compileOnly(files("libs/angelica-2.2.28.jar"))
     compileOnly(files("libs/unimixins.jar"))
+    runtimeOnlyNonPublishable(files("libs/unimixins.jar"))
 }
