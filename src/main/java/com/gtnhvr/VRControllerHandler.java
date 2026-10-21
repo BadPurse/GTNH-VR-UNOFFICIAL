@@ -111,12 +111,16 @@ public final class VRControllerHandler {
     private final Quaternionf leftHandRot = new Quaternionf();
     private boolean leftHandTracked = false;
 
-    // Grip-pose positions are tracked separately from aim poses. Shoulder gestures need the
-    // physical controller location, not the forward-offset ray origin used for laser pointing.
+    // Grip-pose position/orientation are tracked separately from aim poses. Shoulder gestures need
+    // the physical controller location; Visor's bow pose also needs the aim-to-grip rotation.
     private final Vector3f rightGripHandPos = new Vector3f();
+    private final Quaternionf rightGripHandRot = new Quaternionf();
     private boolean rightGripHandTracked = false;
+    private boolean rightGripHandOrientationTracked = false;
     private final Vector3f leftGripHandPos = new Vector3f();
+    private final Quaternionf leftGripHandRot = new Quaternionf();
     private boolean leftGripHandTracked = false;
+    private boolean leftGripHandOrientationTracked = false;
 
     // Input values
     private float rightTriggerValue = 0.0F;
@@ -554,13 +558,19 @@ public final class VRControllerHandler {
                     leftHandTracked ? "ACQUIRED" : "LOST", leftHandPos.x, leftHandPos.y, leftHandPos.z);
         }
 
-        // Independently locate the physical grip origins for reliable shoulder-distance detection.
-        rightGripHandTracked = locateGripPosition(rightGripSpace, localSpace, displayTime, loc, rightGripHandPos);
-        leftGripHandTracked = locateGripPosition(leftGripSpace, localSpace, displayTime, loc, leftGripHandPos);
+        // Independently locate physical grip poses. Grip orientation also determines Visor's
+        // dynamic bow rotation from the aim-pose -> grip-pose delta.
+        rightGripHandOrientationTracked = false;
+        leftGripHandOrientationTracked = false;
+        rightGripHandTracked = locateGripPosition(
+                rightGripSpace, localSpace, displayTime, loc, rightGripHandPos, rightGripHandRot, true);
+        leftGripHandTracked = locateGripPosition(
+                leftGripSpace, localSpace, displayTime, loc, leftGripHandPos, leftGripHandRot, false);
     }
 
     private boolean locateGripPosition(XrSpace gripSpace, XrSpace localSpace, long displayTime,
-                                        XrSpaceLocation location, Vector3f outPosition) {
+                                        XrSpaceLocation location, Vector3f outPosition,
+                                        Quaternionf outRotation, boolean rightController) {
         if (gripSpace == null || localSpace == null || displayTime <= 0) return false;
         try {
             location.type(XR_TYPE_SPACE_LOCATION);
@@ -569,6 +579,12 @@ public final class VRControllerHandler {
             if ((flags & XR_SPACE_LOCATION_POSITION_VALID_BIT) == 0) return false;
             XrPosef pose = location.pose();
             outPosition.set(pose.position$().x(), pose.position$().y(), pose.position$().z());
+            if ((flags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+                outRotation.set(pose.orientation().x(), pose.orientation().y(),
+                        pose.orientation().z(), pose.orientation().w());
+                if (rightController) rightGripHandOrientationTracked = true;
+                else leftGripHandOrientationTracked = true;
+            }
             return true;
         } catch (Throwable t) {
             GTNHVRLog.throttled("Error locating controller grip pose: %s", t);
@@ -589,6 +605,7 @@ public final class VRControllerHandler {
         stickAction = null; stickClickAction = null; primaryAction = null; secondaryAction = null; menuAction = null;
         rightHandTracked = false; leftHandTracked = false;
         rightGripHandTracked = false; leftGripHandTracked = false;
+        rightGripHandOrientationTracked = false; leftGripHandOrientationTracked = false;
         session = null;
         initialized = false;
         GTNHVRLog.info("VRControllerHandler destroyed and spaces cleaned up");
@@ -1612,6 +1629,28 @@ public final class VRControllerHandler {
 
     public Quaternionf getRightHandRot() {
         return rightHandRot;
+    }
+
+    /**
+     * Visor Essentials' bow pose extracts the controller's gun angle from the relative
+     * orientation of aim and grip poses. Use its 60-degree fallback when a runtime does not
+     * provide distinct aim/grip orientations.
+     */
+    public float getControllerGunAngle(boolean isRight) {
+        boolean tracked = isRight
+                ? rightHandTracked && rightGripHandOrientationTracked
+                : leftHandTracked && leftGripHandOrientationTracked;
+        if (!tracked) return 60.0F;
+
+        Quaternionf aimRotation = isRight ? rightHandRot : leftHandRot;
+        Quaternionf gripRotation = isRight ? rightGripHandRot : leftGripHandRot;
+        Quaternionf aimToGrip = new Quaternionf(aimRotation).conjugate().mul(gripRotation).normalize();
+
+        float angle = 2.0F * (float) Math.acos(Math.min(1.0F, Math.abs(aimToGrip.w)));
+        if (angle < (float) Math.toRadians(10.0F)) return 60.0F;
+
+        Vector3f gripForward = aimToGrip.transform(new Vector3f(0.0F, 0.0F, -1.0F));
+        return (float) Math.toDegrees(Math.atan2(gripForward.y, -gripForward.z));
     }
 
     public boolean isLeftHandTracked() {
