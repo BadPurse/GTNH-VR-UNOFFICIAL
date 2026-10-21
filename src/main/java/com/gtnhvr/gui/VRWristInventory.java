@@ -26,6 +26,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
 import java.util.ArrayList;
@@ -794,13 +795,15 @@ public final class VRWristInventory {
             textureName = centerSlot ? "hotbar_offhand_selected1.png" : "hotbar_offhand_selected0.png";
         }
 
+        int previousProgram = GLStateManager.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         int previousActiveTexture = GLStateManager.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
         int textureUnitCount = Math.max(1, GLStateManager.glGetInteger(GL13.GL_MAX_TEXTURE_UNITS));
         boolean[] extraTextureUnitsEnabled = new boolean[textureUnitCount];
         GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
-            // Items are rendered before this pass. Keep the ring blit on the normal GUI texture
-            // unit instead of inheriting any lightmap/additional texture-unit state from RenderItem.
+            // RenderItem can leave its item shader active. Match Visor's GUI texture pass by using
+            // Angelica's fixed-function emulation for this selection overlay.
+            GLStateManager.glUseProgram(0);
             for (int unit = 1; unit < textureUnitCount; unit++) {
                 GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
                 extraTextureUnitsEnabled[unit] = GLStateManager.glIsEnabled(GL11.GL_TEXTURE_2D);
@@ -830,6 +833,7 @@ public final class VRWristInventory {
                 }
             }
             GLStateManager.glActiveTexture(previousActiveTexture);
+            GLStateManager.glUseProgram(previousProgram);
         }
     }
 
