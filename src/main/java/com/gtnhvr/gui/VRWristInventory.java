@@ -787,8 +787,7 @@ public final class VRWristInventory {
     }
 
     private static void drawTexturedSlotSelection(Minecraft mc, float x, float y, boolean centerSlot, boolean offhand) {
-        // Match Visor's ready-coloured textures and center/non-center mapping.
-        // selected0 = outer slots; selected1 = center slot.
+        // Match Visor's selected0 / selected1 textures and main-hand/offhand assignment.
         String textureName;
         if (offhand) {
             textureName = centerSlot ? "hotbar_offhand_selected1.png" : "hotbar_offhand_selected0.png";
@@ -798,18 +797,11 @@ public final class VRWristInventory {
 
         int previousProgram = GLStateManager.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         int previousActiveTexture = GLStateManager.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
-        int textureUnitCount = Math.max(1, GLStateManager.glGetInteger(GL13.GL_MAX_TEXTURE_UNITS));
-        boolean[] extraTextureUnitsEnabled = new boolean[textureUnitCount];
         GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
-            // RenderItem can leave its item shader active. Match Visor's GUI texture pass by using
-            // Angelica's fixed-function emulation for this selection overlay.
+            // Match VisorEssentials' use of the normal GUI texture pipeline: draw with the
+            // GUI program on texture unit 0 and submit the selection after all slot items.
             GLStateManager.glUseProgram(0);
-            for (int unit = 1; unit < textureUnitCount; unit++) {
-                GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
-                extraTextureUnitsEnabled[unit] = GLStateManager.glIsEnabled(GL11.GL_TEXTURE_2D);
-                GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
-            }
             GLStateManager.glActiveTexture(GL13.GL_TEXTURE0);
             GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
             GLStateManager.glDisable(GL11.GL_LIGHTING);
@@ -818,21 +810,12 @@ public final class VRWristInventory {
             GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
                     GL11.GL_ONE, GL11.GL_ONE);
             GLStateManager.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
             mc.getTextureManager().bindTexture(new ResourceLocation(
                     "gtnhvr", "textures/gui/overlays/hotbar/" + textureName));
-            // The PNG itself is cyan/orange; keep the vertex colour white instead of tinting it again.
-            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
             drawSelectionTexture(x - 5.0F, y - 5.0F, 26.0F, 26.0F);
         } finally {
             GLStateManager.glPopAttrib();
-            for (int unit = 1; unit < textureUnitCount; unit++) {
-                GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
-                if (extraTextureUnitsEnabled[unit]) {
-                    GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
-                } else {
-                    GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
-                }
-            }
             GLStateManager.glActiveTexture(previousActiveTexture);
             GLStateManager.glUseProgram(previousProgram);
         }
