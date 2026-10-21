@@ -248,8 +248,14 @@ public final class VRClientSettings {
     public static int virtualScreenHeight = 1668;
     public static boolean antiXrayVignette = true;
 
-    // Shoulder Gesture Jetpack/Glide Activation
+    // Shoulder gesture bindings and detection settings
     public static boolean shoulderJetpackEnabled = true;
+    public static boolean shoulderJetpackGestureEnabled = true;
+    public static boolean shoulderGlideGestureEnabled = true;
+    public static float shoulderGestureDistance = 0.18F;
+    public static float shoulderGestureHoldSeconds = 1.0F;
+    public static String shoulderJetpackKeyBinding = "AUTO";
+    public static String shoulderGlideKeyBinding = "AUTO";
 
     private VRClientSettings() {}
 
@@ -425,7 +431,13 @@ public final class VRClientSettings {
             crosshairLaser = vrCrosshair;
 
             // Shoulder Gestures
-            shoulderJetpackEnabled = config.getBoolean("shoulderJetpackEnabled", "world", shoulderJetpackEnabled, "Shoulder gesture to toggle jetpacks and gliders");
+            shoulderJetpackEnabled = config.getBoolean("shoulderJetpackEnabled", "world", shoulderJetpackEnabled, "Enable shoulder gestures");
+            shoulderJetpackGestureEnabled = config.getBoolean("shoulderJetpackGestureEnabled", "world", shoulderJetpackGestureEnabled, "Right hand to left shoulder: toggle jetpack");
+            shoulderGlideGestureEnabled = config.getBoolean("shoulderGlideGestureEnabled", "world", shoulderGlideGestureEnabled, "Left hand to right shoulder: toggle hover or glide");
+            shoulderGestureDistance = (float) config.get("world", "shoulderGestureDistance", (double) shoulderGestureDistance, "Shoulder gesture detection distance in meters", 0.10D, 0.45D).getDouble();
+            shoulderGestureHoldSeconds = (float) config.get("world", "shoulderGestureHoldSeconds", (double) shoulderGestureHoldSeconds, "How long a hand must stay at a shoulder", 0.25D, 2.50D).getDouble();
+            shoulderJetpackKeyBinding = config.getString("shoulderJetpackKeyBinding", "world", shoulderJetpackKeyBinding, "Key binding description for the jetpack shoulder gesture; AUTO searches available bindings");
+            shoulderGlideKeyBinding = config.getString("shoulderGlideKeyBinding", "world", shoulderGlideKeyBinding, "Key binding description for the hover/glide shoulder gesture; AUTO searches available bindings");
 
             if (config.hasChanged()) {
                 config.save();
@@ -579,6 +591,12 @@ public final class VRClientSettings {
             config.get("world", "worldSupportedMovement", 0).set(worldSupportedMovement);
             config.get("world", "worldSupportedHeightMode", 0).set(worldSupportedHeightMode);
             config.get("world", "shoulderJetpackEnabled", true).set(shoulderJetpackEnabled);
+            config.get("world", "shoulderJetpackGestureEnabled", true).set(shoulderJetpackGestureEnabled);
+            config.get("world", "shoulderGlideGestureEnabled", true).set(shoulderGlideGestureEnabled);
+            config.get("world", "shoulderGestureDistance", 0.18D).set((double) shoulderGestureDistance);
+            config.get("world", "shoulderGestureHoldSeconds", 1.0D).set((double) shoulderGestureHoldSeconds);
+            config.get("world", "shoulderJetpackKeyBinding", "AUTO").set(shoulderJetpackKeyBinding);
+            config.get("world", "shoulderGlideKeyBinding", "AUTO").set(shoulderGlideKeyBinding);
 
             // Custom Hand Offsets (Per-Hand & Per-Category)
             saveOffset("tool_right", toolRight, DEFAULT_TOOL_RIGHT);
@@ -697,6 +715,13 @@ public final class VRClientSettings {
         worldRoomClimbing = true;
         worldSupportedMovement = 0;
         worldSupportedHeightMode = 0;
+        shoulderJetpackEnabled = true;
+        shoulderJetpackGestureEnabled = true;
+        shoulderGlideGestureEnabled = true;
+        shoulderGestureDistance = 0.18F;
+        shoulderGestureHoldSeconds = 1.0F;
+        shoulderJetpackKeyBinding = "AUTO";
+        shoulderGlideKeyBinding = "AUTO";
 
         autoHeight = true;
         vrBodyModel = "Steve (Classic)";
