@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.OpenXRRuntime;
 import com.gtnhvr.VRControllerHandler;
 import com.gtnhvr.settings.VROverlayConfig;
@@ -148,34 +149,34 @@ public final class VRWristInfoOverlay {
         Vector3f r = new Vector3f(right).mul(halfWidth);
         Vector3f u = new Vector3f(up).mul(halfHeight);
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
-            GL11.glDisable(GL11.GL_CULL_FACE);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glDisable(GL11.GL_FOG);
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthMask(false);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glDisable(GL11.GL_FOG);
+            GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
                     GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
             // Clean 100% transparent background (NO BLUE, NO BORDER)
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, hudTex);
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, hudTex);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
-            GL11.glBegin(GL11.GL_QUADS);
-            GL11.glTexCoord2f(u0, v0);
-            GL11.glVertex3f(center.x - r.x - u.x, center.y - r.y - u.y, center.z - r.z - u.z);
-            GL11.glTexCoord2f(u1, v0);
-            GL11.glVertex3f(center.x + r.x - u.x, center.y + r.y - u.y, center.z + r.z - u.z);
-            GL11.glTexCoord2f(u1, v1);
-            GL11.glVertex3f(center.x + r.x + u.x, center.y + r.y + u.y, center.z + r.z + u.z);
-            GL11.glTexCoord2f(u0, v1);
-            GL11.glVertex3f(center.x - r.x + u.x, center.y - r.y + u.y, center.z - r.z + u.z);
-            GL11.glEnd();
+            GLStateManager.glBegin(GL11.GL_QUADS);
+            GLStateManager.glTexCoord2f(u0, v0);
+            GLStateManager.glVertex3f(center.x - r.x - u.x, center.y - r.y - u.y, center.z - r.z - u.z);
+            GLStateManager.glTexCoord2f(u1, v0);
+            GLStateManager.glVertex3f(center.x + r.x - u.x, center.y + r.y - u.y, center.z + r.z - u.z);
+            GLStateManager.glTexCoord2f(u1, v1);
+            GLStateManager.glVertex3f(center.x + r.x + u.x, center.y + r.y + u.y, center.z + r.z + u.z);
+            GLStateManager.glTexCoord2f(u0, v1);
+            GLStateManager.glVertex3f(center.x - r.x + u.x, center.y - r.y + u.y, center.z - r.z + u.z);
+            GLStateManager.glEnd();
         } finally {
-            GL11.glPopAttrib();
+            GLStateManager.glPopAttrib();
         }
     }
 }
