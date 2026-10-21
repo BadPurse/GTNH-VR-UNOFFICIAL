@@ -216,42 +216,29 @@ public final class VRHotbarRenderer {
         if (slice == HotBarSlice.NOT_SELECTED) {
             return;
         }
+
         int previousProgram = GLStateManager.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         int previousActiveTexture = GLStateManager.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
-        int textureUnitCount = Math.max(1, GLStateManager.glGetInteger(GL13.GL_MAX_TEXTURE_UNITS));
-        boolean[] extraTextureUnitsEnabled = new boolean[textureUnitCount];
         GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
-            // RenderItem can leave its item shader active. Visor's GuiTexture.blit uses the GUI
-            // pipeline; force Angelica's fixed-function emulation for this textured overlay pass. 
+            // The original Visor renderer draws these after item rendering through GuiTexture.blit.
+            // Use Angelica's GUI/fixed-function path and a Tessellator quad rather than the custom
+            // GLStateManager immediate-mode quad, which can inherit item-render state.
             GLStateManager.glUseProgram(0);
-            for (int unit = 1; unit < textureUnitCount; unit++) {
-                GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
-                extraTextureUnitsEnabled[unit] = GLStateManager.glIsEnabled(GL11.GL_TEXTURE_2D);
-                GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
-            }
             GLStateManager.glActiveTexture(GL13.GL_TEXTURE0);
             GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
             GLStateManager.glDisable(GL11.GL_LIGHTING);
             GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             GLStateManager.glEnable(GL11.GL_BLEND);
-            GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+            GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                    GL11.GL_ONE, GL11.GL_ONE);
             GLStateManager.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
-            mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
-            // The Visor PNG is already cyan/orange. Draw it un-tinted on texture unit 0.
             GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
             drawSelectionTexture(imageX + slice.getItemX() - RING_INSET,
                     imageY + slice.getItemY() - RING_INSET, RING_SIZE, RING_SIZE);
         } finally {
             GLStateManager.glPopAttrib();
-            for (int unit = 1; unit < textureUnitCount; unit++) {
-                GLStateManager.glActiveTexture(GL13.GL_TEXTURE0 + unit);
-                if (extraTextureUnitsEnabled[unit]) {
-                    GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
-                } else {
-                    GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
-                }
-            }
             GLStateManager.glActiveTexture(previousActiveTexture);
             GLStateManager.glUseProgram(previousProgram);
         }
