@@ -172,7 +172,7 @@ public final class VRSettingsControllerBindings extends VROptionsSet {
         // Open the existing in-world VR keyboard so the binding can be selected without
         // a physical keyboard. VRVirtualKeyboard dispatches captured presses straight back
         // to handleVirtualKeyboardKey instead of typing into the settings screen.
-        VRVirtualKeyboard.getInstance().setVisible(true);
+        VRVirtualKeyboard.getInstance().showForBindingCapture();
     }
 
     private static String formatKey(Binding binding) {
@@ -190,15 +190,25 @@ public final class VRSettingsControllerBindings extends VROptionsSet {
         return captureTarget != NO_CAPTURE;
     }
 
-    /** Called by the existing virtual keyboard; Escape can be assigned from the overlay. */
+    /** Called by the existing virtual keyboard; Escape and Backspace can both be assigned. */
     public boolean handleVirtualKeyboardKey(int keyCode) {
         if (captureTarget == NO_CAPTURE) return false;
-        if (keyCode == Keyboard.KEY_BACK || keyCode == Keyboard.KEY_DELETE) {
-            assignKeyCode(0);
-        } else if (keyCode > 0) {
+        if (keyCode > 0) {
             assignKeyCode(keyCode);
         }
         return true;
+    }
+
+    /** Separate CLEAR control on the VR keyboard, so Backspace remains assignable. */
+    public void clearBindingFromVirtualKeyboard() {
+        if (captureTarget != NO_CAPTURE) {
+            assignKeyCode(0);
+        }
+    }
+
+    /** Close button on the VR keyboard cancels rather than leaving capture armed. */
+    public void cancelVirtualKeyboardCapture() {
+        captureTarget = NO_CAPTURE;
     }
 
     @Override
@@ -234,6 +244,6 @@ public final class VRSettingsControllerBindings extends VROptionsSet {
 
     private void finishCapture() {
         captureTarget = NO_CAPTURE;
-        VRVirtualKeyboard.getInstance().setVisible(false);
+        VRVirtualKeyboard.getInstance().hideForBindingCapture();
     }
 }
