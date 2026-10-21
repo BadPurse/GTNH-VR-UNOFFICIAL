@@ -27,12 +27,12 @@ public class VRSettingsControls extends VROptionsSet {
                 I18n.format("visor.options.controls.left_handed")
         ));
 
-        // Configure the two extra virtual controller buttons using real key capture,
-        // not mod-name heuristics or a fixed list of jetpack-specific bindings.
+        // Configure all digital controller inputs, thumbstick directions, and shoulder gestures.
+        // A binding opens the existing VR virtual keyboard for selection.
         widgets.add(new OptionWidget.SubmenuWidget(
                 OptionWidgetPosition.RIGHT, 0,
                 I18n.format("gtnhvr.controls.bindings.title"),
-                () -> new com.gtnhvr.gui.settings.categories.controls.VRSettingsShoulderGestures(screen, this),
+                () -> new com.gtnhvr.gui.settings.categories.controls.VRSettingsControllerBindings(screen, this),
                 I18n.format("gtnhvr.controls.bindings.tooltip")
         ));
 
