@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.OpenXRRuntime;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
@@ -94,24 +95,24 @@ public final class VRGuiRenderer {
             width = w;
             height = h;
 
-            fbo = GL30.glGenFramebuffers();
-            texture = GL11.glGenTextures();
-            depthRb = GL30.glGenRenderbuffers();
+            fbo = GLStateManager.glGenFramebuffers();
+            texture = GLStateManager.glGenTextures();
+            depthRb = GLStateManager.glGenRenderbuffers();
 
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+            GLStateManager.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 
-            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
-            GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH24_STENCIL8, width, height);
+            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
+            GLStateManager.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH24_STENCIL8, width, height);
 
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-            GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
-            GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+            GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
+            GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
         }
 
         if (guiFramebuffer == null) {
@@ -124,7 +125,7 @@ public final class VRGuiRenderer {
         checkSize(w, h);
         Minecraft mc = Minecraft.getMinecraft();
         if (!capturing) {
-            previousFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+            previousFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
             if (mc != null) {
                 savedMinecraftFramebuffer = OpenXRRuntime.getMinecraftFramebuffer(mc);
                 OpenXRRuntime.setMinecraftFramebuffer(mc, guiFramebuffer);
@@ -132,38 +133,38 @@ public final class VRGuiRenderer {
             }
         }
         capturing = true;
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL11.glViewport(0, 0, width, height);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GLStateManager.glViewport(0, 0, width, height);
 
         // A second begin() in the same frame must not wipe what was already drawn
         // (NEI panels, container slots); the buffer is cleared once per frame only.
         if (clearedFrameId != frameId || clearedAsMenu != inMainMenu) {
-            boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+            boolean scissor = GLStateManager.glIsEnabled(GL11.GL_SCISSOR_TEST);
             if (scissor) {
-                GL11.glDisable(GL11.GL_SCISSOR_TEST);
+                GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
             }
             // Ensure depth mask and color mask allow full clearing
-            GL11.glDepthMask(true);
-            GL11.glColorMask(true, true, true, true);
+            GLStateManager.glDepthMask(true);
+            GLStateManager.glColorMask(true, true, true, true);
 
             if (inMainMenu) {
-                GL11.glClearColor(0.06F, 0.07F, 0.10F, 1.0F);
+                GLStateManager.glClearColor(0.06F, 0.07F, 0.10F, 1.0F);
             } else {
-                GL11.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+                GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
             }
-            GL11.glClearDepth(1.0D);
-            GL11.glClearStencil(0);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_STENCIL_BUFFER_BIT);
+            GLStateManager.glClearDepth(1.0D);
+            GLStateManager.glClearStencil(0);
+            GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_STENCIL_BUFFER_BIT);
             if (scissor) {
-                GL11.glEnable(GL11.GL_SCISSOR_TEST);
+                GLStateManager.glEnable(GL11.GL_SCISSOR_TEST);
             }
             clearedFrameId = frameId;
             clearedAsMenu = inMainMenu;
         }
 
-        GL11.glColorMask(true, true, true, true);
-        GL11.glEnable(GL11.GL_BLEND);
-        org.lwjgl.opengl.GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GLStateManager.glColorMask(true, true, true, true);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        org.lwjgl.opengl.GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     public static void end() {
@@ -171,10 +172,10 @@ public final class VRGuiRenderer {
         capturing = false;
 
         // Ensure all color/alpha channels are writable
-        GL11.glColorMask(true, true, true, true);
+        GLStateManager.glColorMask(true, true, true, true);
 
         // Flush draw commands so GUI texture is completely ready for sampling
-        GL11.glFlush();
+        GLStateManager.glFlush();
 
         // Restore vanilla Minecraft framebuffer
         Minecraft mc = Minecraft.getMinecraft();
@@ -185,7 +186,7 @@ public final class VRGuiRenderer {
         restoreWindowResolution(mc);
 
         // Restore previous framebuffer binding
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
     }
 
     public static int getTextureId() {
@@ -206,15 +207,15 @@ public final class VRGuiRenderer {
 
     public static void destroy() {
         if (fbo != 0) {
-            GL30.glDeleteFramebuffers(fbo);
+            GLStateManager.glDeleteFramebuffers(fbo);
             fbo = 0;
         }
         if (texture != 0) {
-            GL11.glDeleteTextures(texture);
+            GLStateManager.glDeleteTextures(texture);
             texture = 0;
         }
         if (depthRb != 0) {
-            GL30.glDeleteRenderbuffers(depthRb);
+            GLStateManager.glDeleteRenderbuffers(depthRb);
             depthRb = 0;
         }
         if (guiFramebuffer != null) {
