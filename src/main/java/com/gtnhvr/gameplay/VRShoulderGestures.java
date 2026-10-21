@@ -73,14 +73,19 @@ public final class VRShoulderGestures {
             String description = key.getKeyDescription();
             if (description == null || description.isEmpty()) continue;
             String normalized = description.toLowerCase(Locale.ROOT);
-            boolean matches = jetpack
-                    ? (normalized.contains("jetpack")
+            boolean matches;
+            if (jetpack) {
+                matches = (normalized.contains("jetpack")
                         || normalized.contains("flightmode")
                         || normalized.contains("flight_mode"))
-                    : (normalized.contains("hover")
+                        && !normalized.contains("hover")
+                        && !normalized.contains("glide");
+            } else {
+                matches = normalized.contains("hover")
                         || normalized.contains("glide")
                         || normalized.contains("jetpack") && normalized.contains("flightmode")
-                        || normalized.contains("jetpack") && normalized.contains("flight_mode"));
+                        || normalized.contains("jetpack") && normalized.contains("flight_mode");
+            }
             if (matches) choices.add(description);
         }
         return new ArrayList<>(choices);
@@ -356,19 +361,24 @@ public final class VRShoulderGestures {
      */
     private boolean tryReflectionToggleJetpack(EntityPlayer player) {
         initReflection();
+        // Try each discovered mod API independently so a broken/incompatible class does not
+        // prevent attempts against another installed jetpack mod.
         try {
-            // Adventure Jetpack
             if (adventureJetpackToggle != null) {
                 adventureJetpackToggle.invoke(null, player);
                 return true;
             }
-            // Simply Jetpacks uses a separate handler; it was discovered at startup but was
-            // previously never invoked, so this fallback could never activate it.
+        } catch (Throwable t) {
+            GTNHVRLog.throttled("Adventure Jetpack API toggle failed: %s", t);
+        }
+        try {
             if (simplyJetpacksToggle != null) {
                 simplyJetpacksToggle.invoke(null, player);
                 return true;
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable t) {
+            GTNHVRLog.throttled("Simply Jetpacks API toggle failed: %s", t);
+        }
         return false;
     }
 
