@@ -821,34 +821,16 @@ public final class VRControllerHandler {
             screen.setCursorUV(screenUV.x, screenUV.y, true);
             screen.setLastHitPoint(screenHitPoint);
 
-            // Screen & GUI coordinates:
-            // curV is 0.0 at the bottom of the virtual screen and 1.0 at the top.
-            // In OpenGL/LWJGL2, Y=0 is the bottom and Y=displayHeight-1 is the top.
-            // In SDL2 (SDL_WarpMouseInWindow), Y=0 is the top and Y=displayHeight-1 is the bottom!
-            // Passing glY directly to SDL_WarpMouseInWindow caused the Y-axis to be inverted.
-            // Minecraft/LWJGL mouse events are in actual window framebuffer pixels;
-            // GUI layout uses the fixed logical capture resolution. Keep pointer input
-            // normalized to the window so Minecraft's ScaledResolution maps it to the
-            // matching logical GUI coordinates, independent of DPI scaling.
-            Minecraft mc = Minecraft.getMinecraft();
+            // Convert normalized screen UV directly to the window's mouse-event pixel
+            // coordinates. GuiScreen.handleMouseInput then maps those pixels into its own
+            // width/height. Do not apply ScaledResolution here: that would scale the pointer
+            // a second time when the virtual GUI resolution differs from the desktop window.
             int cursorW = (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 1;
             int cursorH = (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 1;
-            int logicalW = cursorW;
-            int logicalH = cursorH;
-            if (mc != null && mc.currentScreen != null) {
-                logicalW = Math.max(1, mc.currentScreen.width);
-                logicalH = Math.max(1, mc.currentScreen.height);
-            }
-            net.minecraft.client.gui.ScaledResolution windowScaled = mc != null
-                    ? new net.minecraft.client.gui.ScaledResolution(mc, cursorW, cursorH) : null;
-            int scaledW = windowScaled != null ? Math.max(1, windowScaled.getScaledWidth()) : logicalW;
-            int scaledH = windowScaled != null ? Math.max(1, windowScaled.getScaledHeight()) : logicalH;
             float curU = Math.max(0.0F, Math.min(1.0F, screenUV.x));
             float curV = Math.max(0.0F, Math.min(1.0F, screenUV.y));
-            // Compensate for Minecraft's window-based ScaledResolution when the active GUI
-            // itself was laid out at the independent virtual capture resolution.
-            int screenX = Math.round(curU * cursorW * logicalW / (float) scaledW);
-            int glY = Math.round(curV * cursorH * logicalH / (float) scaledH);
+            int screenX = Math.round(curU * cursorW);
+            int glY = Math.round(curV * cursorH);
             updateLwjglMousePosition(screenX, glY);
 
             // Left Click from active hand: TRIGGER ONLY (hysteresis: squeeze > 0.45F, release < 0.25F)
