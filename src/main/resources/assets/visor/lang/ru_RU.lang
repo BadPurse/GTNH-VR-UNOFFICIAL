@@ -528,3 +528,6 @@ visor.options.item_offsets.preview_item.held=Из инвентаря
 visor.options.item_offsets.preview_item.offhand=Из второй руки
 visor.options.item_offsets.done=Готово / Назад
 visor.options.item_offsets.done.tooltip=Сохранить и вернуться в меню
+visor.screen.pause_menu.button.mob_spawns=Метки спавна мобов: %s
+visor.screen.pause_menu.state.on=ВКЛ
+visor.screen.pause_menu.state.off=ВЫКЛ
