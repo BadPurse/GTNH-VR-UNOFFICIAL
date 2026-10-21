@@ -41,7 +41,7 @@ public final class VRSettingsShoulderGestures extends VROptionsSet {
         ));
 
         widgets.add(new OptionWidget.ButtonWidget(
-                OptionWidgetPosition.LEFT, 1,
+                OptionWidgetPosition.CENTER, 1,
                 () -> captureTarget == CAPTURE_RIGHT_TO_LEFT
                         ? I18n.format("gtnhvr.controls.shoulder.press_key")
                         : I18n.format("gtnhvr.controls.shoulder.right_to_left") + ": "
@@ -52,7 +52,7 @@ public final class VRSettingsShoulderGestures extends VROptionsSet {
         ));
 
         widgets.add(new OptionWidget.ToggleWidget(
-                OptionWidgetPosition.RIGHT, 1,
+                OptionWidgetPosition.LEFT, 3,
                 I18n.format("gtnhvr.controls.shoulder.right_to_left.enabled"),
                 () -> VRClientSettings.shoulderRightToLeftEnabled,
                 value -> {
@@ -63,7 +63,7 @@ public final class VRSettingsShoulderGestures extends VROptionsSet {
         ));
 
         widgets.add(new OptionWidget.ButtonWidget(
-                OptionWidgetPosition.LEFT, 2,
+                OptionWidgetPosition.CENTER, 2,
                 () -> captureTarget == CAPTURE_LEFT_TO_RIGHT
                         ? I18n.format("gtnhvr.controls.shoulder.press_key")
                         : I18n.format("gtnhvr.controls.shoulder.left_to_right") + ": "
@@ -74,7 +74,7 @@ public final class VRSettingsShoulderGestures extends VROptionsSet {
         ));
 
         widgets.add(new OptionWidget.ToggleWidget(
-                OptionWidgetPosition.RIGHT, 2,
+                OptionWidgetPosition.RIGHT, 3,
                 I18n.format("gtnhvr.controls.shoulder.left_to_right.enabled"),
                 () -> VRClientSettings.shoulderLeftToRightEnabled,
                 value -> {
@@ -85,7 +85,7 @@ public final class VRSettingsShoulderGestures extends VROptionsSet {
         ));
 
         widgets.add(new OptionWidget.SliderWidget(
-                OptionWidgetPosition.LEFT, 3,
+                OptionWidgetPosition.LEFT, 4,
                 I18n.format("gtnhvr.controls.shoulder.distance"),
                 0.10F, 0.45F, 0.01F,
                 () -> VRClientSettings.shoulderGestureDistance,
@@ -98,7 +98,7 @@ public final class VRSettingsShoulderGestures extends VROptionsSet {
         ));
 
         widgets.add(new OptionWidget.SliderWidget(
-                OptionWidgetPosition.RIGHT, 3,
+                OptionWidgetPosition.RIGHT, 4,
                 I18n.format("gtnhvr.controls.shoulder.hold"),
                 0.25F, 2.50F, 0.25F,
                 () -> VRClientSettings.shoulderGestureHoldSeconds,
