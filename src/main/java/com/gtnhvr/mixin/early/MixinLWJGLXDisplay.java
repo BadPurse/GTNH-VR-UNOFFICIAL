@@ -31,14 +31,24 @@ public abstract class MixinLWJGLXDisplay {
     @Inject(method = "getWidth", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private static void gtnhvr$virtualGuiWidth(CallbackInfoReturnable<Integer> cir) {
         if (com.gtnhvr.gui.VRGuiRenderer.isLogicalGuiResolutionActive()) {
-            cir.setReturnValue(com.gtnhvr.gui.VRGuiRenderer.getWidth());
+            int width = com.gtnhvr.gui.VRHudRenderer.isCapturing()
+                    ? com.gtnhvr.gui.VRHudRenderer.getWidth()
+                    : com.gtnhvr.gui.VRGuiRenderer.getWidth();
+            if (width > 0) {
+                cir.setReturnValue(width);
+            }
         }
     }
 
     @Inject(method = "getHeight", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private static void gtnhvr$virtualGuiHeight(CallbackInfoReturnable<Integer> cir) {
         if (com.gtnhvr.gui.VRGuiRenderer.isLogicalGuiResolutionActive()) {
-            cir.setReturnValue(com.gtnhvr.gui.VRGuiRenderer.getHeight());
+            int height = com.gtnhvr.gui.VRHudRenderer.isCapturing()
+                    ? com.gtnhvr.gui.VRHudRenderer.getHeight()
+                    : com.gtnhvr.gui.VRGuiRenderer.getHeight();
+            if (height > 0) {
+                cir.setReturnValue(height);
+            }
         }
     }
 }
