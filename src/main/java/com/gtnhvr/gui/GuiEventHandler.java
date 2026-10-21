@@ -97,9 +97,18 @@ public final class GuiEventHandler {
     }
 
     private static boolean bypassVanillaRedirect = false;
+    /** The exact pause-screen instance explicitly requested from Game Menu. */
+    private static GuiScreen bypassVanillaRedirectTarget = null;
 
     public static void setBypassVanillaRedirect(boolean bypass) {
         bypassVanillaRedirect = bypass;
+        bypassVanillaRedirectTarget = null;
+    }
+
+    /** Allow only this specific GuiIngameMenu instance through the VR pause-screen redirect. */
+    public static void setBypassVanillaRedirect(GuiScreen target) {
+        bypassVanillaRedirectTarget = target;
+        bypassVanillaRedirect = target != null;
     }
 
     @SubscribeEvent
@@ -163,16 +172,38 @@ public final class GuiEventHandler {
         if (event.gui instanceof GuiIngameMenu && com.gtnhvr.OpenXRRuntime.isSessionRunning()) {
             Minecraft mc = Minecraft.getMinecraft();
             if (mc == null || mc.theWorld == null || mc.thePlayer == null || mc.thePlayer.ticksExisted < 40) {
+                if (event.gui == bypassVanillaRedirectTarget) {
+                    bypassVanillaRedirectTarget = null;
+                    bypassVanillaRedirect = false;
+                }
                 event.setCanceled(true);
                 return;
             }
-            if (!bypassVanillaRedirect) {
+
+            // Do not consume a global one-shot flag on an unrelated GUI init. The Game Menu
+            // button passes the exact GuiIngameMenu instance that should remain vanilla.
+            boolean isExplicitVanillaTarget = bypassVanillaRedirect
+                    && (bypassVanillaRedirectTarget == null || event.gui == bypassVanillaRedirectTarget);
+            if (!isExplicitVanillaTarget) {
+                if (bypassVanillaRedirectTarget != null) {
+                    bypassVanillaRedirectTarget = null;
+                    bypassVanillaRedirect = false;
+                }
                 event.setCanceled(true);
                 mc.displayGuiScreen(new VRPauseMenuScreen());
                 return;
             }
+
+            bypassVanillaRedirect = false;
+            bypassVanillaRedirectTarget = null;
+            return;
         }
-        bypassVanillaRedirect = false;
+
+        // A target survives unrelated screen initialization, but a legacy untargeted bypass
+        // is still one-shot and must not unexpectedly disable the redirect later.
+        if (bypassVanillaRedirectTarget == null) {
+            bypassVanillaRedirect = false;
+        }
     }
 
     @SuppressWarnings("unchecked")
