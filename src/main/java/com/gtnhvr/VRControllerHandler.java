@@ -1667,6 +1667,22 @@ public final class VRControllerHandler {
         if (rightStickY < 0.0F && VRClientSettings.controllerRightStickDownKeyCode > 0) return 0.0F;
         return rightStickY;
     }
+    /** Clears only the VR sneak toggle; physical crouch is managed by VRTaskRoomCrawl. */
+    public void resetSneakToggle() {
+        sneakToggled = false;
+        // Avoid treating a still-held thumbstick as a new press immediately after reset.
+        lastRightStickClick = rightStickClick;
+
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || mc.gameSettings == null) return;
+        int sneakKey = mc.gameSettings.keyBindSneak.getKeyCode();
+        boolean roomSneak = com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance().isSneaking();
+        boolean shoulderSneak = com.gtnhvr.gameplay.VRShoulderGestures.getInstance().isSyntheticKeyHeld(sneakKey);
+        if (!roomSneak && !shoulderSneak && !isMappedControllerKeyHeld(sneakKey)) {
+            KeyBinding.setKeyBindState(sneakKey, false);
+        }
+    }
+
     /** True while VR crouch/crawl, the toggle, or a mapped keyboard sneak binding is active. */
     public boolean isSneakActive() {
         Minecraft mc = Minecraft.getMinecraft();
