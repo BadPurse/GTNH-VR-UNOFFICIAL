@@ -821,20 +821,23 @@ public final class VRControllerHandler {
             screen.setCursorUV(screenUV.x, screenUV.y, true);
             screen.setLastHitPoint(screenHitPoint);
 
-            // Screen & GUI coordinates:
-            // curV is 0.0 at the bottom of the virtual screen and 1.0 at the top.
-            // In OpenGL/LWJGL2, Y=0 is the bottom and Y=displayHeight-1 is the top.
-            // In SDL2 (SDL_WarpMouseInWindow), Y=0 is the top and Y=displayHeight-1 is the bottom!
-            // Passing glY directly to SDL_WarpMouseInWindow caused the Y-axis to be inverted.
-            // Use autonomous resolution when enabled to decouple cursor from monitor window size.
-            int cursorW = com.gtnhvr.gui.VRGuiRenderer.getCaptureWidth();
-            int cursorH = com.gtnhvr.gui.VRGuiRenderer.getCaptureHeight();
+            // The ray hit is normalized to the virtual screen, but Minecraft's mouse
+            // event pipeline still scales raw mouse coordinates using mc.displayWidth /
+            // mc.displayHeight and ScaledResolution. Never use the GUI capture/FBO size
+            // here: with autonomous VR resolution it can differ from the actual window,
+            // shifting clicks and drag positions at every non-matching resolution.
+            // Keep rendering resolution and input/window resolution as separate spaces.
+            Minecraft mc = Minecraft.getMinecraft();
+            int windowW = (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 854;
+            int windowH = (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 480;
             float curU = Math.max(0.0F, Math.min(1.0F, screenUV.x));
             float curV = Math.max(0.0F, Math.min(1.0F, screenUV.y));
-            int screenX = (int) (curU * Math.max(1, cursorW - 1));
-            int glY = (int) (curV * Math.max(1, cursorH - 1));
-            int sdlY = Math.max(0, Math.min(cursorH - 1, (cursorH - 1) - glY));
+            int screenX = (int) (curU * Math.max(1, windowW - 1));
+            int glY = (int) (curV * Math.max(1, windowH - 1));
+            int sdlY = Math.max(0, Math.min(windowH - 1, (windowH - 1) - glY));
 
+            // Minecraft/LWJGL mouse event coordinates use bottom-left origin; SDL cursor
+            // warping uses top-left origin. Inject the former and warp the latter separately.
             updateLwjglMousePosition(screenX, glY);
             try {
                 org.lwjglx.input.Mouse.setCursorPosition(screenX, sdlY);
