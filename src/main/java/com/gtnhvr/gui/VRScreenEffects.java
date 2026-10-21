@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.settings.VRClientSettings;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
@@ -37,30 +38,30 @@ public final class VRScreenEffects {
         float g = 0.05F;
         float b = 0.05F;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
-            GL11.glDisable(GL11.GL_TEXTURE_2D);
-            GL11.glDisable(GL11.GL_ALPHA_TEST);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glBegin(GL11.GL_QUADS);
+            GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GLStateManager.glBegin(GL11.GL_QUADS);
             // top
-            GL11.glColor4f(r, g, b, alpha); GL11.glVertex2f(0.0F, 0.0F); GL11.glVertex2f(w, 0.0F);
-            GL11.glColor4f(r, g, b, 0.0F); GL11.glVertex2f(w, t); GL11.glVertex2f(0.0F, t);
+            GLStateManager.glColor4f(r, g, b, alpha); GLStateManager.glVertex2f(0.0F, 0.0F); GLStateManager.glVertex2f(w, 0.0F);
+            GLStateManager.glColor4f(r, g, b, 0.0F); GLStateManager.glVertex2f(w, t); GLStateManager.glVertex2f(0.0F, t);
             // bottom
-            GL11.glColor4f(r, g, b, 0.0F); GL11.glVertex2f(0.0F, h - t); GL11.glVertex2f(w, h - t);
-            GL11.glColor4f(r, g, b, alpha); GL11.glVertex2f(w, h); GL11.glVertex2f(0.0F, h);
+            GLStateManager.glColor4f(r, g, b, 0.0F); GLStateManager.glVertex2f(0.0F, h - t); GLStateManager.glVertex2f(w, h - t);
+            GLStateManager.glColor4f(r, g, b, alpha); GLStateManager.glVertex2f(w, h); GLStateManager.glVertex2f(0.0F, h);
             // left
-            GL11.glColor4f(r, g, b, alpha); GL11.glVertex2f(0.0F, 0.0F); GL11.glVertex2f(0.0F, h);
-            GL11.glColor4f(r, g, b, 0.0F); GL11.glVertex2f(t, h); GL11.glVertex2f(t, 0.0F);
+            GLStateManager.glColor4f(r, g, b, alpha); GLStateManager.glVertex2f(0.0F, 0.0F); GLStateManager.glVertex2f(0.0F, h);
+            GLStateManager.glColor4f(r, g, b, 0.0F); GLStateManager.glVertex2f(t, h); GLStateManager.glVertex2f(t, 0.0F);
             // right
-            GL11.glColor4f(r, g, b, 0.0F); GL11.glVertex2f(w - t, 0.0F); GL11.glVertex2f(w - t, h);
-            GL11.glColor4f(r, g, b, alpha); GL11.glVertex2f(w, h); GL11.glVertex2f(w, 0.0F);
-            GL11.glEnd();
+            GLStateManager.glColor4f(r, g, b, 0.0F); GLStateManager.glVertex2f(w - t, 0.0F); GLStateManager.glVertex2f(w - t, h);
+            GLStateManager.glColor4f(r, g, b, alpha); GLStateManager.glVertex2f(w, h); GLStateManager.glVertex2f(w, 0.0F);
+            GLStateManager.glEnd();
         } finally {
-            GL11.glPopAttrib();
+            GLStateManager.glPopAttrib();
         }
     }
 }
