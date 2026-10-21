@@ -80,15 +80,19 @@ public final class GuiHelper {
     private static Field focusedTextInputField = null;
     private static boolean focusedFieldAttempted = false;
 
+    private static void initFocusedTextFieldReflection() {
+        if (focusedFieldAttempted) return;
+        focusedFieldAttempted = true;
+        try {
+            Field f = me.eigenraven.lwjgl3ify.client.TextFieldHandler.class.getDeclaredField("focusedTextInput");
+            f.setAccessible(true);
+            focusedTextInputField = f;
+        } catch (Throwable ignored) {}
+    }
+
+    /** Returns LWJGL3ify's globally focused field; do not use this alone to decide if a screen is text-editing. */
     public static net.minecraft.client.gui.GuiTextField getFocusedTextField() {
-        if (!focusedFieldAttempted) {
-            focusedFieldAttempted = true;
-            try {
-                Field f = me.eigenraven.lwjgl3ify.client.TextFieldHandler.class.getDeclaredField("focusedTextInput");
-                f.setAccessible(true);
-                focusedTextInputField = f;
-            } catch (Throwable ignored) {}
-        }
+        initFocusedTextFieldReflection();
         if (focusedTextInputField != null) {
             try {
                 Object obj = focusedTextInputField.get(null);
@@ -103,15 +107,104 @@ public final class GuiHelper {
         return null;
     }
 
+    /**
+     * Returns the globally focused vanilla field only when that exact widget belongs to this
+     * screen. TextFieldHandler.focusedTextInput is static; LWJGL3ify can otherwise leave a
+     * reference to a field from a previous GUI after VR suppresses its SDL reset call.
+     */
+    public static net.minecraft.client.gui.GuiTextField getFocusedTextField(GuiScreen screen) {
+        if (screen == null) return null;
+        net.minecraft.client.gui.GuiTextField focused = getFocusedTextField();
+        return focused != null && focused.isFocused() && screenContainsObject(screen, focused)
+                ? focused : null;
+    }
+
+    /** Clear LWJGL3ify's stale text-field pointer without calling SDL end/reset text input (unsafe in VR). */
+    public static void clearFocusedTextField(net.minecraft.client.gui.GuiTextField expectedField) {
+        initFocusedTextFieldReflection();
+        if (focusedTextInputField != null) {
+            try {
+                Object obj = focusedTextInputField.get(null);
+                Object current = obj instanceof java.lang.ref.WeakReference<?> ref ? ref.get() : null;
+                if (expectedField == null || current == expectedField) {
+                    focusedTextInputField.set(null, new java.lang.ref.WeakReference<>(null));
+                }
+            } catch (Throwable t) {
+                GTNHVRLog.warn("Unable to clear LWJGL3ify's focused text-field reference: %s", t);
+            }
+        }
+        try {
+            me.eigenraven.lwjgl3ify.client.TextFieldHandler.textBuffer.setLength(0);
+        } catch (Throwable ignored) {}
+    }
+
     public static boolean hasAnyFocusedTextField(GuiScreen screen) {
         if (screen == null) return false;
 
-        net.minecraft.client.gui.GuiTextField vanillaTf = getFocusedTextField();
-        if (vanillaTf != null && vanillaTf.isFocused()) {
+        if (getFocusedTextField(screen) != null) {
             return true;
         }
-
         return getAnyFocusedTextFieldObject(screen) != null;
+    }
+
+    private static boolean screenContainsObject(GuiScreen screen, Object target) {
+        if (screen == null || target == null) return false;
+        java.util.IdentityHashMap<Object, Boolean> visited = new java.util.IdentityHashMap<>();
+        return containsScreenObject(screen, target, 0, visited);
+    }
+
+    private static boolean containsScreenObject(Object owner, Object target, int depth,
+                                                java.util.IdentityHashMap<Object, Boolean> visited) {
+        if (owner == null) return false;
+        if (owner == target) return true;
+        if (depth > 3 || visited.size() > 256 || visited.put(owner, Boolean.TRUE) != null) return false;
+
+        Class<?> clz = owner.getClass();
+        while (clz != null && clz != Object.class) {
+            for (Field field : clz.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())
+                        || field.getType().isPrimitive() || field.getType().isEnum()
+                        || field.getType() == String.class) continue;
+                try {
+                    field.setAccessible(true);
+                    Object value = field.get(owner);
+                    if (value == target) return true;
+                    if (value == null) continue;
+
+                    if (value instanceof Iterable<?> iterable) {
+                        for (Object element : iterable) {
+                            if (element == target) return true;
+                            if (isGuiObject(element) && containsScreenObject(element, target, depth + 1, visited)) {
+                                return true;
+                            }
+                        }
+                    } else if (value.getClass().isArray()) {
+                        int length = java.lang.reflect.Array.getLength(value);
+                        for (int i = 0; i < length; i++) {
+                            Object element = java.lang.reflect.Array.get(value, i);
+                            if (element == target) return true;
+                            if (isGuiObject(element) && containsScreenObject(element, target, depth + 1, visited)) {
+                                return true;
+                            }
+                        }
+                    } else if (isGuiObject(value) && containsScreenObject(value, target, depth + 1, visited)) {
+                        return true;
+                    }
+                } catch (Throwable ignored) {}
+            }
+            clz = clz.getSuperclass();
+        }
+        return false;
+    }
+
+    private static boolean isGuiObject(Object value) {
+        if (value == null) return false;
+        String name = value.getClass().getName();
+        return name.startsWith("net.minecraft.client.gui.")
+                || name.startsWith("cpw.mods.fml.client.config.")
+                || name.startsWith("appeng.client.gui.")
+                || name.startsWith("com.gtnewhorizons.modularui.")
+                || name.startsWith("com.cleanroommc.modularui.");
     }
 
     public static Object getAnyFocusedTextFieldObject(GuiScreen screen) {
