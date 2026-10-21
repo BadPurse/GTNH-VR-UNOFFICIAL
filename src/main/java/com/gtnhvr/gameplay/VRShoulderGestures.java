@@ -196,7 +196,10 @@ public final class VRShoulderGestures {
         while (it.hasNext()) {
             Map.Entry<Integer, Long> entry = it.next();
             if (now >= entry.getValue()) {
-                KeyBinding.setKeyBindState(entry.getKey(), false);
+                // Another controller binding may intentionally be holding the same key.
+                if (!VRControllerHandler.getInstance().isControllerMappedKeyHeld(entry.getKey())) {
+                    KeyBinding.setKeyBindState(entry.getKey(), false);
+                }
                 it.remove();
             } else {
                 // Keep the virtual key held between render frames; Minecraft polls
