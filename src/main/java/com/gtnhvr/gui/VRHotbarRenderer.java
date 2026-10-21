@@ -197,18 +197,17 @@ public final class VRHotbarRenderer {
 
         // Main Hand (Right Hand): tint the textured selection ring cyan/blue.
         // Keep the original ring texture; do not draw the old square placeholder.
-        drawRing(mc, slotMain, imageX, imageY, OFF_SEL0, OFF_SEL1, 0.15F, 0.85F, 1.0F);
+        drawRing(mc, slotMain, imageX, imageY, OFF_SEL0, OFF_SEL1);
 
-        // Off Hand (Left Hand): tint the textured selection ring orange.
+        // Off Hand (Left Hand): the source texture already contains the orange colour.
         if (slotOffhand >= 0 && slotOffhand < 9) {
-            drawRing(mc, slotOffhand, imageX, imageY, MAIN_SEL0, MAIN_SEL1, 1.0F, 0.65F, 0.10F);
+            drawRing(mc, slotOffhand, imageX, imageY, MAIN_SEL0, MAIN_SEL1);
         }
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     private void drawRing(Minecraft mc, int slot, int imageX, int imageY,
-                          ResourceLocation ring, ResourceLocation centerRing,
-                          float red, float green, float blue) {
+                          ResourceLocation ring, ResourceLocation centerRing) {
         HotBarSlice slice = HotBarSlice.fromSlot(slot);
         if (slice == HotBarSlice.NOT_SELECTED) {
             return;
@@ -222,9 +221,8 @@ public final class VRHotbarRenderer {
             GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
             GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
             mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
-            // Explicitly use MODULATE: other GUI/item renderers can leave the texture environment
-            // in REPLACE mode, which ignores the cyan/orange vertex tint.
-            GL11.glColor4f(red, green, blue, 1.0F);
+            // The Visor PNG is already cyan/orange. Draw it without applying a second vertex tint.
+            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
             drawTexturedRect(imageX + slice.getItemX() - RING_INSET, imageY + slice.getItemY() - RING_INSET,
                     RING_SIZE, RING_SIZE);
         } finally {
