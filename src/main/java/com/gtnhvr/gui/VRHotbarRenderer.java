@@ -227,11 +227,15 @@ public final class VRHotbarRenderer {
             GLStateManager.glUseProgram(0);
             GLStateManager.glActiveTexture(GL13.GL_TEXTURE0);
             GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
             GLStateManager.glDisable(GL11.GL_LIGHTING);
+            // GuiTexture.blit uses shader alpha blending, not legacy alpha-test clipping.
+            // RenderItem can leave alpha-test state active, so do not let it discard the ring pixels.
+            GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
             GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             GLStateManager.glEnable(GL11.GL_BLEND);
             GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
-                    GL11.GL_ONE, GL11.GL_ONE);
+                    GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
             GLStateManager.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
             GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
             mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
