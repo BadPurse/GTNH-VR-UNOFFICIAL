@@ -15,7 +15,7 @@ public class VRSettingsControls extends VROptionsSet {
 
     @Override
     protected void buildWidgets() {
-        // Row 0: Left Handed & Action Sets
+        // Row 0: Handedness & Controller Bindings
         widgets.add(new OptionWidget.ToggleWidget(
                 OptionWidgetPosition.LEFT, 0,
                 I18n.format("visor.options.controls.left_handed"),
