@@ -162,7 +162,8 @@ public class GuiSettingsOverlays extends GuiScreen {
             case VROverlayConfig.GAME_SCREEN:
                 return new String[] {"ANCHOR", "SCALE", "DIST", "OFFX", "OFFY"};
             case VROverlayConfig.KEYBOARD:
-                return new String[] {"VIS", "SCALE", "DIST", "FLAG"};
+                // Auto-open is a keyboard behavior setting, not an overlay visibility flag.
+                return new String[] {"VIS", "SCALE", "DIST"};
             case VROverlayConfig.CROSSHAIR:
                 return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "FLAG"};
             case VROverlayConfig.STATUS:
@@ -179,7 +180,6 @@ public class GuiSettingsOverlays extends GuiScreen {
         switch (id) {
             case VROverlayConfig.HUD: return "Curved HUD";
             case VROverlayConfig.CROSSHAIR: return "Laser Beam";
-            case VROverlayConfig.KEYBOARD: return "Auto Show";
             default: return "Slot Numbers";
         }
     }
