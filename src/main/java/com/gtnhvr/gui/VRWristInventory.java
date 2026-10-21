@@ -10,6 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Container;
@@ -790,9 +791,9 @@ public final class VRWristInventory {
         // selected0 = outer slots; selected1 = center slot.
         String textureName;
         if (offhand) {
-            textureName = centerSlot ? "hotbar_main_selected1.png" : "hotbar_main_selected0.png";
-        } else {
             textureName = centerSlot ? "hotbar_offhand_selected1.png" : "hotbar_offhand_selected0.png";
+        } else {
+            textureName = centerSlot ? "hotbar_main_selected1.png" : "hotbar_main_selected0.png";
         }
 
         int previousProgram = GLStateManager.glGetInteger(GL20.GL_CURRENT_PROGRAM);
@@ -821,7 +822,7 @@ public final class VRWristInventory {
                     "gtnhvr", "textures/gui/overlays/hotbar/" + textureName));
             // The PNG itself is cyan/orange; keep the vertex colour white instead of tinting it again.
             GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            drawTexturedRect(x - 5.0F, y - 5.0F, 26.0F, 26.0F);
+            drawSelectionTexture(x - 5.0F, y - 5.0F, 26.0F, 26.0F);
         } finally {
             GLStateManager.glPopAttrib();
             for (int unit = 1; unit < textureUnitCount; unit++) {
@@ -835,6 +836,21 @@ public final class VRWristInventory {
             GLStateManager.glActiveTexture(previousActiveTexture);
             GLStateManager.glUseProgram(previousProgram);
         }
+    }
+
+    /**
+     * Tessellator-based equivalent of Visor's GuiTexture.blit for the 1.7.10 inventory overlay.
+     * Vertex colour is encoded into the batch (white), rather than inherited from RenderItem.
+     */
+    private static void drawSelectionTexture(float x, float y, float w, float h) {
+        Tessellator tessellator = Tessellator.instance;
+        tessellator.startDrawingQuads();
+        tessellator.setColorRGBA_F(1.0F, 1.0F, 1.0F, 1.0F);
+        tessellator.addVertexWithUV(x, y + h, 0.0D, 0.0D, 1.0D);
+        tessellator.addVertexWithUV(x + w, y + h, 0.0D, 1.0D, 1.0D);
+        tessellator.addVertexWithUV(x + w, y, 0.0D, 1.0D, 0.0D);
+        tessellator.addVertexWithUV(x, y, 0.0D, 0.0D, 0.0D);
+        tessellator.draw();
     }
 
     private static void drawTexturedRect(float x, float y, float w, float h) {
