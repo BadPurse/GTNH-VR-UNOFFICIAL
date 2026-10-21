@@ -195,13 +195,14 @@ public final class VRHotbarRenderer {
         GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
 
-        // Main Hand (Right Hand): vibrant Cyan/Blue (#26D9FF)
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        // Main Hand (Right Hand): tint the textured selection ring cyan/blue.
+        // Keep the original ring texture; do not draw the old square placeholder.
+        GL11.glColor4f(0.15F, 0.85F, 1.0F, 1.0F);
         drawRing(mc, slotMain, imageX, imageY, OFF_SEL0, OFF_SEL1);
 
-        // Off Hand (Left Hand): vibrant Orange (#FFA61A)
+        // Off Hand (Left Hand): tint the textured selection ring orange.
         if (slotOffhand >= 0 && slotOffhand < 9) {
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GL11.glColor4f(1.0F, 0.65F, 0.10F, 1.0F);
             drawRing(mc, slotOffhand, imageX, imageY, MAIN_SEL0, MAIN_SEL1);
         }
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
