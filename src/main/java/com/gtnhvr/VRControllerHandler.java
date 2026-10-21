@@ -825,14 +825,18 @@ public final class VRControllerHandler {
                 updateAnalogLatch(MAP_LEFT_STICK_LEFT, leftStickX, false, 0.60F, 0.40F));
         updateMappedControllerKey(MAP_LEFT_STICK_RIGHT, VRClientSettings.controllerLeftStickRightKeyCode,
                 updateAnalogLatch(MAP_LEFT_STICK_RIGHT, leftStickX, true, 0.60F, 0.40F));
+        boolean rightStickUpMapped = updateAnalogLatch(MAP_RIGHT_STICK_UP, rightStickY, true, 0.60F, 0.40F);
+        boolean rightStickDownMapped = updateAnalogLatch(MAP_RIGHT_STICK_DOWN, rightStickY, false, 0.60F, 0.40F);
+        boolean rightStickLeftMapped = updateAnalogLatch(MAP_RIGHT_STICK_LEFT, rightStickX, false, 0.60F, 0.40F);
+        boolean rightStickRightMapped = updateAnalogLatch(MAP_RIGHT_STICK_RIGHT, rightStickX, true, 0.60F, 0.40F);
         updateMappedControllerKey(MAP_RIGHT_STICK_UP, VRClientSettings.controllerRightStickUpKeyCode,
-                !selectorActive && updateAnalogLatch(MAP_RIGHT_STICK_UP, rightStickY, true, 0.60F, 0.40F));
+                !selectorActive && rightStickUpMapped);
         updateMappedControllerKey(MAP_RIGHT_STICK_DOWN, VRClientSettings.controllerRightStickDownKeyCode,
-                !selectorActive && updateAnalogLatch(MAP_RIGHT_STICK_DOWN, rightStickY, false, 0.60F, 0.40F));
+                !selectorActive && rightStickDownMapped);
         updateMappedControllerKey(MAP_RIGHT_STICK_LEFT, VRClientSettings.controllerRightStickLeftKeyCode,
-                !selectorActive && updateAnalogLatch(MAP_RIGHT_STICK_LEFT, rightStickX, false, 0.60F, 0.40F));
+                !selectorActive && rightStickLeftMapped);
         updateMappedControllerKey(MAP_RIGHT_STICK_RIGHT, VRClientSettings.controllerRightStickRightKeyCode,
-                !selectorActive && updateAnalogLatch(MAP_RIGHT_STICK_RIGHT, rightStickX, true, 0.60F, 0.40F));
+                !selectorActive && rightStickRightMapped);
     }
 
     private void handleMenuInteraction(Minecraft mc) {
