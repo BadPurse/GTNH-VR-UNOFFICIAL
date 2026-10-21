@@ -221,19 +221,19 @@ public final class GuiHelper {
                     Object val = field.get(screen);
                     if (val == null) continue;
 
-                    if (isObjectFocused(val)) {
+                    if (isTextInputCandidate(val) && isObjectFocused(val)) {
                         return val;
                     }
 
                     if (val instanceof Iterable<?> iter) {
                         for (Object elem : iter) {
-                            if (isObjectFocused(elem)) return elem;
+                            if (isTextInputCandidate(elem) && isObjectFocused(elem)) return elem;
                         }
                     } else if (val.getClass().isArray()) {
                         int len = java.lang.reflect.Array.getLength(val);
                         for (int i = 0; i < len; i++) {
                             Object elem = java.lang.reflect.Array.get(val, i);
-                            if (isObjectFocused(elem)) return elem;
+                            if (isTextInputCandidate(elem) && isObjectFocused(elem)) return elem;
                         }
                     }
                 }
@@ -241,6 +241,41 @@ public final class GuiHelper {
             }
         } catch (Throwable ignored) {}
         return null;
+    }
+
+    /** Reject generic focused GUI widgets; only text-entry controls may trigger auto keyboard. */
+    private static boolean isTextInputCandidate(Object obj) {
+        if (obj == null) return false;
+        String simpleName = obj.getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
+        if (simpleName.contains("textfield") || simpleName.contains("textbox")
+                || simpleName.contains("textinput") || simpleName.contains("searchfield")
+                || simpleName.contains("editbox") || simpleName.contains("inputfield")
+                || simpleName.contains("textentry")) {
+            return true;
+        }
+
+        boolean focusedMethod = false;
+        boolean textValueMethod = false;
+        boolean writeMethod = false;
+        try {
+            for (Method method : obj.getClass().getMethods()) {
+                String name = method.getName();
+                Class<?>[] params = method.getParameterTypes();
+                if ((name.equals("isFocused") || name.equals("func_146206_l"))
+                        && params.length == 0 && method.getReturnType() == boolean.class) {
+                    focusedMethod = true;
+                }
+                if ((name.equals("getText") || name.equals("getValue") || name.equals("getString"))
+                        && params.length == 0 && method.getReturnType() == String.class) {
+                    textValueMethod = true;
+                }
+                if ((name.equals("writeText") || name.equals("setText") || name.equals("setValue"))
+                        && params.length == 1 && params[0] == String.class) {
+                    writeMethod = true;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return focusedMethod && textValueMethod && writeMethod;
     }
 
     private static boolean isObjectFocused(Object obj) {
