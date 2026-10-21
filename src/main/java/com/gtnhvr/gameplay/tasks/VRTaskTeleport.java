@@ -1,5 +1,7 @@
 package com.gtnhvr.gameplay.tasks;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
+
 import com.gtnhvr.VRControllerHandler;
 import com.gtnhvr.settings.MovementMode;
 import com.gtnhvr.settings.VRClientSettings;
