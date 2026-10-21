@@ -198,6 +198,10 @@ public final class VRShoulderGestures {
             if (now >= entry.getValue()) {
                 KeyBinding.setKeyBindState(entry.getKey(), false);
                 it.remove();
+            } else {
+                // Keep the virtual key held between render frames; Minecraft polls
+                // KeyBinding state separately from OpenXR's controller update loop.
+                KeyBinding.setKeyBindState(entry.getKey(), true);
             }
         }
     }
