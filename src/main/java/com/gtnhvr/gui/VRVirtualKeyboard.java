@@ -590,6 +590,12 @@ public final class VRVirtualKeyboard {
         buttons.add(new KeyBtn(id++, 0, gridStart + keyHeight + keyGap, smallButtonWidth, keyHeight, "TAB", (isLeft) -> pressActionKey('\t', Keyboard.KEY_TAB, isLeft)));
 
         KeyBtn shiftBtn = new KeyBtn(id++, 0, gridStart + (rows.length - 1) * (keyHeight + keyGap), shiftButtonWidth, keyHeight, shiftPressed ? "SHIFT" : "Shift", (isLeft) -> {
+            // In controller-binding capture mode this button selects the actual Shift key,
+            // rather than merely toggling the keyboard's character layout.
+            if (captureVirtualBindingKey(Keyboard.KEY_LSHIFT)) {
+                triggerHaptic(isLeft);
+                return;
+            }
             shiftPressed = !shiftPressed;
             rebuildButtons();
             triggerHaptic(isLeft);
@@ -613,7 +619,26 @@ public final class VRVirtualKeyboard {
 
     private void dispatchKey(Minecraft mc, char ch, int keyCode) {
         if (mc == null || mc.currentScreen == null) return;
+        if (captureVirtualBindingKey(keyCode)) return;
         com.gtnhvr.gui.GuiHelper.keyTyped(mc.currentScreen, ch, keyCode);
+    }
+
+    /**
+     * Routes a virtual key directly to the active controller-binding capture. That way a
+     * physical keyboard is not required and the selected key is not accidentally typed into
+     * the settings GUI. In capture mode even Escape is a bindable key on the virtual keyboard.
+     */
+    private boolean captureVirtualBindingKey(int keyCode) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || !(mc.currentScreen instanceof com.gtnhvr.gui.VRSettingsScreen settings)) {
+            return false;
+        }
+        com.gtnhvr.gui.settings.VROptionsSet options = settings.getCurrentOptionsSet();
+        if (options instanceof com.gtnhvr.gui.settings.categories.controls.VRSettingsControllerBindings bindings
+                && bindings.isCapturingBinding()) {
+            return bindings.handleVirtualKeyboardKey(keyCode);
+        }
+        return false;
     }
 
     private void pressKey(KeyboardKey key, boolean isLeft) {
