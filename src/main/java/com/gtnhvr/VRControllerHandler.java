@@ -1,5 +1,6 @@
 package com.gtnhvr;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.gui.VRHotbarSelector;
 import com.gtnhvr.gui.VRVirtualKeyboard;
 import com.gtnhvr.gui.VRVirtualScreen;
@@ -1272,14 +1273,14 @@ public final class VRControllerHandler {
             endPos = new Vector3f(laserStart).add(forward);
         }
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glDisable(GL11.GL_CULL_FACE);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL11.GL_LEQUAL); // Allows pointer tool chassis to occlude the laser origin!
-        GL11.glDepthMask(false);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE); // Additive luminous glow
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glDisable(GL11.GL_CULL_FACE);
+        GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+        GLStateManager.glDepthFunc(GL11.GL_LEQUAL); // Allows pointer tool chassis to occlude the laser origin!
+        GLStateManager.glDepthMask(false);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE); // Additive luminous glow
 
         // Theme colors: Cyan for right hand, Amber for left hand
         float r = leftActive ? 1.0F : 0.0F;
@@ -1287,56 +1288,56 @@ public final class VRControllerHandler {
         float b = leftActive ? 0.10F : 1.0F;
 
         // 1. Outer glow beam
-        GL11.glLineWidth(5.0F);
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glColor4f(r, g, b, 0.25F);
-        GL11.glVertex3f(laserStart.x, laserStart.y, laserStart.z);
-        GL11.glColor4f(r, g, b, hittingTarget ? 0.65F : 0.35F);
-        GL11.glVertex3f(endPos.x, endPos.y, endPos.z);
-        GL11.glEnd();
+        GLStateManager.glLineWidth(5.0F);
+        GLStateManager.glBegin(GL11.GL_LINES);
+        GLStateManager.glColor4f(r, g, b, 0.25F);
+        GLStateManager.glVertex3f(laserStart.x, laserStart.y, laserStart.z);
+        GLStateManager.glColor4f(r, g, b, hittingTarget ? 0.65F : 0.35F);
+        GLStateManager.glVertex3f(endPos.x, endPos.y, endPos.z);
+        GLStateManager.glEnd();
 
         // 2. Core sharp laser beam
-        GL11.glLineWidth(2.5F);
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glColor4f(Math.min(1.0F, r + 0.3F), Math.min(1.0F, g + 0.3F), Math.min(1.0F, b + 0.3F), 0.60F);
-        GL11.glVertex3f(laserStart.x, laserStart.y, laserStart.z);
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, hittingTarget ? 1.0F : 0.70F);
-        GL11.glVertex3f(endPos.x, endPos.y, endPos.z);
-        GL11.glEnd();
+        GLStateManager.glLineWidth(2.5F);
+        GLStateManager.glBegin(GL11.GL_LINES);
+        GLStateManager.glColor4f(Math.min(1.0F, r + 0.3F), Math.min(1.0F, g + 0.3F), Math.min(1.0F, b + 0.3F), 0.60F);
+        GLStateManager.glVertex3f(laserStart.x, laserStart.y, laserStart.z);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, hittingTarget ? 1.0F : 0.70F);
+        GLStateManager.glVertex3f(endPos.x, endPos.y, endPos.z);
+        GLStateManager.glEnd();
 
         // 3. Bright target reticle at hit point on virtual screen or keyboard
         if (hittingTarget && targetRot != null) {
-            GL11.glPushMatrix();
-            GL11.glTranslatef(endPos.x, endPos.y, endPos.z);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glTranslatef(endPos.x, endPos.y, endPos.z);
             org.joml.AxisAngle4f aa = new org.joml.AxisAngle4f(targetRot);
             if (aa.angle != 0.0F && (aa.x != 0.0F || aa.y != 0.0F || aa.z != 0.0F)) {
-                GL11.glRotatef((float) Math.toDegrees(aa.angle), aa.x, aa.y, aa.z);
+                GLStateManager.glRotatef((float) Math.toDegrees(aa.angle), aa.x, aa.y, aa.z);
             }
 
             // Glowing ring reticle (radius 2.0 cm)
-            GL11.glLineWidth(2.5F);
-            GL11.glColor4f(r, g, b, 0.95F);
-            GL11.glBegin(GL11.GL_LINE_LOOP);
+            GLStateManager.glLineWidth(2.5F);
+            GLStateManager.glColor4f(r, g, b, 0.95F);
+            GLStateManager.glBegin(GL11.GL_LINE_LOOP);
             for (int i = 0; i < 24; i++) {
                 double a = i * (Math.PI * 2.0 / 24.0);
-                GL11.glVertex3f((float) Math.cos(a) * 0.020F, (float) Math.sin(a) * 0.020F, 0.002F);
+                GLStateManager.glVertex3f((float) Math.cos(a) * 0.020F, (float) Math.sin(a) * 0.020F, 0.002F);
             }
-            GL11.glEnd();
+            GLStateManager.glEnd();
 
             // Solid bright white center dot (radius 0.6 cm)
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            GL11.glBegin(GL11.GL_TRIANGLE_FAN);
-            GL11.glVertex3f(0.0F, 0.0F, 0.002F);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glBegin(GL11.GL_TRIANGLE_FAN);
+            GLStateManager.glVertex3f(0.0F, 0.0F, 0.002F);
             for (int i = 0; i <= 16; i++) {
                 double a = i * (Math.PI * 2.0 / 16.0);
-                GL11.glVertex3f((float) Math.cos(a) * 0.006F, (float) Math.sin(a) * 0.006F, 0.002F);
+                GLStateManager.glVertex3f((float) Math.cos(a) * 0.006F, (float) Math.sin(a) * 0.006F, 0.002F);
             }
-            GL11.glEnd();
+            GLStateManager.glEnd();
 
-            GL11.glPopMatrix();
+            GLStateManager.glPopMatrix();
         }
 
-        GL11.glPopAttrib();
+        GLStateManager.glPopAttrib();
     }
 
     public boolean isRightHandTracked() {
