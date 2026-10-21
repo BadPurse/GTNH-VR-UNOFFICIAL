@@ -212,95 +212,145 @@ public final class GuiHelper {
         return name.startsWith("net.minecraft.client.gui.")
                 || name.startsWith("cpw.mods.fml.client.config.")
                 || name.startsWith("appeng.client.gui.")
+                || name.startsWith("codechicken.nei.")
+                || name.startsWith("codechicken.lib.gui.")
                 || name.startsWith("com.gtnewhorizons.modularui.")
                 || name.startsWith("com.cleanroommc.modularui.");
     }
 
     public static Object getAnyFocusedTextFieldObject(GuiScreen screen) {
         if (screen == null) return null;
-        try {
-            Class<?> clz = screen.getClass();
-            while (clz != null && clz != Object.class && clz != GuiScreen.class.getSuperclass()) {
-                for (Field field : clz.getDeclaredFields()) {
-                    if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) continue;
+        return findFocusedTextFieldObject(screen, 0, new java.util.IdentityHashMap<>(), true);
+    }
+
+    private static Object findFocusedTextFieldObject(Object owner, int depth,
+            java.util.IdentityHashMap<Object, Boolean> visited, boolean root) {
+        if (owner == null || depth > 5 || visited.size() > 512
+                || visited.put(owner, Boolean.TRUE) != null) return null;
+        if (!root && isTextInputCandidate(owner) && isObjectFocused(owner)) return owner;
+
+        for (Class<?> clz = owner.getClass(); clz != null && clz != Object.class; clz = clz.getSuperclass()) {
+            for (Field field : clz.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())
+                        || field.getType().isPrimitive() || field.getType().isEnum()
+                        || field.getType() == String.class) continue;
+                try {
                     field.setAccessible(true);
-                    Object val = field.get(screen);
-                    if (val == null) continue;
-
-                    if (isTextInputCandidate(val) && isObjectFocused(val)) {
-                        return val;
-                    }
-
-                    if (val instanceof Iterable<?> iter) {
-                        for (Object elem : iter) {
-                            if (isTextInputCandidate(elem) && isObjectFocused(elem)) return elem;
-                        }
-                    } else if (val.getClass().isArray()) {
-                        int len = java.lang.reflect.Array.getLength(val);
-                        for (int i = 0; i < len; i++) {
-                            Object elem = java.lang.reflect.Array.get(val, i);
-                            if (isTextInputCandidate(elem) && isObjectFocused(elem)) return elem;
-                        }
-                    }
-                }
-                clz = clz.getSuperclass();
+                    Object found = findFocusedTextFieldChild(field.get(owner), depth + 1, visited);
+                    if (found != null) return found;
+                } catch (Throwable ignored) {}
             }
-        } catch (Throwable ignored) {}
+        }
         return null;
     }
 
-    /** Reject generic focused GUI widgets; only text-entry controls may trigger auto keyboard. */
-    private static boolean isTextInputCandidate(Object obj) {
-        if (obj == null) return false;
-        String simpleName = obj.getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
-        if (simpleName.contains("textfield") || simpleName.contains("textbox")
-                || simpleName.contains("textinput") || simpleName.contains("searchfield")
-                || simpleName.contains("editbox") || simpleName.contains("inputfield")
-                || simpleName.contains("textentry")) {
-            return true;
-        }
+    private static Object findFocusedTextFieldChild(Object value, int depth,
+            java.util.IdentityHashMap<Object, Boolean> visited) {
+        if (value == null || depth > 5) return null;
+        if (value instanceof GuiScreen) return null;
+        if (isTextInputCandidate(value) && isObjectFocused(value)) return value;
 
-        boolean focusedMethod = false;
-        boolean textValueMethod = false;
-        boolean writeMethod = false;
-        try {
-            for (Method method : obj.getClass().getMethods()) {
-                String name = method.getName();
-                Class<?>[] params = method.getParameterTypes();
-                if ((name.equals("isFocused") || name.equals("func_146206_l"))
-                        && params.length == 0 && method.getReturnType() == boolean.class) {
-                    focusedMethod = true;
-                }
-                if ((name.equals("getText") || name.equals("getValue") || name.equals("getString"))
-                        && params.length == 0 && method.getReturnType() == String.class) {
-                    textValueMethod = true;
-                }
-                if ((name.equals("writeText") || name.equals("setText") || name.equals("setValue"))
-                        && params.length == 1 && params[0] == String.class) {
-                    writeMethod = true;
-                }
+        if (value instanceof Iterable<?> iterable) {
+            for (Object element : iterable) {
+                Object found = findFocusedTextFieldChild(element, depth + 1, visited);
+                if (found != null) return found;
             }
-        } catch (Throwable ignored) {}
-        return focusedMethod && textValueMethod && writeMethod;
+        } else if (value.getClass().isArray()) {
+            int length = java.lang.reflect.Array.getLength(value);
+            for (int i = 0; i < length; i++) {
+                Object found = findFocusedTextFieldChild(java.lang.reflect.Array.get(value, i), depth + 1, visited);
+                if (found != null) return found;
+            }
+        } else if (isGuiObject(value)) {
+            return findFocusedTextFieldObject(value, depth, visited, false);
+        }
+        return null;
     }
 
-    private static boolean isObjectFocused(Object obj) {
-        if (obj == null) return false;
+    /** Queue input only for editors that consume LWJGL's keyboard event queue directly. */
+    public static void queueKeyboardEvent(char character, int keyCode) {
         try {
-            Method m = null;
-            try {
-                m = obj.getClass().getMethod("isFocused");
-            } catch (NoSuchMethodException e) {
-                try {
-                    m = obj.getClass().getMethod("func_146206_l");
-                } catch (NoSuchMethodException ignored) {}
-            }
-            if (m != null && m.getReturnType() == boolean.class) {
-                m.setAccessible(true);
-                return (boolean) m.invoke(obj);
-            }
+            org.lwjglx.input.Keyboard.addCharEvent(character, keyCode);
         } catch (Throwable ignored) {}
+    }
+
+    /** Send input to a focused editor, preferring its own key handler to preserve cursor/selection semantics. */
+    public static boolean dispatchKeyToFocusedTextField(GuiScreen screen, char character, int keyCode) {
+        if (screen == null) return false;
+        net.minecraft.client.gui.GuiTextField vanilla = getFocusedTextField(screen);
+        if (vanilla != null && vanilla.isFocused()) {
+            vanilla.textboxKeyTyped(character, keyCode);
+            clearTextBuffer();
+            return true;
+        }
+        Object target = getAnyFocusedTextFieldObject(screen);
+        if (target == null) return false;
+        boolean handled = dispatchKeyToTextFieldObject(target, character, keyCode);
+        if (handled) clearTextBuffer();
+        return handled;
+    }
+
+    public static boolean dispatchKeyToTextFieldObject(Object target, char character, int keyCode) {
+        if (target == null) return false;
+        try {
+            java.util.ArrayList<Method> methods = new java.util.ArrayList<>();
+            for (Method method : target.getClass().getMethods()) methods.add(method);
+            for (Class<?> clz = target.getClass(); clz != null && clz != Object.class; clz = clz.getSuperclass()) {
+                for (Method method : clz.getDeclaredMethods()) {
+                    if (!methods.contains(method)) methods.add(method);
+                }
+            }
+
+            for (Method method : methods) {
+                Class<?>[] params = method.getParameterTypes();
+                String name = method.getName().toLowerCase(java.util.Locale.ROOT);
+                if (params.length == 2 && params[0] == char.class && params[1] == int.class
+                        && (name.equals("textboxkeytyped") || name.equals("func_146201_a")
+                        || name.contains("keytyped"))) {
+                    method.setAccessible(true);
+                    method.invoke(target, character, keyCode);
+                    return true;
+                }
+            }
+
+            if (keyCode == org.lwjgl.input.Keyboard.KEY_BACK || keyCode == org.lwjgl.input.Keyboard.KEY_DELETE) {
+                int amount = keyCode == org.lwjgl.input.Keyboard.KEY_BACK ? -1 : 1;
+                for (Method method : methods) {
+                    Class<?>[] params = method.getParameterTypes();
+                    String name = method.getName().toLowerCase(java.util.Locale.ROOT);
+                    if (params.length == 1 && params[0] == int.class
+                            && (name.equals("deletefromcursor") || name.equals("func_146177_a")
+                            || name.equals("deletechars"))) {
+                        method.setAccessible(true);
+                        method.invoke(target, amount);
+                        return true;
+                    }
+                }
+            }
+            if (character != '\0' && character != '\b' && character != '\r'
+                    && character != '\t' && character != '\u001b') {
+                String value = String.valueOf(character);
+                for (Method method : methods) {
+                    Class<?>[] params = method.getParameterTypes();
+                    String name = method.getName().toLowerCase(java.util.Locale.ROOT);
+                    if (params.length == 1 && params[0] == String.class
+                            && (name.equals("writetext") || name.equals("inserttext") || name.equals("appendtext"))) {
+                        method.setAccessible(true);
+                        method.invoke(target, value);
+                        return true;
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            GTNHVRLog.warn("Unable to dispatch virtual keyboard input to focused widget: %s", t);
+        }
         return false;
+    }
+
+    public static void clearTextBuffer() {
+        try {
+            me.eigenraven.lwjgl3ify.client.TextFieldHandler.textBuffer.setLength(0);
+        } catch (Throwable ignored) {}
     }
 
     public static void keyTyped(GuiScreen screen, char character, int keyCode) {
