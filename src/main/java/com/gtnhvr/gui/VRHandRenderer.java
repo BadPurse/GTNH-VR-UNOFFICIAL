@@ -222,7 +222,7 @@ public final class VRHandRenderer {
         GLStateManager.glPushMatrix();
 
         try {
-            org.lwjgl.opengl.GLStateManager.glActiveTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glActiveTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
             GLStateManager.glDisable(GL11.GL_CULL_FACE);
             GLStateManager.glDisable(GL11.GL_LIGHTING);
             GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
@@ -842,7 +842,7 @@ public final class VRHandRenderer {
         // Rotate into controller aim orientation
         applyQuaternionRotation(rot);
 
-        org.lwjgl.opengl.GLStateManager.glActiveTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
+        com.gtnewhorizons.angelica.glsm.GLStateManager.glActiveTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
         GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
         GLStateManager.glDisable(GL11.GL_LIGHTING);
         GLStateManager.glDisable(GL11.GL_FOG);
