@@ -174,25 +174,54 @@ public final class VRVirtualKeyboard {
     private boolean sizeApplied = false;
     /** Temporarily override the normal overlay visibility setting for controller binding capture. */
     private boolean forceVisibleForBindingCapture = false;
+    /** Screen that owns an automatically opened keyboard, mirroring Visor's attachedTo field. */
+    private net.minecraft.client.gui.GuiScreen autoOwnerScreen;
     /** Screen that owns a manually opened keyboard; null means it was opened in-world. */
     private net.minecraft.client.gui.GuiScreen manualOwnerScreen;
 
+    /** Compatibility overload: the active GUI is the keyboard's owner. */
     public void showAutoKeyboard() {
+        Minecraft mc = Minecraft.getMinecraft();
+        showAutoKeyboard(mc == null ? null : mc.currentScreen);
+    }
+
+    /**
+     * Show the keyboard for one specific GUI, like Visor's showKeyboard(attachTo).
+     * A manually opened keyboard is not silently converted to an auto keyboard; this
+     * prevents unrelated text-input events from changing its visibility lifetime.
+     */
+    public void showAutoKeyboard(net.minecraft.client.gui.GuiScreen owner) {
         VROverlayConfig.Entry cfg = VROverlayConfig.get(VROverlayConfig.KEYBOARD);
-        if (!cfg.visible || !cfg.flag) {
+        if (owner == null || !cfg.visible || !VRClientSettings.keyboardAutoLayout
+                || !isTextInputContext(owner)) {
             return;
         }
-        // Also claim an already-visible keyboard so it is auto-hidden when the input context closes.
+
+        if (visible && !autoOpened) {
+            // Preserve a manually/static opened keyboard instead of hijacking its lifecycle.
+            return;
+        }
+        if (visible && autoOpened && autoOwnerScreen == owner) {
+            return;
+        }
+
+        boolean reposition = visible && autoOpened && autoOwnerScreen != owner;
         this.autoOpened = true;
+        this.autoOwnerScreen = owner;
         this.manualOwnerScreen = null;
-        if (!this.visible) {
+
+        if (!visible) {
             setVisible(true);
+        } else if (reposition) {
+            // A new text-entry screen acquired focus without a reliable GuiOpen event.
+            orientForHeadset();
+            leftPointer.reset();
+            rightPointer.reset();
         }
     }
 
     public void hideAutoKeyboard() {
         if (this.visible && this.autoOpened) {
-            this.autoOpened = false;
             setVisible(false);
         }
     }
@@ -254,12 +283,18 @@ public final class VRVirtualKeyboard {
         return visible;
     }
 
-    /** Scope a manually opened keyboard to the GUI that opened it. */
+    /** Keep both automatic and manual keyboards attached to their owning screen. */
     public void onGuiOpen(net.minecraft.client.gui.GuiScreen nextScreen) {
-        if (!visible || autoOpened) return;
+        if (!visible) return;
 
-        // A keyboard opened in-world has no owning screen. Close it as soon as any GUI opens;
-        // otherwise it can bleed into inventories/NEI indefinitely after a screen transition.
+        if (autoOpened) {
+            if (nextScreen != autoOwnerScreen) {
+                hideAutoKeyboard();
+            }
+            return;
+        }
+
+        // A manually opened in-world keyboard has no owner; close it when a GUI appears.
         if (manualOwnerScreen == null ? nextScreen != null : nextScreen != manualOwnerScreen) {
             setVisible(false);
         }
@@ -268,6 +303,7 @@ public final class VRVirtualKeyboard {
     public void showForBindingCapture() {
         forceVisibleForBindingCapture = true;
         autoOpened = false;
+        autoOwnerScreen = null;
         Minecraft mc = Minecraft.getMinecraft();
         // Claim the settings screen even if the keyboard was already visible for a text field.
         manualOwnerScreen = mc == null ? null : mc.currentScreen;
@@ -288,6 +324,7 @@ public final class VRVirtualKeyboard {
         }
         if (!visible) {
             this.autoOpened = false;
+            this.autoOwnerScreen = null;
             this.manualOwnerScreen = null;
             this.forceVisibleForBindingCapture = false;
         }
@@ -543,7 +580,7 @@ public final class VRVirtualKeyboard {
             Minecraft mc = Minecraft.getMinecraft();
             if (mc != null && mc.currentScreen != null) {
                 try {
-                    net.minecraft.client.gui.GuiTextField focused = com.gtnhvr.gui.GuiHelper.getFocusedTextField();
+                    net.minecraft.client.gui.GuiTextField focused = com.gtnhvr.gui.GuiHelper.getFocusedTextField(mc.currentScreen);
                     if (focused != null && focused.isFocused()) {
                         String sel = focused.getSelectedText();
                         if (sel != null && !sel.isEmpty()) {
@@ -1096,9 +1133,12 @@ public final class VRVirtualKeyboard {
     public void update(Minecraft mc, VRControllerHandler handler) {
         if (!visible || mc == null || handler == null) return;
 
-        // An auto-opened keyboard belongs only to an active text-entry context. This guard
-        // closes it if a mod changes GUI state without the normal screen-open callback.
-        if (autoOpened && !isTextInputContext(mc.currentScreen)) {
+        // Auto keyboards are attached to one exact GUI. Do not keep showing the
+        // keyboard merely because a different screen happens to contain a focused/stale field.
+        if (autoOpened && (!VRClientSettings.keyboardAutoLayout
+                || !VROverlayConfig.get(VROverlayConfig.KEYBOARD).visible
+                || mc.currentScreen != autoOwnerScreen
+                || !isTextInputContext(autoOwnerScreen))) {
             hideAutoKeyboard();
             return;
         }
