@@ -73,18 +73,25 @@ public final class VRShoulderGestures {
             String description = key.getKeyDescription();
             if (description == null || description.isEmpty()) continue;
             String normalized = description.toLowerCase(Locale.ROOT);
+            boolean hoverOrGlide = normalized.contains("hover") || normalized.contains("glide");
             boolean matches;
             if (jetpack) {
                 matches = (normalized.contains("jetpack")
-                        || normalized.contains("flightmode")
-                        || normalized.contains("flight_mode"))
-                        && !normalized.contains("hover")
-                        && !normalized.contains("glide");
+                        || normalized.contains("flight")
+                        || normalized.contains("rocket")
+                        || normalized.contains("thruster")
+                        || normalized.contains("powersuit")
+                        || normalized.contains("power_suit")
+                        || normalized.contains("gravi"))
+                        && !hoverOrGlide
+                        && !normalized.contains("fuel")
+                        && !normalized.contains("status");
             } else {
-                matches = normalized.contains("hover")
-                        || normalized.contains("glide")
+                matches = hoverOrGlide
                         || normalized.contains("jetpack") && normalized.contains("flightmode")
-                        || normalized.contains("jetpack") && normalized.contains("flight_mode");
+                        || normalized.contains("jetpack") && normalized.contains("flight_mode")
+                        || normalized.contains("gravi") && (normalized.contains("fly")
+                            || normalized.contains("flight"));
             }
             if (matches) choices.add(description);
         }
@@ -418,8 +425,23 @@ public final class VRShoulderGestures {
         return false;
     }
 
+    private static boolean isGenericJetpackToggleName(String description) {
+        String normalized = description.toLowerCase(Locale.ROOT);
+        return (normalized.contains("jetpack")
+                || normalized.contains("flight")
+                || normalized.contains("rocket")
+                || normalized.contains("thruster")
+                || normalized.contains("powersuit")
+                || normalized.contains("power_suit")
+                || normalized.contains("gravi"))
+                && !normalized.contains("hover")
+                && !normalized.contains("glide")
+                && !normalized.contains("fuel")
+                && !normalized.contains("status");
+    }
+
     /**
-     * Try to find any registered keybind containing "jetpack" in its description.
+     * Try to find a registered jetpack / flight toggle keybind by its description.
      */
     private boolean tryGenericJetpackKeybind(Minecraft mc) {
         try {
@@ -428,8 +450,7 @@ public final class VRShoulderGestures {
             for (net.minecraft.client.settings.KeyBinding kb : allKeys) {
                 if (kb == null) continue;
                 String desc = kb.getKeyDescription();
-                if (desc != null && desc.toLowerCase().contains("jetpack")
-                        && !desc.toLowerCase().contains("hover")) {
+                if (desc != null && isGenericJetpackToggleName(desc)) {
                     int keyCode = kb.getKeyCode();
                     if (keyCode != 0) {
                         net.minecraft.client.settings.KeyBinding.setKeyBindState(keyCode, true);
