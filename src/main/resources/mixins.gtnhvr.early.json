@@ -13,6 +13,7 @@
     "MixinGui",
     "MixinGuiContainerCreative",
     "MixinGuiIngame",
+    "MixinGuiIngameForge",
     "MixinGuiMainMenu",
     "MixinGuiScreen",
     "MixinGuiScrollingList",
