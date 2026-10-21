@@ -660,11 +660,11 @@ public final class VRWristInventory {
                 boolean isOffhand = (hotbarIdx == slotOffhand && slotOffhand >= 0 && slotOffhand < 9);
 
                 if (isMain) {
-                    // Main Hand: vibrant Cyan/Blue (#26D9FF)
-                    drawSlotGlow(x, y, 0.15F, 0.85F, 1.0F, 0.95F, 0.22F);
+                    // Match the radial hotbar: textured cyan selection, no colored square placeholder.
+                    drawTexturedSlotSelection(mc, x, y, hotbarIdx == 0, false);
                 } else if (isOffhand) {
-                    // Off Hand: vibrant Orange (#FFA61A)
-                    drawSlotGlow(x, y, 1.0F, 0.65F, 0.10F, 0.95F, 0.22F);
+                    // Match the radial hotbar: textured orange selection, no colored square placeholder.
+                    drawTexturedSlotSelection(mc, x, y, hotbarIdx == 0, true);
                 }
             }
 
@@ -783,21 +783,18 @@ public final class VRWristInventory {
         }
     }
 
-    private static void drawSlotGlow(float x, float y, float r, float g, float b, float borderAlpha, float fillAlpha) {
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        // Inner tint fill
-        GL11.glColor4f(r, g, b, fillAlpha);
-        drawRect(x, y, x + 16.0F, y + 16.0F);
-        // Crisp 2.5px border
-        GL11.glLineWidth(2.5F);
-        GL11.glColor4f(r, g, b, borderAlpha);
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        GL11.glVertex2f(x - 1.0F, y - 1.0F);
-        GL11.glVertex2f(x + 17.0F, y - 1.0F);
-        GL11.glVertex2f(x + 17.0F, y + 17.0F);
-        GL11.glVertex2f(x - 1.0F, y + 17.0F);
-        GL11.glEnd();
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
+    private static void drawTexturedSlotSelection(Minecraft mc, float x, float y, boolean centerSlot, boolean offhand) {
+        String textureName;
+        if (offhand) {
+            textureName = centerSlot ? "hotbar_main_selected0.png" : "hotbar_main_selected1.png";
+            GL11.glColor4f(1.0F, 0.65F, 0.10F, 1.0F);
+        } else {
+            textureName = centerSlot ? "hotbar_offhand_selected0.png" : "hotbar_offhand_selected1.png";
+            GL11.glColor4f(0.15F, 0.85F, 1.0F, 1.0F);
+        }
+        mc.getTextureManager().bindTexture(new ResourceLocation(
+                "gtnhvr", "textures/gui/overlays/hotbar/" + textureName));
+        drawTexturedRect(x - 1.0F, y - 1.0F, 18.0F, 18.0F);
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
