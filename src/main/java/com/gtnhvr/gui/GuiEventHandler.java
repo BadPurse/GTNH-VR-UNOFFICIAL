@@ -113,6 +113,14 @@ public final class GuiEventHandler {
 
     @SubscribeEvent
     public void onGuiOpen(net.minecraftforge.client.event.GuiOpenEvent event) {
+        // The vanilla pause screen can receive multiple InitGui events: once at the actual
+        // window resolution, then again when VRGuiRenderer switches it to the fixed canvas.
+        // Keep the exception only while this exact screen remains the requested screen.
+        if (bypassVanillaRedirectTarget != null && event.gui != bypassVanillaRedirectTarget) {
+            bypassVanillaRedirectTarget = null;
+            bypassVanillaRedirect = false;
+        }
+
         if (!com.gtnhvr.OpenXRRuntime.isSessionRunning()) return;
 
         VRVirtualScreen.getInstance().resetOrientation();
@@ -180,22 +188,23 @@ public final class GuiEventHandler {
                 return;
             }
 
-            // Do not consume a global one-shot flag on an unrelated GUI init. The Game Menu
-            // button passes the exact GuiIngameMenu instance that should remain vanilla.
-            boolean isExplicitVanillaTarget = bypassVanillaRedirect
-                    && (bypassVanillaRedirectTarget == null || event.gui == bypassVanillaRedirectTarget);
-            if (!isExplicitVanillaTarget) {
-                if (bypassVanillaRedirectTarget != null) {
-                    bypassVanillaRedirectTarget = null;
-                    bypassVanillaRedirect = false;
-                }
-                event.setCanceled(true);
-                mc.displayGuiScreen(new VRPauseMenuScreen());
+            // A targeted bypass must survive every initGui pass for this exact object.
+            // VRGuiRenderer changes the screen to the logical canvas during first draw, which
+            // triggers another initGui; consuming the bypass here redirects that second pass.
+            if (bypassVanillaRedirectTarget != null && event.gui == bypassVanillaRedirectTarget) {
                 return;
             }
 
-            bypassVanillaRedirect = false;
+            // Legacy untargeted bypass remains a one-shot compatibility path.
+            if (bypassVanillaRedirect && bypassVanillaRedirectTarget == null) {
+                bypassVanillaRedirect = false;
+                return;
+            }
+
             bypassVanillaRedirectTarget = null;
+            bypassVanillaRedirect = false;
+            event.setCanceled(true);
+            mc.displayGuiScreen(new VRPauseMenuScreen());
             return;
         }
 
