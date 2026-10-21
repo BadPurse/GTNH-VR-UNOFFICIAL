@@ -55,6 +55,27 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 public final class VRControllerHandler {
     private static final VRControllerHandler INSTANCE = new VRControllerHandler();
 
+    private static final int MAP_RIGHT_TRIGGER = 0;
+    private static final int MAP_LEFT_TRIGGER = 1;
+    private static final int MAP_RIGHT_A = 2;
+    private static final int MAP_RIGHT_B = 3;
+    private static final int MAP_LEFT_X = 4;
+    private static final int MAP_LEFT_Y = 5;
+    private static final int MAP_LEFT_MENU = 6;
+    private static final int MAP_RIGHT_STICK_CLICK = 7;
+    private static final int MAP_LEFT_STICK_CLICK = 8;
+    private static final int MAP_RIGHT_GRIP = 9;
+    private static final int MAP_LEFT_GRIP = 10;
+    private static final int MAP_LEFT_STICK_UP = 11;
+    private static final int MAP_LEFT_STICK_DOWN = 12;
+    private static final int MAP_LEFT_STICK_LEFT = 13;
+    private static final int MAP_LEFT_STICK_RIGHT = 14;
+    private static final int MAP_RIGHT_STICK_UP = 15;
+    private static final int MAP_RIGHT_STICK_DOWN = 16;
+    private static final int MAP_RIGHT_STICK_LEFT = 17;
+    private static final int MAP_RIGHT_STICK_RIGHT = 18;
+    private static final int MAPPED_CONTROLLER_KEY_COUNT = 19;
+
     private boolean initialized = false;
     private XrSession session;
     private XrActionSet actionSet;
@@ -128,6 +149,9 @@ public final class VRControllerHandler {
     private boolean inGameAttackHeld = false;
     /** Hysteresis latch for the analog attack trigger (activate at 0.45, release at 0.25). */
     private boolean rightAttackTriggerHeld = false;
+    private boolean leftBindingTriggerHeld = false;
+    private final int[] mappedControllerKeyCodes = new int[MAPPED_CONTROLLER_KEY_COUNT];
+    private final boolean[] mappedControllerKeyHeld = new boolean[MAPPED_CONTROLLER_KEY_COUNT];
     private boolean inGameUseItemHeld = false;
     private int inGameUseItemRepeatDelay = 0;
     private boolean snapTurnCooldown = false;
@@ -676,6 +700,7 @@ public final class VRControllerHandler {
 
     public static void releaseAllInGameKeys(Minecraft mc) {
         if (mc == null || mc.gameSettings == null) return;
+        INSTANCE.releaseAllMappedControllerKeys();
         try {
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindBack.getKeyCode(), false);
@@ -687,6 +712,89 @@ public final class VRControllerHandler {
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
         } catch (Throwable ignored) {}
+    }
+
+    /**
+     * True while any remapped controller control is emitting the supplied keyboard key.
+     * This allows remaps to drive vanilla actions too (jump, attack, movement, etc.).
+     */
+    private boolean isMappedControllerKeyHeld(int keyCode) {
+        if (keyCode <= 0) return false;
+        for (int i = 0; i < mappedControllerKeyHeld.length; i++) {
+            if (mappedControllerKeyHeld[i] && mappedControllerKeyCodes[i] == keyCode) return true;
+        }
+        return false;
+    }
+
+    private boolean isMappedControllerKeyHeldByOther(int index, int keyCode) {
+        if (keyCode <= 0) return false;
+        for (int i = 0; i < mappedControllerKeyHeld.length; i++) {
+            if (i != index && mappedControllerKeyHeld[i] && mappedControllerKeyCodes[i] == keyCode) return true;
+        }
+        return false;
+    }
+
+    private void updateMappedControllerKey(int index, int keyCode, boolean pressed) {
+        if (index < 0 || index >= MAPPED_CONTROLLER_KEY_COUNT) return;
+        int oldCode = mappedControllerKeyCodes[index];
+        boolean wasHeld = mappedControllerKeyHeld[index];
+        boolean nowHeld = pressed && keyCode > 0;
+
+        if (wasHeld && (oldCode != keyCode || !nowHeld)
+                && !isMappedControllerKeyHeldByOther(index, oldCode)) {
+            KeyBinding.setKeyBindState(oldCode, false);
+        }
+        if (nowHeld) {
+            boolean newPress = !wasHeld || oldCode != keyCode;
+            if (newPress && !isMappedControllerKeyHeldByOther(index, keyCode)) {
+                KeyBinding.onTick(keyCode);
+            }
+            KeyBinding.setKeyBindState(keyCode, true);
+        }
+
+        mappedControllerKeyCodes[index] = keyCode;
+        mappedControllerKeyHeld[index] = nowHeld;
+    }
+
+    private void releaseAllMappedControllerKeys() {
+        for (int i = 0; i < MAPPED_CONTROLLER_KEY_COUNT; i++) {
+            if (mappedControllerKeyHeld[i] && mappedControllerKeyCodes[i] > 0) {
+                KeyBinding.setKeyBindState(mappedControllerKeyCodes[i], false);
+            }
+            mappedControllerKeyHeld[i] = false;
+        }
+        rightAttackTriggerHeld = false;
+        leftBindingTriggerHeld = false;
+    }
+
+    private void updateMappedControllerKeys() {
+        // Hysteresis on both analog triggers keeps emitted keys stable at the threshold.
+        if (rightTriggerValue >= 0.45F) rightAttackTriggerHeld = true;
+        else if (rightTriggerValue <= 0.25F) rightAttackTriggerHeld = false;
+        if (leftTriggerValue >= 0.45F) leftBindingTriggerHeld = true;
+        else if (leftTriggerValue <= 0.25F) leftBindingTriggerHeld = false;
+
+        boolean selectorActive = VRHotbarSelector.getInstance().isSelectorActive();
+        updateMappedControllerKey(MAP_RIGHT_TRIGGER, VRClientSettings.controllerRightTriggerKeyCode, rightAttackTriggerHeld);
+        updateMappedControllerKey(MAP_LEFT_TRIGGER, VRClientSettings.controllerLeftTriggerKeyCode, leftBindingTriggerHeld);
+        updateMappedControllerKey(MAP_RIGHT_A, VRClientSettings.controllerRightAKeyCode, rightPrimaryValue);
+        updateMappedControllerKey(MAP_RIGHT_B, VRClientSettings.controllerRightBKeyCode, rightSecondaryValue);
+        updateMappedControllerKey(MAP_LEFT_X, VRClientSettings.controllerLeftXKeyCode, leftPrimaryValue);
+        updateMappedControllerKey(MAP_LEFT_Y, VRClientSettings.controllerLeftYKeyCode, leftSecondaryValue);
+        updateMappedControllerKey(MAP_LEFT_MENU, VRClientSettings.controllerLeftMenuKeyCode, leftMenuValue);
+        updateMappedControllerKey(MAP_RIGHT_STICK_CLICK, VRClientSettings.controllerRightStickClickKeyCode, rightStickClick);
+        updateMappedControllerKey(MAP_LEFT_STICK_CLICK, VRClientSettings.controllerLeftStickClickKeyCode, leftStickClick);
+        updateMappedControllerKey(MAP_RIGHT_GRIP, VRClientSettings.controllerRightGripKeyCode, rightGripValue >= 0.45F);
+        updateMappedControllerKey(MAP_LEFT_GRIP, VRClientSettings.controllerLeftGripKeyCode, leftGripValue >= 0.45F);
+
+        updateMappedControllerKey(MAP_LEFT_STICK_UP, VRClientSettings.controllerLeftStickUpKeyCode, leftStickY > 0.55F);
+        updateMappedControllerKey(MAP_LEFT_STICK_DOWN, VRClientSettings.controllerLeftStickDownKeyCode, leftStickY < -0.55F);
+        updateMappedControllerKey(MAP_LEFT_STICK_LEFT, VRClientSettings.controllerLeftStickLeftKeyCode, leftStickX < -0.55F);
+        updateMappedControllerKey(MAP_LEFT_STICK_RIGHT, VRClientSettings.controllerLeftStickRightKeyCode, leftStickX > 0.55F);
+        updateMappedControllerKey(MAP_RIGHT_STICK_UP, VRClientSettings.controllerRightStickUpKeyCode, !selectorActive && rightStickY > 0.55F);
+        updateMappedControllerKey(MAP_RIGHT_STICK_DOWN, VRClientSettings.controllerRightStickDownKeyCode, !selectorActive && rightStickY < -0.55F);
+        updateMappedControllerKey(MAP_RIGHT_STICK_LEFT, VRClientSettings.controllerRightStickLeftKeyCode, !selectorActive && rightStickX < -0.55F);
+        updateMappedControllerKey(MAP_RIGHT_STICK_RIGHT, VRClientSettings.controllerRightStickRightKeyCode, !selectorActive && rightStickX > 0.55F);
     }
 
     private void handleMenuInteraction(Minecraft mc) {
@@ -924,6 +1032,7 @@ public final class VRControllerHandler {
 
     private void handleInWorldInteraction(Minecraft mc) {
         releaseMenuClicks();
+        updateMappedControllerKeys();
 
         // 0. Update Hand 6-DoF Raycasting for block mining and placement (Visor VRAimPicker)
         VRHandAimPicker.update(mc, 1.0F);
@@ -955,8 +1064,9 @@ public final class VRControllerHandler {
             backClicked = true;
         }
 
-        // 1. Pause Menu (Left Button Y or Left Menu button)
-        boolean pausePressed = leftSecondaryValue || leftMenuValue;
+        // 1. Pause Menu. A bound button emits its assigned key instead of its legacy action.
+        boolean pausePressed = (leftSecondaryValue && VRClientSettings.controllerLeftYKeyCode <= 0)
+                || (leftMenuValue && VRClientSettings.controllerLeftMenuKeyCode <= 0);
         if (pausePressed && !pauseClicked && worldLoadGraceTicks == 0) {
             pauseClicked = true;
             releaseAllInGameKeys(mc);
@@ -970,8 +1080,9 @@ public final class VRControllerHandler {
             pauseClicked = false;
         }
 
-        // 2. Open Inventory (Left Button X)
-        if (leftPrimaryValue && !inventoryClicked && worldLoadGraceTicks == 0) {
+        // 2. Open Inventory (Left Button X), unless it has been assigned another key.
+        if (leftPrimaryValue && VRClientSettings.controllerLeftXKeyCode <= 0
+                && !inventoryClicked && worldLoadGraceTicks == 0) {
             inventoryClicked = true;
             releaseAllInGameKeys(mc);
             if (VRHotbarSelector.getInstance().isSelectorActive()) {
@@ -982,7 +1093,7 @@ public final class VRControllerHandler {
                 mc.displayGuiScreen(new GuiInventory(mc.thePlayer));
             }
             return;
-        } else if (!leftPrimaryValue && worldLoadGraceTicks == 0) {
+        } else if ((!leftPrimaryValue || VRClientSettings.controllerLeftXKeyCode > 0) && worldLoadGraceTicks == 0) {
             inventoryClicked = false;
         }
 
@@ -1000,7 +1111,8 @@ public final class VRControllerHandler {
 
         // Gripping a ladder or vine climbs; it must not open the hotbar at the same time.
         boolean climbing = com.gtnhvr.gameplay.tasks.VRTaskRoomClimb.getInstance().isClimbing();
-        hotbar.update(mc, climbing ? 0.0F : rightGripValue, climbing ? 0.0F : leftGripValue,
+        hotbar.update(mc, (climbing || VRClientSettings.controllerRightGripKeyCode > 0) ? 0.0F : rightGripValue,
+                (climbing || VRClientSettings.controllerLeftGripKeyCode > 0) ? 0.0F : leftGripValue,
                 rightHandPos, rightHandRot, rightHandTracked,
                 leftHandPos, leftHandRot, leftHandTracked,
                 hmdPos, hmdRot);
@@ -1010,22 +1122,27 @@ public final class VRControllerHandler {
             mc.thePlayer.stepHeight = VRClientSettings.walkUpEnabled ? 1.05F : 0.6F;
         }
 
-        // 4. World Turning (Right Thumbstick X) - only when not navigating the hotbar grid
+        // 4. World Turning (Right Thumbstick X). A remapped horizontal direction emits a key instead.
         {
+            float turnX = rightStickX;
+            if ((turnX < 0.0F && VRClientSettings.controllerRightStickLeftKeyCode > 0)
+                    || (turnX > 0.0F && VRClientSettings.controllerRightStickRightKeyCode > 0)) {
+                turnX = 0.0F;
+            }
             if (VRClientSettings.worldRotationStep <= 0.0F) {
                 // Smooth rotation
-                if (Math.abs(rightStickX) > 0.15F) {
-                    float rotSpeed = rightStickX * VRClientSettings.worldRotationSmoothSensitivity * 40.0F;
+                if (Math.abs(turnX) > 0.15F) {
+                    float rotSpeed = turnX * VRClientSettings.worldRotationSmoothSensitivity * 40.0F;
                     HeadPoseController.setBaseYaw(HeadPoseController.getBaseYaw() + rotSpeed);
                     HeadPoseController.apply();
                 }
             } else {
                 // Snap turning
-                if (Math.abs(rightStickX) > 0.55F) {
+                if (Math.abs(turnX) > 0.55F) {
                     if (!snapTurnCooldown) {
                         snapTurnCooldown = true;
                         float step = VRClientSettings.worldRotationStep;
-                        float angle = (rightStickX > 0) ? step : -step;
+                        float angle = (turnX > 0) ? step : -step;
                         HeadPoseController.setBaseYaw(HeadPoseController.getBaseYaw() + angle);
                         HeadPoseController.apply(); // Immediately sync thePlayer.rotationYaw
                         triggerHaptic(false, 3_000_000L, VRClientSettings.hapticStrength, 0);
@@ -1036,17 +1153,19 @@ public final class VRControllerHandler {
             }
         }
 
-        // 5. Jump (Right Button B) + Double-tap creative flight toggle
-        boolean jumpState = rightSecondaryValue;
+        // 5. Jump (Right Button B). When B is remapped, the key mapper owns its output.
+        boolean defaultJumpState = rightSecondaryValue && VRClientSettings.controllerRightBKeyCode <= 0;
+        boolean mappedJumpState = isMappedControllerKeyHeld(mc.gameSettings.keyBindJump.getKeyCode());
+        boolean jumpState = defaultJumpState || mappedJumpState;
         KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), jumpState);
         if (mc.thePlayer != null && mc.thePlayer.movementInput != null) {
             mc.thePlayer.movementInput.jump = jumpState;
         }
 
-        boolean jumpPressedThisFrame = rightSecondaryValue && !lastJumpButtonState;
-        lastJumpButtonState = rightSecondaryValue;
+        boolean jumpPressedThisFrame = defaultJumpState && !lastJumpButtonState;
+        lastJumpButtonState = defaultJumpState;
 
-        if (jumpPressedThisFrame) {
+        if (jumpPressedThisFrame && !mappedJumpState) {
             KeyBinding.onTick(mc.gameSettings.keyBindJump.getKeyCode());
             long now = System.currentTimeMillis();
             if (now - lastJumpPressTime < 400L) { // Double tap within 400ms toggles creative flight
@@ -1062,7 +1181,8 @@ public final class VRControllerHandler {
         }
 
         // 6. Crouch / Sneak (Right Thumbstick Click Toggle OR Physical Room Sneak)
-        if (rightStickClick && !lastRightStickClick) {
+        if (rightStickClick && !lastRightStickClick
+                && VRClientSettings.controllerRightStickClickKeyCode <= 0) {
             sneakToggled = !sneakToggled;
             triggerHaptic(false, 8_000_000L, 0.40F, 0);
         }
@@ -1073,7 +1193,8 @@ public final class VRControllerHandler {
         }
 
         boolean roomSneakActive = com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance().isSneaking();
-        boolean sneakState = sneakToggled || roomSneakActive;
+        boolean mappedSneakState = isMappedControllerKeyHeld(mc.gameSettings.keyBindSneak.getKeyCode());
+        boolean sneakState = sneakToggled || roomSneakActive || mappedSneakState;
         KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), sneakState);
         if (mc.thePlayer != null) {
             // Set the entity data watcher sneak flag so mods (Tinkers' Construct, etc.)
@@ -1093,19 +1214,15 @@ public final class VRControllerHandler {
             }
         }
 
-        // 7. Attack / Mine / Break Block (right trigger, with analog hysteresis).
-        // Avoid crack-progress flicker when the controller's analog value jitters near a single cutoff.
-        if (rightTriggerValue >= 0.45F) {
-            rightAttackTriggerHeld = true;
-        } else if (rightTriggerValue <= 0.25F) {
-            rightAttackTriggerHeld = false;
-        }
+        // 7. Attack / Mine / Break Block. Preserve the anti-flicker trigger latch from above.
         boolean blockingStopsAttack = !VRClientSettings.worldAttacksWhileBlocking
                 && mc.thePlayer != null && mc.thePlayer.isBlocking();
-        boolean attackState = rightAttackTriggerHeld && !hotbar.isMainSelectorActive()
+        boolean mappedAttackState = isMappedControllerKeyHeld(mc.gameSettings.keyBindAttack.getKeyCode());
+        boolean defaultAttackState = rightAttackTriggerHeld && VRClientSettings.controllerRightTriggerKeyCode <= 0;
+        boolean attackState = (defaultAttackState || mappedAttackState) && !hotbar.isMainSelectorActive()
                 && !com.gtnhvr.gui.VRWristInventory.getInstance().isActive()
                 && !blockingStopsAttack;
-        if (attackState || rightPrimaryValue) {
+        if (attackState || (rightPrimaryValue && VRClientSettings.controllerRightAKeyCode <= 0)) {
             leftHandActive = false;
         } else if (leftTriggerValue > 0.35F) {
             leftHandActive = true;
@@ -1113,7 +1230,7 @@ public final class VRControllerHandler {
         // Re-arm the click edge if another screen/mod cleared the Minecraft key state
         // while the controller-side held flag was still true.
         boolean attackKeyDown = mc.gameSettings.keyBindAttack.getIsKeyPressed();
-        if (attackState && (!inGameAttackHeld || !attackKeyDown)) {
+        if (attackState && !mappedAttackState && (!inGameAttackHeld || !attackKeyDown)) {
             KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
         }
         inGameAttackHeld = attackState;
@@ -1125,10 +1242,13 @@ public final class VRControllerHandler {
         // 8. Use Item / Place Block / Interact (Left Trigger squeeze > 0.35F OR Right Button A OR TaskRoomConsume)
         boolean roomConsume = com.gtnhvr.gameplay.tasks.VRTaskRoomConsume.getInstance().isConsuming();
         boolean roomConsumeLeft = com.gtnhvr.gameplay.tasks.VRTaskRoomConsume.getInstance().isConsumingLeft();
-        boolean isLeftTriggerUse = (VRClientSettings.worldTwoHanded && leftTriggerValue > 0.35F) || roomConsumeLeft;
+        boolean isLeftTriggerUse = (VRClientSettings.worldTwoHanded
+                && VRClientSettings.controllerLeftTriggerKeyCode <= 0 && leftTriggerValue > 0.35F) || roomConsumeLeft;
+        boolean rightAUse = rightPrimaryValue && VRClientSettings.controllerRightAKeyCode <= 0;
+        boolean mappedUseItemState = isMappedControllerKeyHeld(mc.gameSettings.keyBindUseItem.getKeyCode());
         boolean useItemState = com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance().isBowHeld(mc)
                 ? com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance().isDrawing()
-                : (isLeftTriggerUse || rightPrimaryValue || roomConsume) && !hotbar.isSelectorActive()
+                : (isLeftTriggerUse || rightAUse || roomConsume || mappedUseItemState) && !hotbar.isSelectorActive()
                 && !com.gtnhvr.gui.VRWristInventory.getInstance().isActive();
         if (useItemState) {
             if (isLeftTriggerUse) {
@@ -1148,7 +1268,7 @@ public final class VRControllerHandler {
                 }
             }
 
-            if (!inGameUseItemHeld) {
+            if (!inGameUseItemHeld && !mappedUseItemState) {
                 KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());
             }
         }
@@ -1199,8 +1319,24 @@ public final class VRControllerHandler {
             sy /= mag;
         }
 
+        // If a stick direction is explicitly remapped, do not also apply that direction as analog walking.
+        if (leftStickY > 0.0F && VRClientSettings.controllerLeftStickUpKeyCode > 0) sy = 0.0F;
+        if (leftStickY < 0.0F && VRClientSettings.controllerLeftStickDownKeyCode > 0) sy = 0.0F;
+        if (leftStickX < 0.0F && VRClientSettings.controllerLeftStickLeftKeyCode > 0) sx = 0.0F;
+        if (leftStickX > 0.0F && VRClientSettings.controllerLeftStickRightKeyCode > 0) sx = 0.0F;
+
         float forward = sy;
         float strafe = -sx; // In Minecraft, moveStrafe is +1 for left, -1 for right
+        // A remapped stick direction can target any existing Minecraft/Forge/mod key binding.
+        if (isMappedControllerKeyHeld(mc.gameSettings.keyBindForward.getKeyCode())) forward += 1.0F;
+        if (isMappedControllerKeyHeld(mc.gameSettings.keyBindBack.getKeyCode())) forward -= 1.0F;
+        if (isMappedControllerKeyHeld(mc.gameSettings.keyBindLeft.getKeyCode())) strafe += 1.0F;
+        if (isMappedControllerKeyHeld(mc.gameSettings.keyBindRight.getKeyCode())) strafe -= 1.0F;
+        float combinedMag = (float) Math.sqrt(forward * forward + strafe * strafe);
+        if (combinedMag > 1.0F) {
+            forward /= combinedMag;
+            strafe /= combinedMag;
+        }
 
         // If movement mode is CONTROLLER or OFFHAND, steer relative to left controller direction:
         if ((com.gtnhvr.settings.VRClientSettings.movementMode == com.gtnhvr.settings.MovementMode.CONTROLLER
@@ -1227,7 +1363,9 @@ public final class VRControllerHandler {
         }
 
         // Auto-sprinting when pushed forward (connected to VRClientSettings.sprintThreshold)
-        boolean sprint = (leftStickClick || forward >= com.gtnhvr.settings.VRClientSettings.sprintThreshold);
+        boolean mappedSprint = isMappedControllerKeyHeld(mc.gameSettings.keyBindSprint.getKeyCode());
+        boolean sprint = ((leftStickClick && VRClientSettings.controllerLeftStickClickKeyCode <= 0)
+                || mappedSprint || forward >= com.gtnhvr.settings.VRClientSettings.sprintThreshold);
         if (sprint) {
             sneakToggled = false;
         }
@@ -1245,11 +1383,16 @@ public final class VRControllerHandler {
         }
 
         // Synchronize vanilla key bindings directly to match effective impulses
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), forward > 0.20F);
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindBack.getKeyCode(), forward < -0.20F);
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), strafe > 0.20F);
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindRight.getKeyCode(), strafe < -0.20F);
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), sprint);
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(),
+                forward > 0.20F || isMappedControllerKeyHeld(mc.gameSettings.keyBindForward.getKeyCode()));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindBack.getKeyCode(),
+                forward < -0.20F || isMappedControllerKeyHeld(mc.gameSettings.keyBindBack.getKeyCode()));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(),
+                strafe > 0.20F || isMappedControllerKeyHeld(mc.gameSettings.keyBindLeft.getKeyCode()));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindRight.getKeyCode(),
+                strafe < -0.20F || isMappedControllerKeyHeld(mc.gameSettings.keyBindRight.getKeyCode()));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(),
+                sprint || isMappedControllerKeyHeld(mc.gameSettings.keyBindSprint.getKeyCode()));
     }
 
     public void setKbDragHand(boolean isLeft) {
@@ -1431,24 +1574,40 @@ public final class VRControllerHandler {
         return leftGripHandPos;
     }
 
-    public float getRightTriggerValue() { return rightTriggerValue; }
-    public float getLeftTriggerValue() { return leftTriggerValue; }
-    public float getRightGripValue() { return rightGripValue; }
-    public float getLeftGripValue() { return leftGripValue; }
-    public float getLeftStickX() { return leftStickX; }
-    public float getLeftStickY() { return leftStickY; }
-    public float getRightStickX() { return rightStickX; }
-    public float getRightStickY() { return rightStickY; }
+    public float getRightTriggerValue() { return VRClientSettings.controllerRightTriggerKeyCode > 0 ? 0.0F : rightTriggerValue; }
+    public float getLeftTriggerValue() { return VRClientSettings.controllerLeftTriggerKeyCode > 0 ? 0.0F : leftTriggerValue; }
+    public float getRightGripValue() { return VRClientSettings.controllerRightGripKeyCode > 0 ? 0.0F : rightGripValue; }
+    public float getLeftGripValue() { return VRClientSettings.controllerLeftGripKeyCode > 0 ? 0.0F : leftGripValue; }
+    public float getLeftStickX() {
+        if (leftStickX < 0.0F && VRClientSettings.controllerLeftStickLeftKeyCode > 0) return 0.0F;
+        if (leftStickX > 0.0F && VRClientSettings.controllerLeftStickRightKeyCode > 0) return 0.0F;
+        return leftStickX;
+    }
+    public float getLeftStickY() {
+        if (leftStickY > 0.0F && VRClientSettings.controllerLeftStickUpKeyCode > 0) return 0.0F;
+        if (leftStickY < 0.0F && VRClientSettings.controllerLeftStickDownKeyCode > 0) return 0.0F;
+        return leftStickY;
+    }
+    public float getRightStickX() {
+        if (rightStickX < 0.0F && VRClientSettings.controllerRightStickLeftKeyCode > 0) return 0.0F;
+        if (rightStickX > 0.0F && VRClientSettings.controllerRightStickRightKeyCode > 0) return 0.0F;
+        return rightStickX;
+    }
+    public float getRightStickY() {
+        if (rightStickY > 0.0F && VRClientSettings.controllerRightStickUpKeyCode > 0) return 0.0F;
+        if (rightStickY < 0.0F && VRClientSettings.controllerRightStickDownKeyCode > 0) return 0.0F;
+        return rightStickY;
+    }
     public boolean isSneakActive() {
         return sneakToggled || (com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance().isSneaking());
     }
     public boolean isLeftCursorHand() { return isLeftCursorHand; }
-    public boolean isLeftPrimaryValue() { return leftPrimaryValue; }
-    public boolean isRightPrimaryValue() { return rightPrimaryValue; }
-    public boolean isLeftPrimaryPressed() { return leftPrimaryValue; }
-    public boolean isRightPrimaryPressed() { return rightPrimaryValue; }
-    public boolean isLeftSecondaryValue() { return leftSecondaryValue; }
-    public boolean isRightSecondaryValue() { return rightSecondaryValue; }
+    public boolean isLeftPrimaryValue() { return VRClientSettings.controllerLeftXKeyCode <= 0 && leftPrimaryValue; }
+    public boolean isRightPrimaryValue() { return VRClientSettings.controllerRightAKeyCode <= 0 && rightPrimaryValue; }
+    public boolean isLeftPrimaryPressed() { return isLeftPrimaryValue(); }
+    public boolean isRightPrimaryPressed() { return isRightPrimaryValue(); }
+    public boolean isLeftSecondaryValue() { return VRClientSettings.controllerLeftYKeyCode <= 0 && leftSecondaryValue; }
+    public boolean isRightSecondaryValue() { return VRClientSettings.controllerRightBKeyCode <= 0 && rightSecondaryValue; }
 
     private static java.lang.reflect.Field mouseLatestXField;
     private static java.lang.reflect.Field mouseLatestYField;
@@ -1647,8 +1806,9 @@ public final class VRControllerHandler {
 
     /** Hand currently using an item for look-direction purposes: 0 none, 1 main hand, 2 off hand. */
     public int getUsingHand() {
-        if (inGameAttackHeld || rightPrimaryValue) return 1;
-        if (VRClientSettings.worldTwoHanded && leftTriggerValue > 0.35F) return 2;
+        if (inGameAttackHeld || (rightPrimaryValue && VRClientSettings.controllerRightAKeyCode <= 0)) return 1;
+        if (VRClientSettings.worldTwoHanded && VRClientSettings.controllerLeftTriggerKeyCode <= 0
+                && leftTriggerValue > 0.35F) return 2;
         return 0;
     }
 
