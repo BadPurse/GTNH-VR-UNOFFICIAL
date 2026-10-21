@@ -6,6 +6,8 @@ import net.minecraft.client.shader.Framebuffer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArgs;
+import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -41,6 +43,40 @@ public abstract class MixinMinecraft {
                 mc.gameSettings.pauseOnLostFocus = false;
             }
         }
+    }
+
+    /**
+     * Minecraft calculates drawScreen(mouseX, mouseY) from the desktop ScaledResolution,
+     * but VRGuiRenderer may give the active GuiScreen a different logical size. Convert
+     * the hover coordinates into that screen's coordinate space so hover/highlight agrees
+     * with handleMouseInput and button hit testing at any window/capture resolution.
+     */
+    @ModifyArgs(
+            method = {"runTick", "func_71407_l"},
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/GuiScreen;drawScreen(IIF)V"
+            ),
+            require = 0
+    )
+    private void gtnhvr$mapGuiHoverCoordinates(Args args) {
+        Minecraft mc = (Minecraft) (Object) this;
+        if (!OpenXRRuntime.isSessionRunning() || mc == null || mc.currentScreen == null
+                || mc.displayWidth <= 0 || mc.displayHeight <= 0) {
+            return;
+        }
+
+        net.minecraft.client.gui.ScaledResolution desktop =
+                new net.minecraft.client.gui.ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        int desktopWidth = Math.max(1, desktop.getScaledWidth());
+        int desktopHeight = Math.max(1, desktop.getScaledHeight());
+        int guiWidth = Math.max(1, mc.currentScreen.width);
+        int guiHeight = Math.max(1, mc.currentScreen.height);
+
+        int mouseX = args.get(0);
+        int mouseY = args.get(1);
+        args.set(0, mouseX * guiWidth / desktopWidth);
+        args.set(1, mouseY * guiHeight / desktopHeight);
     }
 
     @Inject(method = {"shutdownMinecraftApplet", "func_71405_e"}, at = @At("HEAD"))
