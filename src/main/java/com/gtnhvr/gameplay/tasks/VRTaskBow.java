@@ -119,8 +119,11 @@ public class VRTaskBow {
             return;
         }
 
-        // Aim: from the string hand through the bow hand.
-        Vector3f aim = new Vector3f(bowPos).sub(stringPos);
+        // Match Visor's BowAimCrosshairRenderer: the bow controller's aim pose defines
+        // the arrow direction. Hand spacing controls draw strength, not the shot's bearing.
+        org.joml.Quaternionf bowAimRotation = bowInMainHand
+                ? handler.getRightHandRot() : handler.getLeftHandRot();
+        Vector3f aim = bowAimRotation.transform(new Vector3f(0.0F, 0.0F, -1.0F));
         if (aim.lengthSquared() > 1.0E-6F) {
             aimRoomDir.set(aim).normalize();
         }
