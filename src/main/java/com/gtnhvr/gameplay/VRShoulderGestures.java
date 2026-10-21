@@ -11,9 +11,6 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.lwjgl.openxr.XrPosef;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
 
 /**
  * Two configurable virtual controller buttons triggered by opposite-shoulder gestures.
@@ -32,7 +29,6 @@ public final class VRShoulderGestures {
     private static final float SHOULDER_OFFSET_Y = 0.10F;
     private static final float SHOULDER_OFFSET_X = 0.18F;
     private static final long COOLDOWN_MS = 250L;
-    private static final long SYNTHETIC_KEY_PRESS_NANOS = 120_000_000L;
 
     private long rightHandOnLeftShoulderStart;
     private boolean rightHandWasOnShoulder;
@@ -44,7 +40,11 @@ public final class VRShoulderGestures {
     private boolean leftHandGestureFired;
     private long lastLeftGestureTime;
 
-    private final Map<Integer, Long> pendingKeyReleases = new HashMap<>();
+    // The selected key remains held while the controller stays at the shoulder. This
+    // makes shoulder gestures work as actual buttons and permits modifier chords such as
+    // Shift+Alt when both gestures are held at once.
+    private int rightGestureHeldKeyCode = 0;
+    private int leftGestureHeldKeyCode = 0;
 
     private VRShoulderGestures() {}
 
@@ -62,12 +62,9 @@ public final class VRShoulderGestures {
     }
 
     public void update(Minecraft mc, VRControllerHandler handler) {
-        if (!VRClientSettings.shoulderGesturesEnabled) {
-            resetGestureState();
-            return;
-        }
-        if (mc == null || mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) {
-            resetGestureState();
+        if (!VRClientSettings.shoulderGesturesEnabled
+                || mc == null || mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) {
+            clear();
             return;
         }
 
@@ -77,10 +74,12 @@ public final class VRShoulderGestures {
                 && VRClientSettings.shoulderLeftToRightKeyCode > 0;
 
         if (!rightEnabled) {
+            releaseGestureKey(true);
             rightHandWasOnShoulder = false;
             rightHandGestureFired = false;
         }
         if (!leftEnabled) {
+            releaseGestureKey(false);
             leftHandWasOnShoulder = false;
             leftHandGestureFired = false;
         }
@@ -88,7 +87,7 @@ public final class VRShoulderGestures {
 
         XrPosef headPose = OpenXRRuntime.getHeadPose();
         if (headPose == null) {
-            resetGestureState();
+            clear();
             return;
         }
 
@@ -128,17 +127,19 @@ public final class VRShoulderGestures {
                 } else if (!rightHandGestureFired
                         && now - rightHandOnLeftShoulderStart >= holdDurationMs
                         && now - lastRightGestureTime >= COOLDOWN_MS) {
-                    fireKeyboardKey(VRClientSettings.shoulderRightToLeftKeyCode,
-                            "right controller -> left shoulder");
+                    pressShoulderKey(VRClientSettings.shoulderRightToLeftKeyCode,
+                            "right controller -> left shoulder", true);
                     lastRightGestureTime = now;
                     rightHandGestureFired = true;
                     handler.triggerHaptic(VRClientSettings.leftHanded, 30_000_000L, 0.85F, 0);
                 }
             } else {
+                releaseGestureKey(true);
                 rightHandWasOnShoulder = false;
                 rightHandGestureFired = false;
             }
         } else {
+            releaseGestureKey(true);
             rightHandWasOnShoulder = false;
             rightHandGestureFired = false;
         }
@@ -156,67 +157,67 @@ public final class VRShoulderGestures {
                 } else if (!leftHandGestureFired
                         && now - leftHandOnRightShoulderStart >= holdDurationMs
                         && now - lastLeftGestureTime >= COOLDOWN_MS) {
-                    fireKeyboardKey(VRClientSettings.shoulderLeftToRightKeyCode,
-                            "left controller -> right shoulder");
+                    pressShoulderKey(VRClientSettings.shoulderLeftToRightKeyCode,
+                            "left controller -> right shoulder", false);
                     lastLeftGestureTime = now;
                     leftHandGestureFired = true;
                     handler.triggerHaptic(!VRClientSettings.leftHanded, 30_000_000L, 0.85F, 0);
                 }
             } else {
+                releaseGestureKey(false);
                 leftHandWasOnShoulder = false;
                 leftHandGestureFired = false;
             }
         } else {
+            releaseGestureKey(false);
             leftHandWasOnShoulder = false;
             leftHandGestureFired = false;
         }
     }
 
-    private void fireKeyboardKey(int keyCode, String gestureName) {
+    private void pressShoulderKey(int keyCode, String gestureName, boolean rightSide) {
         if (keyCode <= 0) return;
-        try {
+
+        int currentKey = rightSide ? rightGestureHeldKeyCode : leftGestureHeldKeyCode;
+        if (currentKey == keyCode) {
             KeyBinding.setKeyBindState(keyCode, true);
-            KeyBinding.onTick(keyCode);
-            pendingKeyReleases.put(keyCode, System.nanoTime() + SYNTHETIC_KEY_PRESS_NANOS);
-            GTNHVRLog.info("[VR Shoulder Button] %s emitted key %s (%d)",
-                    gestureName, org.lwjgl.input.Keyboard.getKeyName(keyCode), keyCode);
-        } catch (Throwable t) {
-            GTNHVRLog.warn("[VR Shoulder Button] Could not emit key %d: %s", keyCode, t);
+            return;
+        }
+        if (currentKey > 0) releaseGestureKey(rightSide);
+
+        if (rightSide) rightGestureHeldKeyCode = keyCode;
+        else leftGestureHeldKeyCode = keyCode;
+
+        KeyBinding.setKeyBindState(keyCode, true);
+        KeyBinding.onTick(keyCode);
+        GTNHVRLog.info("[VR Shoulder Button] %s holding key %s (%d) while at shoulder",
+                gestureName, org.lwjgl.input.Keyboard.getKeyName(keyCode), keyCode);
+    }
+
+    private void releaseGestureKey(boolean rightSide) {
+        int keyCode = rightSide ? rightGestureHeldKeyCode : leftGestureHeldKeyCode;
+        if (rightSide) rightGestureHeldKeyCode = 0;
+        else leftGestureHeldKeyCode = 0;
+
+        if (keyCode <= 0) return;
+        boolean heldByOtherShoulder = rightGestureHeldKeyCode == keyCode || leftGestureHeldKeyCode == keyCode;
+        if (!heldByOtherShoulder && !VRControllerHandler.getInstance().isControllerMappedKeyHeld(keyCode)) {
+            KeyBinding.setKeyBindState(keyCode, false);
         }
     }
 
     /**
-     * Called every game/VR interaction tick to release synthetic keyboard events after
-     * the game has had time to process the press, independent of headset render FPS.
+     * Called every VR interaction tick to preserve the pressed state between render frames.
+     * The key is released when the hand leaves the shoulder, so two gestures can form a chord.
      */
     public void tick() {
-        if (pendingKeyReleases.isEmpty()) return;
-        long now = System.nanoTime();
-        Iterator<Map.Entry<Integer, Long>> it = pendingKeyReleases.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<Integer, Long> entry = it.next();
-            if (now >= entry.getValue()) {
-                // Another controller binding may intentionally be holding the same key.
-                if (!VRControllerHandler.getInstance().isControllerMappedKeyHeld(entry.getKey())) {
-                    KeyBinding.setKeyBindState(entry.getKey(), false);
-                }
-                it.remove();
-            } else {
-                // Keep the virtual key held between render frames; Minecraft polls
-                // KeyBinding state separately from OpenXR's controller update loop.
-                KeyBinding.setKeyBindState(entry.getKey(), true);
-            }
-        }
+        if (rightGestureHeldKeyCode > 0) KeyBinding.setKeyBindState(rightGestureHeldKeyCode, true);
+        if (leftGestureHeldKeyCode > 0) KeyBinding.setKeyBindState(leftGestureHeldKeyCode, true);
     }
 
-    /**
-     * Whether an opposite-shoulder gesture is currently holding a synthetic key down.
-     * Gameplay bindings use this to avoid immediately overwriting a shoulder-button press.
-     */
+    /** True while an opposite-shoulder gesture is holding the supplied key down. */
     public boolean isSyntheticKeyHeld(int keyCode) {
-        if (keyCode <= 0) return false;
-        Long releaseAt = pendingKeyReleases.get(keyCode);
-        return releaseAt != null && System.nanoTime() < releaseAt;
+        return keyCode > 0 && (rightGestureHeldKeyCode == keyCode || leftGestureHeldKeyCode == keyCode);
     }
 
     private void resetGestureState() {
@@ -230,9 +231,18 @@ public final class VRShoulderGestures {
 
     public void clear() {
         resetGestureState();
-        for (Integer keyCode : pendingKeyReleases.keySet()) {
-            KeyBinding.setKeyBindState(keyCode, false);
+
+        int rightKey = rightGestureHeldKeyCode;
+        int leftKey = leftGestureHeldKeyCode;
+        rightGestureHeldKeyCode = 0;
+        leftGestureHeldKeyCode = 0;
+
+        if (rightKey > 0 && rightKey != leftKey
+                && !VRControllerHandler.getInstance().isControllerMappedKeyHeld(rightKey)) {
+            KeyBinding.setKeyBindState(rightKey, false);
         }
-        pendingKeyReleases.clear();
+        if (leftKey > 0 && !VRControllerHandler.getInstance().isControllerMappedKeyHeld(leftKey)) {
+            KeyBinding.setKeyBindState(leftKey, false);
+        }
     }
 }
