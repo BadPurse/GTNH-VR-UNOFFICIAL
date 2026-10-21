@@ -74,7 +74,7 @@ public final class VRMobSpawnOverlay {
         }
 
         long currentTick = mc.theWorld.getTotalWorldTime();
-        if (currentTick - lastScanTick < SCAN_INTERVAL_TICKS) {
+        if (lastScanTick >= 0L && currentTick - lastScanTick < SCAN_INTERVAL_TICKS) {
             return;
         }
         lastScanTick = currentTick;
