@@ -660,7 +660,89 @@ public final class VRVirtualKeyboard {
     private void dispatchKey(Minecraft mc, char ch, int keyCode) {
         if (mc == null || mc.currentScreen == null) return;
         if (captureVirtualBindingKey(keyCode)) return;
-        com.gtnhvr.gui.GuiHelper.keyTyped(mc.currentScreen, ch, keyCode);
+
+        GuiScreen screen = mc.currentScreen;
+        boolean containerScreen = screen instanceof net.minecraft.client.gui.inventory.GuiContainer;
+
+        // In inventories/NEI the virtual keyboard must only type into the focused search or
+        // text field. Sending E/ESC/etc. to the parent GuiContainer also runs its global
+        // key handling and can close the inventory even though the user only meant to type.
+        if (containerScreen) {
+            dispatchDirectlyToFocusedTextField(screen, ch, keyCode);
+            return;
+        }
+
+        // For ordinary focused text fields, bypass GuiScreen.keyTyped and the global LWJGL
+        // event queue. That makes letters into text, rather than global Minecraft keybinds.
+        if (dispatchDirectlyToFocusedTextField(screen, ch, keyCode)) {
+            // Chat and sign/book screens still need screen-level handling for Enter/Escape.
+            if ((keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_ESCAPE)
+                    && (screen instanceof net.minecraft.client.gui.GuiChat
+                    || screen instanceof net.minecraft.client.gui.inventory.GuiEditSign
+                    || screen instanceof net.minecraft.client.gui.GuiScreenBook)) {
+                com.gtnhvr.gui.GuiHelper.keyTyped(screen, ch, keyCode);
+            }
+            return;
+        }
+
+        // Retain the legacy handlers only for explicit text-entry screens whose editors are
+        // not exposed as focused text-field objects. Never forward arbitrary keys from an
+        // inventory or unrelated GUI to Minecraft's global key handling.
+        if (screen instanceof net.minecraft.client.gui.GuiChat
+                || screen instanceof net.minecraft.client.gui.inventory.GuiEditSign
+                || screen instanceof net.minecraft.client.gui.GuiScreenBook) {
+            com.gtnhvr.gui.GuiHelper.keyTyped(screen, ch, keyCode);
+        }
+    }
+
+    private boolean dispatchDirectlyToFocusedTextField(GuiScreen screen, char ch, int keyCode) {
+        if (screen == null) return false;
+
+        net.minecraft.client.gui.GuiTextField focused = com.gtnhvr.gui.GuiHelper.getFocusedTextField();
+        if (focused != null && focused.isFocused()) {
+            focused.textboxKeyTyped(ch, keyCode);
+            return true;
+        }
+
+        Object modTextField = com.gtnhvr.gui.GuiHelper.getAnyFocusedTextFieldObject(screen);
+        if (modTextField == null) return false;
+
+        try {
+            java.lang.reflect.Method method = null;
+            try {
+                method = modTextField.getClass().getMethod("textboxKeyTyped", char.class, int.class);
+            } catch (NoSuchMethodException ignored) {
+                try {
+                    method = modTextField.getClass().getMethod("func_146201_a", char.class, int.class);
+                } catch (NoSuchMethodException ignoredAgain) {
+                    for (java.lang.reflect.Method candidate : modTextField.getClass().getMethods()) {
+                        Class<?>[] params = candidate.getParameterTypes();
+                        if (params.length == 2 && params[0] == char.class && params[1] == int.class
+                                && (candidate.getName().toLowerCase(java.util.Locale.ROOT).contains("keytyped")
+                                || candidate.getName().equals("func_146201_a"))) {
+                            method = candidate;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (method == null) return false;
+            method.setAccessible(true);
+            method.invoke(modTextField, ch, keyCode);
+            return true;
+        } catch (Throwable t) {
+            GTNHVRLog.warn("Unable to dispatch virtual key directly to focused text field: %s", t);
+            return false;
+        }
+    }
+
+    private static boolean isTextInputContext(GuiScreen screen) {
+        if (screen == null) return false;
+        return screen instanceof net.minecraft.client.gui.GuiChat
+                || screen instanceof net.minecraft.client.gui.inventory.GuiEditSign
+                || screen instanceof net.minecraft.client.gui.GuiScreenBook
+                || screen instanceof net.minecraft.client.gui.GuiRepair
+                || com.gtnhvr.gui.GuiHelper.hasAnyFocusedTextField(screen);
     }
 
     private boolean isCapturingVirtualBinding() {
@@ -1009,7 +1091,15 @@ public final class VRVirtualKeyboard {
 
     public void update(Minecraft mc, VRControllerHandler handler) {
         if (!visible || mc == null || handler == null) return;
-        // Also guard against screen transitions that bypass or delay the Forge GuiOpen event.
+
+        // An auto-opened keyboard belongs only to an active text-entry context. This guard
+        // closes it if a mod changes GUI state without the normal screen-open callback.
+        if (autoOpened && !isTextInputContext(mc.currentScreen)) {
+            hideAutoKeyboard();
+            return;
+        }
+
+        // Manually opened keyboards are scoped to the GUI that opened them.
         if (!autoOpened && manualOwnerScreen != null && mc.currentScreen != manualOwnerScreen) {
             setVisible(false);
             return;
