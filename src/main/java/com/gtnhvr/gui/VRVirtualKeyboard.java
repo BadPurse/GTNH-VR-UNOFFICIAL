@@ -256,7 +256,11 @@ public final class VRVirtualKeyboard {
 
     /** Scope a manually opened keyboard to the GUI that opened it. */
     public void onGuiOpen(net.minecraft.client.gui.GuiScreen nextScreen) {
-        if (visible && !autoOpened && manualOwnerScreen != null && nextScreen != manualOwnerScreen) {
+        if (!visible || autoOpened) return;
+
+        // A keyboard opened in-world has no owning screen. Close it as soon as any GUI opens;
+        // otherwise it can bleed into inventories/NEI indefinitely after a screen transition.
+        if (manualOwnerScreen == null ? nextScreen != null : nextScreen != manualOwnerScreen) {
             setVisible(false);
         }
     }
@@ -1099,8 +1103,11 @@ public final class VRVirtualKeyboard {
             return;
         }
 
-        // Manually opened keyboards are scoped to the GUI that opened them.
-        if (!autoOpened && manualOwnerScreen != null && mc.currentScreen != manualOwnerScreen) {
+        // Manually opened keyboards are scoped to their owning GUI. An in-world keyboard
+        // (null owner) must close as soon as a GUI becomes active.
+        if (!autoOpened && (manualOwnerScreen == null
+                ? mc.currentScreen != null
+                : mc.currentScreen != manualOwnerScreen)) {
             setVisible(false);
             return;
         }
