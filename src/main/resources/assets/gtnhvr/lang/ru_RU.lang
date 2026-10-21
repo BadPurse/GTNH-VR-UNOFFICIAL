@@ -481,22 +481,10 @@ visor.options.item_offsets.done.tooltip=Сохранить и вернуться
 # Управление плечевыми жестами
 gtnhvr.controls.shoulder.title=Назначение кнопок
 gtnhvr.controls.shoulder.tooltip=Настрой две дополнительные виртуальные кнопки контроллеров.
-gtnhvr.controls.shoulder.enabled=Плечевые жесты
-gtnhvr.controls.shoulder.enabled.tooltip=Общий переключатель плечевых жестов.
-gtnhvr.controls.shoulder.jetpack=Джетпак (правая -> левое плечо)
-gtnhvr.controls.shoulder.jetpack.tooltip=Удерживай хват правого контроллера у левого плеча, чтобы активировать выбранное переключение джетпака.
-gtnhvr.controls.shoulder.glide=Парение (левая -> правое плечо)
-gtnhvr.controls.shoulder.glide.tooltip=Удерживай хват левого контроллера у правого плеча, чтобы активировать выбранный режим парения или планирования.
-gtnhvr.controls.shoulder.jetpack_key=Клавиша джетпака
-gtnhvr.controls.shoulder.jetpack_key.tooltip=Переключает AUTO и найденные привязки джетпака. Выбери ту же клавишу, что назначена в моде джетпака.
-gtnhvr.controls.shoulder.glide_key=Клавиша парения
-gtnhvr.controls.shoulder.glide_key.tooltip=Переключает AUTO и найденные привязки парения или планирования.
 gtnhvr.controls.shoulder.distance=Радиус жеста
 gtnhvr.controls.shoulder.distance.tooltip=Максимальное расстояние от приблизительного положения плеча для начала жеста.
 gtnhvr.controls.shoulder.hold=Время удержания
 gtnhvr.controls.shoulder.hold.tooltip=Сколько времени контроллер должен оставаться у плеча, прежде чем будет нажата назначенная клавиша.
-gtnhvr.controls.shoulder.binding.auto=Авто
-gtnhvr.controls.shoulder.binding.missing=Привязка не найдена:
 
 # Control settings groups
 gtnhvr.controls.group.movement=Движение и поворот
