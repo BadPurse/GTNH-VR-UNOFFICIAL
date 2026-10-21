@@ -108,14 +108,20 @@ public final class GuiEventHandler {
 
         VRVirtualScreen.getInstance().resetOrientation();
 
-        if (event.gui instanceof net.minecraft.client.gui.GuiChat
+        VRVirtualKeyboard keyboard = VRVirtualKeyboard.getInstance();
+        boolean textEntryScreen = event.gui instanceof net.minecraft.client.gui.GuiChat
                 || event.gui instanceof net.minecraft.client.gui.inventory.GuiEditSign
-                || event.gui instanceof net.minecraft.client.gui.GuiScreenBook) {
-            if (com.gtnhvr.settings.VRClientSettings.keyboardAutoLayout) {
-                VRVirtualKeyboard.getInstance().setVisible(true);
-            }
-        } else if (event.gui == null) {
-            VRVirtualKeyboard.getInstance().setVisible(false);
+                || event.gui instanceof net.minecraft.client.gui.GuiScreenBook;
+
+        if (event.gui == null) {
+            // Closing the GUI also closes a manually opened keyboard.
+            keyboard.setVisible(false);
+        } else if (textEntryScreen && com.gtnhvr.settings.VRClientSettings.keyboardAutoLayout) {
+            // Mark this as auto-opened so it closes again when leaving text entry.
+            keyboard.showAutoKeyboard();
+        } else {
+            // Only hides an auto-opened keyboard; a manually toggled keyboard remains user-controlled.
+            keyboard.hideAutoKeyboard();
         }
 
         // Auto-fit oversized containers (e.g. 200+ slot chests) so they never clip offscreen
@@ -174,6 +180,11 @@ public final class GuiEventHandler {
         if (com.gtnhvr.OpenXRRuntime.isSessionRunning() && com.gtnhvr.settings.VRClientSettings.keyboardAutoLayout && gui != null) {
             if (GuiHelper.hasAnyFocusedTextField(gui)) {
                 VRVirtualKeyboard.getInstance().showAutoKeyboard();
+            } else if (!(gui instanceof net.minecraft.client.gui.GuiChat)
+                    && !(gui instanceof net.minecraft.client.gui.inventory.GuiEditSign)
+                    && !(gui instanceof net.minecraft.client.gui.GuiScreenBook)) {
+                // Some mod screens reuse themselves and fire InitGui without a GuiOpen event.
+                VRVirtualKeyboard.getInstance().hideAutoKeyboard();
             }
         }
         List<Object> buttons = event.buttonList;
