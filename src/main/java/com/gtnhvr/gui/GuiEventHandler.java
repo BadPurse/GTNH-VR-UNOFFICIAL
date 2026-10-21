@@ -112,14 +112,15 @@ public final class GuiEventHandler {
         keyboard.onGuiOpen(event.gui);
         boolean textEntryScreen = event.gui instanceof net.minecraft.client.gui.GuiChat
                 || event.gui instanceof net.minecraft.client.gui.inventory.GuiEditSign
-                || event.gui instanceof net.minecraft.client.gui.GuiScreenBook;
+                || event.gui instanceof net.minecraft.client.gui.GuiScreenBook
+                || event.gui instanceof net.minecraft.client.gui.GuiRepair;
 
         if (event.gui == null) {
             // Closing the GUI also closes a manually opened keyboard.
             keyboard.setVisible(false);
         } else if (textEntryScreen && com.gtnhvr.settings.VRClientSettings.keyboardAutoLayout) {
             // Mark this as auto-opened so it closes again when leaving text entry.
-            keyboard.showAutoKeyboard();
+            keyboard.showAutoKeyboard(event.gui);
         } else {
             // Only hides an auto-opened keyboard; a manually toggled keyboard remains user-controlled.
             keyboard.hideAutoKeyboard();
@@ -180,7 +181,7 @@ public final class GuiEventHandler {
         GuiScreen gui = event.gui;
         if (com.gtnhvr.OpenXRRuntime.isSessionRunning() && com.gtnhvr.settings.VRClientSettings.keyboardAutoLayout && gui != null) {
             if (GuiHelper.hasAnyFocusedTextField(gui)) {
-                VRVirtualKeyboard.getInstance().showAutoKeyboard();
+                VRVirtualKeyboard.getInstance().showAutoKeyboard(gui);
             } else if (!(gui instanceof net.minecraft.client.gui.GuiChat)
                     && !(gui instanceof net.minecraft.client.gui.inventory.GuiEditSign)
                     && !(gui instanceof net.minecraft.client.gui.GuiScreenBook)) {
