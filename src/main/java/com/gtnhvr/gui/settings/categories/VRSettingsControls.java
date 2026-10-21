@@ -4,7 +4,6 @@ import com.gtnhvr.gui.VRSettingsScreen;
 import com.gtnhvr.gui.settings.OptionWidget;
 import com.gtnhvr.gui.settings.OptionWidgetPosition;
 import com.gtnhvr.gui.settings.VROptionsSet;
-import com.gtnhvr.gui.settings.categories.controls.VRSettingsActionSets;
 import com.gtnhvr.settings.VRClientSettings;
 import net.minecraft.client.resources.I18n;
 
@@ -28,11 +27,13 @@ public class VRSettingsControls extends VROptionsSet {
                 I18n.format("visor.options.controls.left_handed")
         ));
 
+        // Configure the two extra virtual controller buttons using real key capture,
+        // not mod-name heuristics or a fixed list of jetpack-specific bindings.
         widgets.add(new OptionWidget.SubmenuWidget(
                 OptionWidgetPosition.RIGHT, 0,
-                I18n.format("visor.options.controls.action_sets.button"),
-                () -> new VRSettingsActionSets(screen, this),
-                I18n.format("visor.options.controls.action_sets.button")
+                I18n.format("gtnhvr.controls.bindings.title"),
+                () -> new com.gtnhvr.gui.settings.categories.controls.VRSettingsShoulderGestures(screen, this),
+                I18n.format("gtnhvr.controls.bindings.tooltip")
         ));
 
         // Row 1: Controller Vibration / Haptics
@@ -69,12 +70,5 @@ public class VRSettingsControls extends VROptionsSet {
                 I18n.format("visor.options.item_offsets.category.tooltip")
         ));
 
-        // Working settings page for the two opposite-shoulder gesture actions.
-        widgets.add(new OptionWidget.SubmenuWidget(
-                OptionWidgetPosition.RIGHT, 2,
-                I18n.format("gtnhvr.controls.shoulder.title"),
-                () -> new com.gtnhvr.gui.settings.categories.controls.VRSettingsShoulderGestures(screen, this),
-                I18n.format("gtnhvr.controls.shoulder.tooltip")
-        ));
     }
 }
