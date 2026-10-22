@@ -892,28 +892,33 @@ public class GuiSettingsOverlays extends GuiScreen {
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
+        if (button != 0) return;
         int bgX = scaleHelper.getStartX();
         int bgY = scaleHelper.getStartY();
         int tabW = scaleHelper.scaledSize(115);
         int tabH = scaleHelper.scaledSize(23);
         int tabY = bgY + scaleHelper.scaledSize(6);
 
-        // 1. Tab switches
         if (currentTab == Tab.OVERLAYS) {
             if (isHovered(mouseX, mouseY, bgX + tabW, tabY, tabW, tabH)) {
                 playClickSound();
                 currentTab = Tab.CREATE_OVERLAY;
+                showFilterPanel = false;
+                overlaySearchField.setFocused(false);
+                customNameField.setFocused(false);
+                customDescriptionField.setFocused(false);
+                templateSearchField.setFocused(false);
                 return;
             }
-        } else {
-            if (isHovered(mouseX, mouseY, bgX, tabY, tabW, tabH)) {
-                playClickSound();
-                currentTab = Tab.OVERLAYS;
-                return;
-            }
+        } else if (isHovered(mouseX, mouseY, bgX, tabY, tabW, tabH)) {
+            playClickSound();
+            currentTab = Tab.OVERLAYS;
+            customNameField.setFocused(false);
+            customDescriptionField.setFocused(false);
+            templateSearchField.setFocused(false);
+            return;
         }
 
-        // 2. Close button
         int extraX = bgX + scaleHelper.scaledSize(230);
         int closeBtnX = extraX + scaleHelper.scaledSize(4);
         int closeBtnY = bgY + scaleHelper.scaledSize(12);
@@ -925,119 +930,224 @@ public class GuiSettingsOverlays extends GuiScreen {
         }
 
         if (currentTab == Tab.OVERLAYS) {
+            if (overlaySearchField != null) overlaySearchField.mouseClicked(mouseX, mouseY, button);
+            customNameField.setFocused(false);
+            customDescriptionField.setFocused(false);
+            templateSearchField.setFocused(false);
             handleOverlaysClick(mouseX, mouseY, bgX, bgY);
         } else {
+            if (templateSearchField != null) templateSearchField.mouseClicked(mouseX, mouseY, button);
+            if (customNameField != null) customNameField.mouseClicked(mouseX, mouseY, button);
+            if (customDescriptionField != null) customDescriptionField.mouseClicked(mouseX, mouseY, button);
+            if (overlaySearchField != null) overlaySearchField.setFocused(false);
             handleCreateClick(mouseX, mouseY, bgX, bgY);
         }
     }
 
     private void handleOverlaysClick(int mouseX, int mouseY, int bgX, int bgY) {
         int listX = bgX + scaleHelper.scaledSize(12);
-        int listY = bgY + scaleHelper.scaledSize(36);
+        int searchY = bgY + scaleHelper.scaledSize(35);
+        int listY = bgY + scaleHelper.scaledSize(54);
         int listW = scaleHelper.scaledSize(96);
-        int listH = scaleHelper.scaledSize(196);
+        int listH = scaleHelper.scaledSize(176);
         int itemH = scaleHelper.scaledSize(26);
+        int filterX = listX + scaleHelper.scaledSize(77);
+        int filterW = scaleHelper.scaledSize(19);
+        int filterH = scaleHelper.scaledSize(15);
 
-        // Select overlay from list (only if clicking within list bounds)
+        if (isHovered(mouseX, mouseY, filterX, searchY, filterW, filterH)) {
+            showFilterPanel = !showFilterPanel;
+            playClickSound();
+            return;
+        }
+
+        if (showFilterPanel) {
+            int fx = listX + scaleHelper.scaledSize(1);
+            int fy = listY + scaleHelper.scaledSize(2);
+            int fw = listW - scaleHelper.scaledSize(2);
+            int fh = scaleHelper.scaledSize(76);
+            if (isHovered(mouseX, mouseY, fx, fy, fw, fh)) {
+                for (int i = 0; i < 4; i++) {
+                    int rowY = fy + scaleHelper.scaledSize(14 + i * 15);
+                    if (!isHovered(mouseX, mouseY, fx, rowY, fw, scaleHelper.scaledSize(13))) continue;
+                    if (i == 0) filterBuiltIn = !filterBuiltIn;
+                    else if (i == 1) filterCustom = !filterCustom;
+                    else if (i == 2) filterHasOptions = !filterHasOptions;
+                    else filterNoOptions = !filterNoOptions;
+                    overlayListScroll = 0;
+                    playClickSound();
+                    return;
+                }
+                return;
+            }
+            showFilterPanel = false;
+        }
+
+        // Select from the *filtered* list, mapping the displayed row back to its real entry.
         if (isHovered(mouseX, mouseY, listX, listY, listW, listH)) {
-            for (int i = 0; i < overlays.size(); i++) {
-                int curY = listY + i * itemH - overlayListScroll;
-                if (isHovered(mouseX, mouseY, listX, curY, listW, itemH - scaleHelper.scaledSize(2))) {
-                    if (selectedIndex != i) {
-                        selectedIndex = i;
-                        overlayDetailScroll = 0;
-                    }
+            List<OverlayEntry> visible = getVisibleOverlays();
+            for (int i = 0; i < visible.size(); i++) {
+                int rowY = listY + i * itemH - overlayListScroll;
+                if (isHovered(mouseX, mouseY, listX, rowY, listW, itemH - scaleHelper.scaledSize(2))) {
+                    selectedIndex = overlays.indexOf(visible.get(i));
+                    selectedGroup = null;
+                    overlayDetailScroll = 0;
+                    confirmRemove = false;
                     playClickSound();
                     return;
                 }
             }
+            return;
         }
 
-        if (selectedIndex >= 0 && selectedIndex < overlays.size()) {
-            OverlayEntry cur = overlays.get(selectedIndex);
-            int detailX = bgX + scaleHelper.scaledSize(118);
-            int detailY = bgY + scaleHelper.scaledSize(36);
-            int detailW = scaleHelper.scaledSize(106);
-            int detailH = scaleHelper.scaledSize(176);
+        if (selectedIndex < 0 || selectedIndex >= overlays.size()) return;
+        OverlayEntry current = overlays.get(selectedIndex);
+        int detailX = bgX + scaleHelper.scaledSize(118);
+        int detailY = bgY + scaleHelper.scaledSize(36);
+        int detailW = scaleHelper.scaledSize(106);
+        int detailH = scaleHelper.scaledSize(176);
+        int btnY = bgY + scaleHelper.scaledSize(218);
+        int btnH = scaleHelper.scaledSize(15);
+        int halfW = (detailW - scaleHelper.scaledSize(4)) / 2;
+        int saveX = detailX + halfW + scaleHelper.scaledSize(4);
 
-            // Controls inside detail scroll area
-            if (isHovered(mouseX, mouseY, detailX, detailY, detailW, detailH)) {
-                int curY = detailY - overlayDetailScroll;
-                curY += scaleHelper.scaledSize(13); // title
-                int descLines = this.fontRendererObj.listFormattedStringToWidth("\u00a77" + cur.description, detailW).size();
-                curY += descLines * this.fontRendererObj.FONT_HEIGHT + scaleHelper.scaledSize(6);
+        // In the group overview, selecting an entry opens the dedicated options group.
+        if (selectedGroup == null && isHovered(mouseX, mouseY, detailX, detailY, detailW, detailH)) {
+            int descLines = this.fontRendererObj.listFormattedStringToWidth("\u00a77" + current.description, detailW).size();
+            int optionsLabelY = detailY + scaleHelper.scaledSize(23)
+                    + descLines * this.fontRendererObj.FONT_HEIGHT + scaleHelper.scaledSize(5);
+            int groupY = optionsLabelY + scaleHelper.scaledSize(11) - overlayDetailScroll;
+            int groupStep = scaleHelper.scaledSize(16);
+            String[] groups = groupsFor(current.id);
+            for (int i = 0; i < groups.length; i++) {
+                int rowY = groupY + i * groupStep;
+                if (isHovered(mouseX, mouseY, detailX, rowY, detailW, scaleHelper.scaledSize(14))) {
+                    selectedGroup = groups[i];
+                    overlayDetailScroll = 0;
+                    confirmRemove = false;
+                    playClickSound();
+                    return;
+                }
+            }
+        } else if (selectedGroup != null) {
+            // Clicking the group header returns to the overlay identity/setup card.
+            if (isHovered(mouseX, mouseY, detailX, detailY, detailW, scaleHelper.scaledSize(20))) {
+                selectedGroup = null;
+                overlayDetailScroll = 0;
+                playClickSound();
+                return;
+            }
 
+            // Copy / paste / reload controls use the right-side texture rail.
+            if (!GROUP_GENERAL.equals(selectedGroup)) {
+                int actionX = bgX + scaleHelper.scaledSize(234);
+                int actionSize = scaleHelper.scaledSize(17);
+                int[] actionYs = {99, 122, 145};
+                for (int i = 0; i < actionYs.length; i++) {
+                    int actionY = bgY + scaleHelper.scaledSize(actionYs[i]);
+                    if (!isHovered(mouseX, mouseY, actionX, actionY, actionSize, actionSize)) continue;
+                    if (i == 0) copyCurrentGroup();
+                    else if (i == 1) pasteCurrentGroup();
+                    else reloadOverlayFromDisk();
+                    playClickSound();
+                    return;
+                }
+            }
+
+            if (!GROUP_GENERAL.equals(selectedGroup)
+                    && isHovered(mouseX, mouseY, detailX, detailY, detailW, detailH)) {
+                int rowY = detailY + scaleHelper.scaledSize(25) - overlayDetailScroll;
                 int ctrlH = scaleHelper.scaledSize(14);
                 int step = scaleHelper.scaledSize(18);
-
-                for (String row : rowsFor(cur.id)) {
-                    if (isHovered(mouseX, mouseY, detailX, curY, detailW, ctrlH)) {
+                for (String row : rowsForGroup(current.id, selectedGroup)) {
+                    if (isHovered(mouseX, mouseY, detailX, rowY, detailW, ctrlH)) {
                         switch (row) {
                             case "VIS":
-                                cur.visible = !cur.visible;
+                                current.visible = !current.visible;
                                 playClickSound();
                                 break;
                             case "ANCHOR":
-                                cycleAnchor(cur);
+                                cycleAnchor(current);
                                 playClickSound();
                                 break;
                             case "SCALE":
                                 activeSlider = 0;
-                                updateSliderFromMouse(mouseX, detailX, detailW, cur, 0);
+                                updateSliderFromMouse(mouseX, detailX, detailW, current, 0);
                                 break;
                             case "DIST":
                                 activeSlider = 1;
-                                updateSliderFromMouse(mouseX, detailX, detailW, cur, 1);
+                                updateSliderFromMouse(mouseX, detailX, detailW, current, 1);
                                 break;
                             case "OFFX":
                                 activeSlider = 2;
-                                updateSliderFromMouse(mouseX, detailX, detailW, cur, 2);
+                                updateSliderFromMouse(mouseX, detailX, detailW, current, 2);
                                 break;
                             case "OFFY":
                                 activeSlider = 3;
-                                updateSliderFromMouse(mouseX, detailX, detailW, cur, 3);
+                                updateSliderFromMouse(mouseX, detailX, detailW, current, 3);
                                 break;
                             default:
-                                cur.extraFlag = !cur.extraFlag;
+                                current.extraFlag = !current.extraFlag;
                                 playClickSound();
                                 break;
                         }
                         return;
                     }
-                    curY += step;
+                    rowY += step;
                 }
             }
+        }
 
-            // Bottom Buttons (Fixed outside detail area)
-            int btnY = bgY + scaleHelper.scaledSize(218);
-            int halfW = (detailW - scaleHelper.scaledSize(4)) / 2;
-
-            // Load Defaults
-            if (isHovered(mouseX, mouseY, detailX, btnY, halfW, scaleHelper.scaledSize(15))) {
-                resetOverlayDefaults();
+        // Remove custom overlays only after a second, explicit confirmation.
+        if (current.custom) {
+            int removeX = bgX + scaleHelper.scaledSize(234);
+            int removeY = bgY + scaleHelper.scaledSize(193);
+            int removeSize = scaleHelper.scaledSize(17);
+            if (isHovered(mouseX, mouseY, removeX, removeY, removeSize, removeSize)) {
+                confirmRemove = !confirmRemove;
                 playClickSound();
                 return;
             }
+        }
 
-            // Save
-            int saveX = detailX + halfW + scaleHelper.scaledSize(4);
-            if (isHovered(mouseX, mouseY, saveX, btnY, halfW, scaleHelper.scaledSize(15))) {
+        if (isHovered(mouseX, mouseY, detailX, btnY, halfW, btnH)) {
+            if (confirmRemove && current.custom) {
+                String removedId = current.id;
+                VROverlayConfig.removeCustom(removedId);
+                loadOverlayData();
+                selectedGroup = null;
+                confirmRemove = false;
+                selectedIndex = Math.max(0, Math.min(selectedIndex, overlays.size() - 1));
+                playClickSound();
+            } else {
+                resetOverlayDefaults();
+                playClickSound();
+            }
+            return;
+        }
+        if (isHovered(mouseX, mouseY, saveX, btnY, halfW, btnH)) {
+            if (confirmRemove && current.custom) {
+                confirmRemove = false;
+            } else {
                 applyOverlayData();
                 playClickSound();
-                return;
             }
         }
     }
 
     private void handleCreateClick(int mouseX, int mouseY, int bgX, int bgY) {
         int listX = bgX + scaleHelper.scaledSize(14);
-        int listY = bgY + scaleHelper.scaledSize(40);
+        int listY = bgY + scaleHelper.scaledSize(54);
         int listW = scaleHelper.scaledSize(96);
-        int itemH = scaleHelper.scaledSize(22);
+        int itemH = scaleHelper.scaledSize(24);
+        String query = templateSearchField == null ? "" : templateSearchField.getText().trim().toLowerCase(Locale.ROOT);
 
         for (int i = 0; i < TEMPLATES.length; i++) {
-            int curY = listY + i * itemH;
-            if (isHovered(mouseX, mouseY, listX, curY, listW, itemH - scaleHelper.scaledSize(2))) {
+            String searchable = (TEMPLATES[i] + " " + templateDescription(TEMPLATE_IDS[i])).toLowerCase(Locale.ROOT);
+            if (!query.isEmpty() && !searchable.contains(query)) continue;
+            int row = visibleTemplateIndexBefore(i, query);
+            int rowY = listY + row * itemH;
+            if (isHovered(mouseX, mouseY, listX, rowY, listW, itemH - scaleHelper.scaledSize(2))) {
                 selectedTemplate = i;
                 playClickSound();
                 return;
@@ -1045,12 +1155,46 @@ public class GuiSettingsOverlays extends GuiScreen {
         }
 
         int detailX = bgX + scaleHelper.scaledSize(118);
-        int detailY = bgY + scaleHelper.scaledSize(40) + scaleHelper.scaledSize(18 + 22 + 28);
+        int createY = bgY + scaleHelper.scaledSize(218);
         int detailW = scaleHelper.scaledSize(128);
-        if (isHovered(mouseX, mouseY, detailX, detailY, detailW, scaleHelper.scaledSize(18))) {
-            playClickSound();
-            saveMessage = "Custom " + TEMPLATES[selectedTemplate] + " Created!";
+        int createH = scaleHelper.scaledSize(16);
+        if (isHovered(mouseX, mouseY, detailX, createY, detailW, createH)) {
+            String name = customNameField == null ? "" : customNameField.getText().trim();
+            if (name.isEmpty()) {
+                saveMessage = "Enter a display name first";
+                saveMessageTime = System.currentTimeMillis();
+                return;
+            }
+            String description = customDescriptionField == null ? "" : customDescriptionField.getText().trim();
+            String id = VROverlayConfig.createCustom(name, description, TEMPLATE_IDS[selectedTemplate]);
+            if (id == null) {
+                saveMessage = "Could not create overlay";
+                saveMessageTime = System.currentTimeMillis();
+                return;
+            }
+            loadOverlayData();
+            selectedIndex = 0;
+            for (int i = 0; i < overlays.size(); i++) {
+                if (id.equals(overlays.get(i).id)) { selectedIndex = i; break; }
+            }
+            if (overlaySearchField != null) overlaySearchField.setText("");
+            filterBuiltIn = true;
+            filterCustom = true;
+            filterHasOptions = true;
+            filterNoOptions = true;
+            showFilterPanel = false;
+            selectedGroup = null;
+            confirmRemove = false;
+            currentTab = Tab.OVERLAYS;
+            customNameField.setText("");
+            customDescriptionField.setText("");
+            templateSearchField.setText("");
+            templateSearchField.setFocused(false);
+            customNameField.setFocused(false);
+            customDescriptionField.setFocused(false);
+            saveMessage = "Created " + name;
             saveMessageTime = System.currentTimeMillis();
+            playClickSound();
         }
     }
 
