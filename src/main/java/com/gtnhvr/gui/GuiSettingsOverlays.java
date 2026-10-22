@@ -73,6 +73,8 @@ public class GuiSettingsOverlays extends GuiScreen {
     private boolean confirmRemove;
     private boolean confirmDiscard;
     private boolean draggingScreen;
+    private boolean poseEditor;
+    private boolean previewEnabled = true;
     private boolean dirty;
     private int activeSlider = -1;
     private String statusText;
@@ -103,6 +105,10 @@ public class GuiSettingsOverlays extends GuiScreen {
 
     public static boolean isSetupScreenOpen() {
         return activeInstance != null;
+    }
+
+    public static boolean isLivePreviewEnabled() {
+        return activeInstance != null && activeInstance.poseEditor && activeInstance.previewEnabled;
     }
 
     @Override
@@ -151,8 +157,10 @@ public class GuiSettingsOverlays extends GuiScreen {
         GL11.glTranslatef(scaleHelper.getStartX(), scaleHelper.getStartY(), 0.0F);
         GL11.glScalef(scaleHelper.getScale(), scaleHelper.getScale(), 1.0F);
         drawTexture(tab == Tab.CREATE ? BACKGROUND_CREATE : BACKGROUND_OVERLAYS, 0, 0, UI_WIDTH, UI_HEIGHT, UI_WIDTH, UI_HEIGHT);
-        if (tab == Tab.OVERLAYS) drawOverlayTab(mouseLogicalX, mouseLogicalY, partialTicks);
-        else drawCreateTab(mouseLogicalX, mouseLogicalY);
+        if (tab == Tab.OVERLAYS) {
+            if (poseEditor) drawPoseEditor(mouseLogicalX, mouseLogicalY);
+            else drawOverlayTab(mouseLogicalX, mouseLogicalY, partialTicks);
+        } else drawCreateTab(mouseLogicalX, mouseLogicalY);
         drawTopNavigation(mouseLogicalX, mouseLogicalY);
         if (confirmRemove) drawConfirmation("Remove this custom overlay?", "REMOVE", "CANCEL");
         if (confirmDiscard) drawConfirmation("Discard unsaved changes?", "DISCARD", "KEEP EDITING");
@@ -327,15 +335,13 @@ public class GuiSettingsOverlays extends GuiScreen {
                 drawString(fontRendererObj, "Changes apply immediately.", 119, 191, 0xFF9DA5AF);
                 break;
             case POSE:
-                drawString(fontRendererObj, "Position and anchor", 119, 146, 0xFFE8EDF2);
-                drawButton(119, 156, 123, 13, "Anchor: " + anchorLabel(entry.anchor), false,
+                drawString(fontRendererObj, "Position and orientation", 119, 146, 0xFFE8EDF2);
+                drawButton(119, 156, 123, 13, "Position: " + anchorLabel(entry.anchor), false,
                         hit(mx, my, 119, 156, 123, 13));
-                drawSlider(119, 166, 123, "Distance", entry.distance, 0.1F, 6.0F,
+                drawSlider(119, 174, 123, "Distance", entry.distance, 0.1F, 6.0F,
                         String.format(Locale.ROOT, "%.2f m", entry.distance), 0, mx, my);
-                drawSlider(119, 183, 123, "Horizontal", entry.offsetX, -1.0F, 1.0F,
-                        String.format(Locale.ROOT, "%.2f m", entry.offsetX), 1, mx, my);
-                drawSlider(119, 200, 123, "Vertical", entry.offsetY, -1.0F, 1.0F,
-                        String.format(Locale.ROOT, "%.2f m", entry.offsetY), 2, mx, my);
+                drawButton(119, 197, 123, 14, "Open Pose Editor", false,
+                        hit(mx, my, 119, 197, 123, 14));
                 break;
             case RESIZING:
                 drawString(fontRendererObj, "Overlay size", 119, 147, 0xFFE8EDF2);
@@ -361,6 +367,35 @@ public class GuiSettingsOverlays extends GuiScreen {
         drawButton(115, 235, 64, 14, dirty ? "Save *" : "Save", dirty, hit(mx, my, 115, 235, 64, 14));
         drawButton(181, 235, 66, 14, VROverlayConfig.get(selectedId).custom ? "Remove" : "Revert",
                 false, hit(mx, my, 181, 235, 66, 14));
+    }
+
+    private void drawPoseEditor(int mx, int my) {
+        drawPanel(6, 27, 245, 215, 0xE8101216);
+        drawOutline(6, 27, 245, 215, 0xFF56616D);
+        drawString(fontRendererObj, "POSE EDITOR", 12, 31, 0xFF9FCDFB);
+        drawString(fontRendererObj, clip(nameOf(selectedId), 28), 12, 43, 0xFFFFFFFF);
+        drawString(fontRendererObj, "Independent position and rotation anchors", 12, 53, 0xFF9DA5AF);
+
+        VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
+        drawPanel(11, 64, 111, 78, 0xFF171B21);
+        drawPanel(133, 64, 111, 78, 0xFF171B21);
+        drawString(fontRendererObj, "POSITION", 15, 66, 0xFFB9DFFF);
+        drawString(fontRendererObj, "ORIENTATION", 137, 66, 0xFFB9DFFF);
+        drawButton(14, 79, 105, 14, anchorShort(entry.anchor), false, hit(mx, my, 14, 79, 105, 14));
+        drawButton(136, 79, 105, 14, anchorShort(entry.rotationAnchor), false, hit(mx, my, 136, 79, 105, 14));
+        drawSlider(12, 98, 110, "Forward / Z", entry.distance, 0.1F, 6.0F, String.format(Locale.ROOT, "%.2f m", entry.distance), 10, mx, my);
+        drawSlider(12, 117, 110, "Horizontal / X", entry.offsetX, -1.0F, 1.0F, String.format(Locale.ROOT, "%.2f m", entry.offsetX), 11, mx, my);
+        drawSlider(134, 98, 110, "Pitch / X", entry.rotationX, -180.0F, 180.0F, String.format(Locale.ROOT, "%.0f°", entry.rotationX), 13, mx, my);
+        drawSlider(134, 117, 110, "Yaw / Y", entry.rotationY, -180.0F, 180.0F, String.format(Locale.ROOT, "%.0f°", entry.rotationY), 14, mx, my);
+        drawSlider(12, 136, 110, "Vertical / Y", entry.offsetY, -1.0F, 1.0F, String.format(Locale.ROOT, "%.2f m", entry.offsetY), 12, mx, my);
+        drawSlider(134, 136, 110, "Roll / Z", entry.rotationZ, -180.0F, 180.0F, String.format(Locale.ROOT, "%.0f°", entry.rotationZ), 15, mx, my);
+        drawButton(12, 161, 110, 15, "Aim at headset", false, hit(mx, my, 12, 161, 110, 15));
+        drawButton(134, 161, 110, 15, "Use position anchor", false, hit(mx, my, 134, 161, 110, 15));
+        drawButton(12, 179, 110, 15, "Teleport to headset", false, hit(mx, my, 12, 179, 110, 15));
+        drawButton(134, 179, 110, 15, "Preview: " + (previewEnabled ? "ON" : "OFF"), previewEnabled, hit(mx, my, 134, 179, 110, 15));
+        drawString(fontRendererObj, "Adjust values and watch the VR preview move.", 12, 199, 0xFF9DA5AF);
+        drawButton(12, 218, 110, 16, "Back to options", false, hit(mx, my, 12, 218, 110, 16));
+        drawButton(134, 218, 110, 16, dirty ? "Save changes *" : "Save changes", dirty, hit(mx, my, 134, 218, 110, 16));
     }
 
     private void drawCreateTab(int mx, int my) {
@@ -525,6 +560,15 @@ public class GuiSettingsOverlays extends GuiScreen {
         if ("OFFHAND".equals(anchor)) return "Off Hand";
         if ("WORLD".equals(anchor)) return "World";
         return "Head (HMD)";
+    }
+
+    private String nextAnchor(String anchor) {
+        for (int i = 0; i < VROverlayConfig.ANCHORS.length; i++) {
+            if (VROverlayConfig.ANCHORS[i].equals(anchor)) {
+                return VROverlayConfig.ANCHORS[(i + 1) % VROverlayConfig.ANCHORS.length];
+            }
+        }
+        return "HMD";
     }
 
     private String anchorShort(String anchor) {
@@ -876,6 +920,38 @@ public class GuiSettingsOverlays extends GuiScreen {
             return;
         }
 
+        if (poseEditor) {
+            VROverlayConfig.Entry pose = VROverlayConfig.get(selectedId);
+            if (hit(mx, my, 14, 79, 105, 14)) { pose.anchor = nextAnchor(pose.anchor); onValueChanged(); return; }
+            if (hit(mx, my, 136, 79, 105, 14)) { pose.rotationAnchor = nextAnchor(pose.rotationAnchor); onValueChanged(); return; }
+            if (hit(mx, my, 12, 107, 108, 8)) { activeSlider = 10; updateSliderFromLogicalMouse(mx); return; }
+            if (hit(mx, my, 12, 126, 108, 8)) { activeSlider = 11; updateSliderFromLogicalMouse(mx); return; }
+            if (hit(mx, my, 12, 145, 108, 8)) { activeSlider = 12; updateSliderFromLogicalMouse(mx); return; }
+            if (hit(mx, my, 134, 107, 108, 8)) { activeSlider = 13; updateSliderFromLogicalMouse(mx); return; }
+            if (hit(mx, my, 134, 126, 108, 8)) { activeSlider = 14; updateSliderFromLogicalMouse(mx); return; }
+            if (hit(mx, my, 134, 145, 108, 8)) { activeSlider = 15; updateSliderFromLogicalMouse(mx); return; }
+            if (hit(mx, my, 12, 161, 110, 15)) {
+                pose.rotationAnchor = "HMD";
+                pose.rotationX = pose.rotationY = pose.rotationZ = 0.0F;
+                onValueChanged(); return;
+            }
+            if (hit(mx, my, 134, 161, 110, 15)) { pose.rotationAnchor = pose.anchor; onValueChanged(); return; }
+            if (hit(mx, my, 12, 179, 110, 15)) {
+                pose.anchor = "HMD"; pose.rotationAnchor = "HMD"; pose.distance = 1.2F;
+                pose.offsetX = pose.offsetY = 0.0F;
+                pose.rotationX = pose.rotationY = pose.rotationZ = 0.0F;
+                onValueChanged(); return;
+            }
+            if (hit(mx, my, 134, 179, 110, 15)) {
+                previewEnabled = !previewEnabled;
+                status(previewEnabled ? "Live preview enabled" : "Live preview paused");
+                return;
+            }
+            if (hit(mx, my, 12, 218, 110, 16)) { poseEditor = false; activeSlider = -1; return; }
+            if (hit(mx, my, 134, 218, 110, 16)) { saveChanges(); return; }
+            return;
+        }
+
         if (hit(mx, my, 88, 33, 15, 14)) { showFilters = !showFilters; return; }
         if (showFilters && hit(mx, my, 10, 52, 90, 10)) { filterBuiltIn = !filterBuiltIn; listScroll = 0; return; }
         if (showFilters && hit(mx, my, 10, 64, 90, 10)) { filterCustom = !filterCustom; listScroll = 0; return; }
@@ -916,9 +992,8 @@ public class GuiSettingsOverlays extends GuiScreen {
         if (selectedId == null) return;
         VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
         if (group == Group.POSE) {
-            if (hit(mx, my, 120, 174, 119, 8)) { activeSlider = 0; updateSliderFromLogicalMouse(mx); return; }
-            if (hit(mx, my, 120, 191, 119, 8)) { activeSlider = 1; updateSliderFromLogicalMouse(mx); return; }
-            if (hit(mx, my, 120, 208, 119, 8)) { activeSlider = 2; updateSliderFromLogicalMouse(mx); return; }
+            if (hit(mx, my, 120, 182, 119, 8)) { activeSlider = 0; updateSliderFromLogicalMouse(mx); return; }
+            if (hit(mx, my, 119, 197, 123, 14)) { poseEditor = true; activeSlider = -1; return; }
         }
         if (group == Group.RESIZING && hit(mx, my, 120, 178, 119, 8)) {
             activeSlider = 3; updateSliderFromLogicalMouse(mx); return;
@@ -958,13 +1033,22 @@ public class GuiSettingsOverlays extends GuiScreen {
     private void updateSliderFromLogicalMouse(int mx) {
         if (activeSlider < 0 || selectedId == null) return;
         VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
-        float pct = Math.max(0.0F, Math.min(1.0F, (float) (mx - 120) / 119.0F));
+        boolean poseEditorSlider = activeSlider >= 10 && activeSlider <= 15;
+        int trackStart = poseEditorSlider ? (activeSlider >= 13 ? 135 : 13) : 120;
+        int trackWidth = poseEditorSlider ? 108 : 119;
+        float pct = Math.max(0.0F, Math.min(1.0F, (float) (mx - trackStart) / (float) trackWidth));
         switch (activeSlider) {
             case 0: entry.distance = 0.1F + pct * 5.9F; break;
             case 1: entry.offsetX = -1.0F + pct * 2.0F; break;
             case 2: entry.offsetY = -1.0F + pct * 2.0F; break;
             case 3: entry.scale = 0.2F + pct * 2.8F; break;
             case 4: entry.opacity = 0.05F + pct * 0.95F; break;
+            case 10: entry.distance = 0.1F + pct * 5.9F; break;
+            case 11: entry.offsetX = -1.0F + pct * 2.0F; break;
+            case 12: entry.offsetY = -1.0F + pct * 2.0F; break;
+            case 13: entry.rotationX = -180.0F + pct * 360.0F; break;
+            case 14: entry.rotationY = -180.0F + pct * 360.0F; break;
+            case 15: entry.rotationZ = -180.0F + pct * 360.0F; break;
             default: return;
         }
         onValueChanged();
