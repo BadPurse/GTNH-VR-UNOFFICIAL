@@ -448,19 +448,19 @@ public class GuiSettingsOverlays extends GuiScreen {
     public void initGui() {
         scaleHelper.computeScale(this.width, this.height);
         if (overlaySearchField == null) {
-            overlaySearchField = new GuiTextField(0, this.fontRendererObj, 0, 0, 1, 1);
+            overlaySearchField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
             overlaySearchField.setMaxStringLength(64);
         }
         if (customNameField == null) {
-            customNameField = new GuiTextField(1, this.fontRendererObj, 0, 0, 1, 1);
+            customNameField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
             customNameField.setMaxStringLength(48);
         }
         if (customDescriptionField == null) {
-            customDescriptionField = new GuiTextField(2, this.fontRendererObj, 0, 0, 1, 1);
+            customDescriptionField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
             customDescriptionField.setMaxStringLength(120);
         }
         if (templateSearchField == null) {
-            templateSearchField = new GuiTextField(3, this.fontRendererObj, 0, 0, 1, 1);
+            templateSearchField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
             templateSearchField.setMaxStringLength(64);
         }
         layoutTextFields();
