@@ -151,9 +151,17 @@ public final class VRControllerHandler {
     private boolean backClicked = false;
 
     private boolean inGameAttackHeld = false;
-    /** Hysteresis latch for the analog attack trigger (activate at 0.45, release at 0.25). */
+    /** Hysteresis latches for analog triggers. */
     private boolean rightAttackTriggerHeld = false;
     private boolean leftBindingTriggerHeld = false;
+    /**
+     * Require two consecutive low samples before releasing an analog-trigger latch.
+     * OpenXR runtimes can report a one-frame zero while an action is still active; immediately
+     * releasing keyBindAttack resets Minecraft's mining progress and looks like failed block breaking.
+     */
+    private static final int TRIGGER_RELEASE_DEBOUNCE_SAMPLES = 2;
+    private int rightAttackTriggerReleaseSamples = 0;
+    private int leftBindingTriggerReleaseSamples = 0;
     private final int[] mappedControllerKeyCodes = new int[MAPPED_CONTROLLER_KEY_COUNT];
     private final boolean[] mappedControllerKeyHeld = new boolean[MAPPED_CONTROLLER_KEY_COUNT];
     /** Separate latch so analog grips and stick directions don't flicker around one cutoff. */
@@ -380,6 +388,8 @@ public final class VRControllerHandler {
         inGameAttackHeld = false;
         rightAttackTriggerHeld = false;
         leftBindingTriggerHeld = false;
+        rightAttackTriggerReleaseSamples = 0;
+        leftBindingTriggerReleaseSamples = 0;
         inGameUseItemHeld = false;
         for (int i = 0; i < mappedAnalogLatch.length; i++) {
             mappedAnalogLatch[i] = false;
@@ -690,6 +700,7 @@ public final class VRControllerHandler {
             // A world transition invalidates the previous press edge and any trigger latch.
             inGameAttackHeld = false;
             rightAttackTriggerHeld = false;
+            rightAttackTriggerReleaseSamples = 0;
             inGameUseItemHeld = false;
             lastWorld = mc.theWorld;
             if (mc.theWorld != null) {
@@ -708,6 +719,7 @@ public final class VRControllerHandler {
                 // or the next trigger press may be mistaken for an already-held attack.
                 inGameAttackHeld = false;
                 rightAttackTriggerHeld = false;
+                rightAttackTriggerReleaseSamples = 0;
                 inGameUseItemHeld = false;
                 releaseAllInGameKeys(mc);
                 if (VRHotbarSelector.getInstance().isSelectorActive()) {
@@ -828,6 +840,8 @@ public final class VRControllerHandler {
         }
         rightAttackTriggerHeld = false;
         leftBindingTriggerHeld = false;
+        rightAttackTriggerReleaseSamples = 0;
+        leftBindingTriggerReleaseSamples = 0;
     }
 
     private boolean updateAnalogLatch(int index, float value, boolean positive, float pressThreshold, float releaseThreshold) {
@@ -843,11 +857,39 @@ public final class VRControllerHandler {
     }
 
     private void updateMappedControllerKeys() {
-        // Hysteresis on analog triggers, grips and stick directions keeps key output stable.
-        if (rightTriggerValue >= 0.45F) rightAttackTriggerHeld = true;
-        else if (rightTriggerValue <= 0.25F) rightAttackTriggerHeld = false;
-        if (leftTriggerValue >= 0.45F) leftBindingTriggerHeld = true;
-        else if (leftTriggerValue <= 0.25F) leftBindingTriggerHeld = false;
+        // Hysteresis plus a two-sample release debounce keeps one-frame OpenXR trigger dropouts
+        // from releasing keyBindAttack. Minecraft resets mining progress when that key is released.
+        if (rightTriggerValue >= 0.45F) {
+            rightAttackTriggerHeld = true;
+            rightAttackTriggerReleaseSamples = 0;
+        } else if (rightTriggerValue <= 0.25F) {
+            if (rightAttackTriggerHeld) {
+                if (++rightAttackTriggerReleaseSamples >= TRIGGER_RELEASE_DEBOUNCE_SAMPLES) {
+                    rightAttackTriggerHeld = false;
+                    rightAttackTriggerReleaseSamples = 0;
+                }
+            } else {
+                rightAttackTriggerReleaseSamples = 0;
+            }
+        } else {
+            rightAttackTriggerReleaseSamples = 0;
+        }
+
+        if (leftTriggerValue >= 0.45F) {
+            leftBindingTriggerHeld = true;
+            leftBindingTriggerReleaseSamples = 0;
+        } else if (leftTriggerValue <= 0.25F) {
+            if (leftBindingTriggerHeld) {
+                if (++leftBindingTriggerReleaseSamples >= TRIGGER_RELEASE_DEBOUNCE_SAMPLES) {
+                    leftBindingTriggerHeld = false;
+                    leftBindingTriggerReleaseSamples = 0;
+                }
+            } else {
+                leftBindingTriggerReleaseSamples = 0;
+            }
+        } else {
+            leftBindingTriggerReleaseSamples = 0;
+        }
 
         boolean selectorActive = VRHotbarSelector.getInstance().isSelectorActive();
         updateMappedControllerKey(MAP_RIGHT_TRIGGER, VRClientSettings.controllerRightTriggerKeyCode, rightAttackTriggerHeld);
