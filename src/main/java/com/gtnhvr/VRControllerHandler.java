@@ -1764,6 +1764,14 @@ public final class VRControllerHandler {
         return rightGripHandPos;
     }
 
+    public Quaternionf getRightGripHandRot() {
+        return rightGripHandRot;
+    }
+
+    public boolean isRightGripHandOrientationTracked() {
+        return rightGripHandOrientationTracked;
+    }
+
     public boolean isLeftGripHandTracked() {
         return leftGripHandTracked;
     }
@@ -1771,6 +1779,14 @@ public final class VRControllerHandler {
     /** Physical (not handedness-swapped) left controller grip position. */
     public Vector3f getLeftGripHandPos() {
         return leftGripHandPos;
+    }
+
+    public Quaternionf getLeftGripHandRot() {
+        return leftGripHandRot;
+    }
+
+    public boolean isLeftGripHandOrientationTracked() {
+        return leftGripHandOrientationTracked;
     }
 
     public float getRightTriggerValue() { return VRClientSettings.controllerRightTriggerKeyCode > 0 ? 0.0F : rightTriggerValue; }

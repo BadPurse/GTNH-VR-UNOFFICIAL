@@ -32,6 +32,7 @@ public final class VRAddonRegistry {
     private static final Map<String, List<ClientTickListener>> TICK_LISTENERS = new LinkedHashMap<>();
     private static final Map<String, List<WorldRenderListener>> WORLD_RENDER_LISTENERS = new LinkedHashMap<>();
     private static final Map<String, List<HandItemPoseProvider>> HAND_POSE_PROVIDERS = new LinkedHashMap<>();
+    private static final Map<String, List<LocalPoseListener>> LOCAL_POSE_LISTENERS = new LinkedHashMap<>();
 
     private VRAddonRegistry() {}
 
@@ -43,6 +44,74 @@ public final class VRAddonRegistry {
     /** Called once per eye after GTNHVR's world or GUI overlays have been drawn. */
     public interface WorldRenderListener {
         void onWorldRender(Minecraft minecraft, int eyeIndex, float partialTicks, boolean guiOpen);
+    }
+
+    /** Receives the latest local OpenXR HMD and controller/grip poses in tracking-space coordinates. */
+    public interface LocalPoseListener {
+        void onLocalPose(Minecraft minecraft, PoseSnapshot pose);
+    }
+
+    /** Immutable scalar snapshot of one tracked device pose. Position is in metres, rotation is a quaternion. */
+    public static final class DevicePose {
+        public final boolean tracked;
+        public final boolean orientationTracked;
+        public final float x, y, z;
+        public final float qx, qy, qz, qw;
+
+        private DevicePose(boolean tracked, boolean orientationTracked,
+                           float x, float y, float z,
+                           float qx, float qy, float qz, float qw) {
+            this.tracked = tracked;
+            this.orientationTracked = orientationTracked;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.qx = qx;
+            this.qy = qy;
+            this.qz = qz;
+            this.qw = qw;
+        }
+
+        private static DevicePose untracked() {
+            return new DevicePose(false, false, 0, 0, 0, 0, 0, 0, 1);
+        }
+
+        private static DevicePose of(boolean tracked, boolean orientationTracked,
+                                     org.joml.Vector3f position, org.joml.Quaternionf rotation) {
+            if (position == null || rotation == null) return untracked();
+            return new DevicePose(tracked, orientationTracked,
+                    position.x, position.y, position.z,
+                    rotation.x, rotation.y, rotation.z, rotation.w);
+        }
+
+        private static DevicePose of(org.lwjgl.openxr.XrPosef pose) {
+            if (pose == null) return untracked();
+            return new DevicePose(true, true,
+                    pose.position$().x(), pose.position$().y(), pose.position$().z(),
+                    pose.orientation().x(), pose.orientation().y(),
+                    pose.orientation().z(), pose.orientation().w());
+        }
+    }
+
+    /** One point-in-time snapshot; data is copied from OpenXR and is not backed by mutable controller vectors. */
+    public static final class PoseSnapshot {
+        public final long capturedAtNanos;
+        public final DevicePose head;
+        public final DevicePose leftAim;
+        public final DevicePose rightAim;
+        public final DevicePose leftGrip;
+        public final DevicePose rightGrip;
+
+        private PoseSnapshot(long capturedAtNanos, DevicePose head,
+                             DevicePose leftAim, DevicePose rightAim,
+                             DevicePose leftGrip, DevicePose rightGrip) {
+            this.capturedAtNanos = capturedAtNanos;
+            this.head = head;
+            this.leftAim = leftAim;
+            this.rightAim = rightAim;
+            this.leftGrip = leftGrip;
+            this.rightGrip = rightGrip;
+        }
     }
 
     /**
@@ -119,12 +188,17 @@ public final class VRAddonRegistry {
         register(HAND_POSE_PROVIDERS, addonId, provider);
     }
 
+    public static synchronized void registerLocalPoseListener(String addonId, LocalPoseListener listener) {
+        register(LOCAL_POSE_LISTENERS, addonId, listener);
+    }
+
     /** Removes every callback registered by the supplied add-on ID. */
     public static synchronized void unregisterAddon(String addonId) {
         String id = normalizeId(addonId);
         TICK_LISTENERS.remove(id);
         WORLD_RENDER_LISTENERS.remove(id);
         HAND_POSE_PROVIDERS.remove(id);
+        LOCAL_POSE_LISTENERS.remove(id);
     }
 
     private static <T> void register(Map<String, List<T>> registry, String addonId, T listener) {
@@ -166,6 +240,28 @@ public final class VRAddonRegistry {
                 callback.listener.onClientTick(mc, controllers);
             } catch (Throwable t) {
                 GTNHVRLog.warn("VR add-on %s failed in client tick callback: %s", callback.addonId, t);
+            }
+        }
+
+        List<Callback<LocalPoseListener>> poseCallbacks = snapshot(LOCAL_POSE_LISTENERS);
+        if (!poseCallbacks.isEmpty()) {
+            org.lwjgl.openxr.XrPosef headPose = com.gtnhvr.OpenXRRuntime.getHeadPose();
+            PoseSnapshot pose = new PoseSnapshot(System.nanoTime(),
+                    DevicePose.of(headPose),
+                    DevicePose.of(controllers.isLeftHandTracked(), controllers.isLeftHandTracked(),
+                            controllers.getLeftHandPos(), controllers.getLeftHandRot()),
+                    DevicePose.of(controllers.isRightHandTracked(), controllers.isRightHandTracked(),
+                            controllers.getRightHandPos(), controllers.getRightHandRot()),
+                    DevicePose.of(controllers.isLeftGripHandTracked(), controllers.isLeftGripHandOrientationTracked(),
+                            controllers.getLeftGripHandPos(), controllers.getLeftGripHandRot()),
+                    DevicePose.of(controllers.isRightGripHandTracked(), controllers.isRightGripHandOrientationTracked(),
+                            controllers.getRightGripHandPos(), controllers.getRightGripHandRot()));
+            for (Callback<LocalPoseListener> callback : poseCallbacks) {
+                try {
+                    callback.listener.onLocalPose(mc, pose);
+                } catch (Throwable t) {
+                    GTNHVRLog.warn("VR add-on %s failed in local pose callback: %s", callback.addonId, t);
+                }
             }
         }
     }
