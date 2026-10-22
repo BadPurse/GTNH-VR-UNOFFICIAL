@@ -222,14 +222,25 @@ public class VRTaskBow {
         }
 
         if (stringTrigger < TRIGGER_RELEASE) {
-            finishDraw();
+            finishDraw(handler);
             handler.triggerHaptic(bowInMainHand, 15_000_000L, 0.70F, 0);
         }
     }
 
-    private void finishDraw() {
+    private void finishDraw(VRControllerHandler handler) {
         drawing = false;
         releasedAtMs = System.currentTimeMillis();
+
+        // The server knows neither the physical hand-spacing tension nor controller direction.
+        // Send a short-lived launch sample before the normal use-item release reaches the server.
+        Vector3f worldAim = getAimDirectionWorld(handler);
+        if (worldAim != null && worldAim.lengthSquared() > 1.0E-6F) {
+            worldAim.normalize();
+            float yaw = (float) Math.toDegrees(Math.atan2(-worldAim.x, worldAim.z));
+            float pitch = (float) -Math.toDegrees(Math.asin(Math.max(-1.0F, Math.min(1.0F, worldAim.y))));
+            com.gtnhvr.network.VRNetwork.sendBowAim(tension, yaw, pitch);
+        }
+
         trajectoryPoints.clear();
         hitPointRoom = null;
     }

@@ -22,9 +22,11 @@ public class GTNHVRCoremod implements IFMLLoadingPlugin, IEarlyMixinLoader {
     @Override
     public List<String> getMixins(Set<String> loadedCoreMods) {
         if (!FMLLaunchHandler.side().isClient()) {
-            return Collections.emptyList();
+            // Server-side counterpart to the client-only bow aiming mixin.
+            return Collections.singletonList("MixinItemBowAimServer");
         }
         return java.util.Arrays.asList(
+                "MixinItemBowAimServer",
                 "MixinEntity",
                 "MixinEntityRenderer",
                 "MixinItemBowAim",

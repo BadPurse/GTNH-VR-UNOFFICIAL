@@ -32,6 +32,7 @@ public class ClientProxy extends CommonProxy {
         // The "visor" resource domain ships inside this jar (assets/visor), so FML already
         // exposes it. A second resource pack plus Minecraft.refreshResources() here only
         // forced a redundant full resource reload (~18 s in latest.log).
+        cpw.mods.fml.common.FMLCommonHandler.instance().bus().register(com.gtnhvr.network.VRNetworkClientEvents.INSTANCE);
         ClientLifecycle.register();
         com.gtnhvr.gui.GuiEventHandler.register();
         KeyBindings.register();
