@@ -1,7 +1,7 @@
 # GTNH VR (Unofficial)
 
 [![Minecraft 1.7.10](https://img.shields.io/badge/Minecraft-1.7.10-blue.svg)](https://www.minecraft.net/)
-[![Java 17-25](https://img.shields.io/badge/Java-17--25-orange.svg)](https://adoptium.net/)
+[![Java 25 tested](https://img.shields.io/badge/Java-25%20tested-orange.svg)](https://adoptium.net/)
 [![LWJGL 3](https://img.shields.io/badge/LWJGL-3.3.3-red.svg)](https://www.lwjgl.org/)
 [![OpenXR](https://img.shields.io/badge/OpenXR-1.0-brightgreen.svg)](https://www.khronos.org/openxr/)
 [![GT: New Horizons](https://img.shields.io/badge/GT%20New%20Horizons-2.9.0--RC--2-purple.svg)](https://www.gtnewhorizons.com/)
