@@ -46,7 +46,7 @@ This mod is an unofficial port and adaptation of the acclaimed [Visor](https://g
    - Minecraft 1.7.10 with Forge.
    - **GregTech: New Horizons 2.9.0-RC-2** (or custom 1.7.10 modpack using `lwjgl3ify`).
 2. **Java Runtime:**
-   - **Java 17, 21, or 25** 64-bit (Eclipse Adoptium Temurin recommended).
+   - **25** 64-bit (Eclipse Adoptium Temurin recommended).
 3. **VR Hardware & Runtime:**
    - Any OpenXR-compliant VR runtime:
      - **SteamVR**
@@ -58,10 +58,10 @@ This mod is an unofficial port and adaptation of the acclaimed [Visor](https://g
 
 ## Installation
 
-1. Make sure your GT New Horizons instance runs on **Java 17–25** and has **`lwjgl3ify`** installed and enabled.
+1. Make sure your GT New Horizons instance runs on **Java 25**.
 2. Download the latest `GTNHVR-x.x.x.jar` from the [Releases](https://github.com/BadPurse/GTNH-VR-UNOFFICIAL/releases) page.
 3. Place the `.jar` into your instance's `.minecraft/mods/` directory.
-4. Launch your VR runtime (e.g., SteamVR or Oculus App).
+4. Launch your VR runtime.
 5. Start Minecraft. Once the game reaches the main menu or a world is loaded, VR mode will activate automatically.
 
 ---
