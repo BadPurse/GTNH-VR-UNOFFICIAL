@@ -356,6 +356,94 @@ public final class VRPresetManager {
         }
     }
 
+    private static String[] offsetKeys() {
+        return new String[] {
+                "tool_right", "tool_left", "tinker_right", "tinker_left",
+                "sword_right", "sword_left", "block_right", "block_left",
+                "torch_right", "torch_left", "bow_right", "bow_left",
+                "item_right", "item_left"
+        };
+    }
+
+    private static ItemHandOffset getOffset(String key) {
+        return switch (key) {
+            case "tool_right" -> VRClientSettings.toolRight;
+            case "tool_left" -> VRClientSettings.toolLeft;
+            case "tinker_right" -> VRClientSettings.tinkerRight;
+            case "tinker_left" -> VRClientSettings.tinkerLeft;
+            case "sword_right" -> VRClientSettings.swordRight;
+            case "sword_left" -> VRClientSettings.swordLeft;
+            case "block_right" -> VRClientSettings.blockRight;
+            case "block_left" -> VRClientSettings.blockLeft;
+            case "torch_right" -> VRClientSettings.torchRight;
+            case "torch_left" -> VRClientSettings.torchLeft;
+            case "bow_right" -> VRClientSettings.bowRight;
+            case "bow_left" -> VRClientSettings.bowLeft;
+            case "item_right" -> VRClientSettings.itemRight;
+            case "item_left" -> VRClientSettings.itemLeft;
+            default -> null;
+        };
+    }
+
+    private static void writeOffset(BufferedWriter writer, String key, ItemHandOffset offset) throws IOException {
+        if (offset == null) return;
+        String prefix = "customOffset." + key + ".";
+        writer.write(prefix + "scale=" + offset.scale); writer.newLine();
+        writer.write(prefix + "posX=" + offset.posX); writer.newLine();
+        writer.write(prefix + "posY=" + offset.posY); writer.newLine();
+        writer.write(prefix + "posZ=" + offset.posZ); writer.newLine();
+        writer.write(prefix + "pitch=" + offset.pitch); writer.newLine();
+        writer.write(prefix + "yaw=" + offset.yaw); writer.newLine();
+        writer.write(prefix + "roll=" + offset.roll); writer.newLine();
+    }
+
+    private static void applyOffsetValue(String key, String value) {
+        String suffix = key.substring("customOffset.".length());
+        int separator = suffix.lastIndexOf('.');
+        if (separator <= 0 || separator == suffix.length() - 1) return;
+        ItemHandOffset offset = getOffset(suffix.substring(0, separator));
+        if (offset == null) return;
+        float parsed;
+        try { parsed = Float.parseFloat(value); } catch (NumberFormatException ignored) { return; }
+        switch (suffix.substring(separator + 1)) {
+            case "scale" -> offset.scale = Math.max(0.01F, Math.min(4.0F, parsed));
+            case "posX" -> offset.posX = Math.max(-2.0F, Math.min(2.0F, parsed));
+            case "posY" -> offset.posY = Math.max(-2.0F, Math.min(2.0F, parsed));
+            case "posZ" -> offset.posZ = Math.max(-2.0F, Math.min(2.0F, parsed));
+            case "pitch" -> offset.pitch = Math.max(-360.0F, Math.min(360.0F, parsed));
+            case "yaw" -> offset.yaw = Math.max(-360.0F, Math.min(360.0F, parsed));
+            case "roll" -> offset.roll = Math.max(-360.0F, Math.min(360.0F, parsed));
+            default -> { }
+        }
+    }
+
+    private static void applyOverlayValue(String key, String value) {
+        String suffix = key.substring("overlay.".length());
+        int separator = suffix.lastIndexOf('.');
+        if (separator <= 0 || separator == suffix.length() - 1) return;
+        String id = suffix.substring(0, separator);
+        boolean known = false;
+        for (String candidate : VROverlayConfig.IDS) {
+            if (candidate.equals(id)) { known = true; break; }
+        }
+        if (!known) return;
+        VROverlayConfig.Entry overlay = VROverlayConfig.get(id);
+        switch (suffix.substring(separator + 1)) {
+            case "visible" -> overlay.visible = Boolean.parseBoolean(value);
+            case "anchor" -> {
+                for (String anchor : VROverlayConfig.ANCHORS) {
+                    if (anchor.equalsIgnoreCase(value)) { overlay.anchor = anchor; break; }
+                }
+            }
+            case "scale" -> overlay.scale = Math.max(0.2F, Math.min(3.0F, Float.parseFloat(value)));
+            case "distance" -> overlay.distance = Math.max(0.1F, Math.min(6.0F, Float.parseFloat(value)));
+            case "offsetX" -> overlay.offsetX = Math.max(-1.0F, Math.min(1.0F, Float.parseFloat(value)));
+            case "offsetY" -> overlay.offsetY = Math.max(-1.0F, Math.min(1.0F, Float.parseFloat(value)));
+            case "flag" -> overlay.flag = Boolean.parseBoolean(value);
+            default -> { }
+        }
+    }
+
     private static void applyCustom(Map<String, String> values) {
         for (Map.Entry<String, String> entry : values.entrySet()) {
             String k = entry.getKey();
