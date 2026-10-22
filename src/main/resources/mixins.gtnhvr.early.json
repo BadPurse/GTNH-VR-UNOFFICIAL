@@ -24,6 +24,7 @@
     "MixinGuiTextField",
     "MixinItemRenderer",
     "MixinLWJGLXDisplay",
+    "MixinLWJGLXMouse",
     "MixinLWJGLXGL11Alpha",
     "MixinLWJGLXGL14Alpha",
     "MixinMinecraft",
