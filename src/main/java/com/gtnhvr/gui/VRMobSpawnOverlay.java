@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.VRControllerHandler;
 import com.gtnhvr.settings.VRClientSettings;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
@@ -12,6 +13,7 @@ import net.minecraft.world.EnumSkyBlock;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
 import org.lwjgl.opengl.GL11;
+import org.joml.Vector3f;
 
 /**
  * VR Mob Spawn Overlay (F7-style light level indicator).
@@ -19,7 +21,7 @@ import org.lwjgl.opengl.GL11;
  * - RED cross: mobs can spawn NOW (block light < 8 AND sky light < 8)
  * - YELLOW cross: mobs can spawn at NIGHT (block light < 8 but sky light >= 8)
  *
- * Toggled via the Tools overlay button in VR settings.
+ * Toggled from the Tools tab of the VR Game Menu.
  * Based on the same algorithm as NEI F7 overlay.
  */
 @Lwjgl3Aware
@@ -50,6 +52,9 @@ public final class VRMobSpawnOverlay {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+        // Force the first scan after enabling. Otherwise an off/on toggle during the
+        // same ten-tick scan window leaves the overlay empty until the next world tick.
+        lastScanTick = -1L;
         if (!enabled) {
             markerCount = 0;
         }
@@ -69,7 +74,7 @@ public final class VRMobSpawnOverlay {
         }
 
         long currentTick = mc.theWorld.getTotalWorldTime();
-        if (currentTick - lastScanTick < SCAN_INTERVAL_TICKS) {
+        if (lastScanTick >= 0L && currentTick - lastScanTick < SCAN_INTERVAL_TICKS) {
             return;
         }
         lastScanTick = currentTick;
@@ -152,58 +157,85 @@ public final class VRMobSpawnOverlay {
      * Must be called during the world render pass after terrain but before GUI.
      */
     public void render(float partialTicks) {
-        if (!enabled || markerCount == 0) return;
+        render(partialTicks, com.gtnhvr.OpenXRRuntime.getCurrentEyeIndex());
+    }
+
+    /**
+     * Draw spawn markers in the same eye/world camera space as the world crosshair.
+     * Do not transform them to room space: this pass is rendered with the eye projection
+     * and Minecraft-world camera matrix, so world-relative block coordinates are required.
+     */
+    public void render(float partialTicks, int eyeIndex) {
+        if (!enabled) return;
 
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null || mc.thePlayer == null) return;
+        if (mc == null || mc.theWorld == null || mc.thePlayer == null || mc.currentScreen != null) return;
 
-        double px = mc.thePlayer.prevPosX + (mc.thePlayer.posX - mc.thePlayer.prevPosX) * partialTicks;
-        double py = mc.thePlayer.prevPosY + (mc.thePlayer.posY - mc.thePlayer.prevPosY) * partialTicks;
-        double pz = mc.thePlayer.prevPosZ + (mc.thePlayer.posZ - mc.thePlayer.prevPosZ) * partialTicks;
+        // Keep markers alive even if this render path runs before the next controller update.
+        update(mc);
+        if (markerCount == 0) return;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        net.minecraft.entity.Entity renderEntity =
+                mc.renderViewEntity != null ? mc.renderViewEntity : mc.thePlayer;
+        double camX = renderEntity.prevPosX + (renderEntity.posX - renderEntity.prevPosX) * (double) partialTicks;
+        double camY = renderEntity.prevPosY + (renderEntity.posY - renderEntity.prevPosY) * (double) partialTicks;
+        double camZ = renderEntity.prevPosZ + (renderEntity.posZ - renderEntity.prevPosZ) * (double) partialTicks;
+
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+        GLStateManager.glPushMatrix();
+        java.nio.FloatBuffer projection = com.gtnhvr.OpenXRRuntime.getEyeProjectionBuffer(eyeIndex, 0.05F, 100.0F);
+        if (projection != null) {
+            GLStateManager.glLoadMatrix(projection);
+        }
+
+        GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+        GLStateManager.glPushMatrix();
+        java.nio.FloatBuffer modelView = com.gtnhvr.OpenXRRuntime.getEyeModelViewBuffer(eyeIndex, partialTicks);
+        if (modelView != null) {
+            GLStateManager.glLoadMatrix(modelView);
+        }
 
         try {
-            GL11.glDisable(GL11.GL_TEXTURE_2D);
-            GL11.glDisable(GL11.GL_CULL_FACE);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthMask(false);
-            GL11.glLineWidth(2.5F);
+            GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthFunc(GL11.GL_LEQUAL);
+            GLStateManager.glDepthMask(false);
+            GLStateManager.glLineWidth(2.5F);
 
-            // Offset slightly above the block surface to prevent z-fighting
-            float yOffset = 0.005F;
-
+            // markerY is the air block above the solid support block; its Y coordinate
+            // is exactly the support block's top face. The small offset avoids z-fighting.
+            final double yOffset = 0.005D;
             for (int i = 0; i < markerCount; i++) {
-                double bx = markerX[i] - px;
-                double by = markerY[i] - py;
-                double bz = markerZ[i] - pz;
+                double bx = markerX[i] - camX;
+                double by = markerY[i] - camY + yOffset;
+                double bz = markerZ[i] - camZ;
 
                 byte type = markerType[i];
                 if (type == 1) {
-                    // Yellow: spawns at night only
-                    GL11.glColor4f(1.0F, 1.0F, 0.0F, 0.75F);
+                    GLStateManager.glColor4f(1.0F, 1.0F, 0.0F, 0.85F);
                 } else {
-                    // Red: always spawns
-                    GL11.glColor4f(1.0F, 0.1F, 0.1F, 0.85F);
+                    GLStateManager.glColor4f(1.0F, 0.1F, 0.1F, 0.95F);
                 }
 
-                // Draw an X cross on top of the block below (at y level)
-                GL11.glBegin(GL11.GL_LINES);
-                // Diagonal 1: (0.2, 0, 0.2) to (0.8, 0, 0.8)
-                GL11.glVertex3d(bx + 0.2, by + yOffset, bz + 0.2);
-                GL11.glVertex3d(bx + 0.8, by + yOffset, bz + 0.8);
-                // Diagonal 2: (0.8, 0, 0.2) to (0.2, 0, 0.8)
-                GL11.glVertex3d(bx + 0.8, by + yOffset, bz + 0.2);
-                GL11.glVertex3d(bx + 0.2, by + yOffset, bz + 0.8);
-                GL11.glEnd();
+                GLStateManager.glBegin(GL11.GL_LINES);
+                GLStateManager.glVertex3d(bx + 0.2D, by, bz + 0.2D);
+                GLStateManager.glVertex3d(bx + 0.8D, by, bz + 0.8D);
+                GLStateManager.glVertex3d(bx + 0.8D, by, bz + 0.2D);
+                GLStateManager.glVertex3d(bx + 0.2D, by, bz + 0.8D);
+                GLStateManager.glEnd();
             }
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix(); // Restore model-view
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPopMatrix(); // Restore projection
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glPopAttrib();
         }
     }
+
 }

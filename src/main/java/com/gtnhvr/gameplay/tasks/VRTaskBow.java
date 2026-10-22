@@ -35,6 +35,8 @@ public class VRTaskBow {
     private static final long AIM_HOLD_MS = 250L;
 
     private volatile boolean drawing = false;
+    /** true when the bow is held by the main/right controller, false for the offhand/left controller. */
+    private volatile boolean bowInMainHand = true;
     private volatile float tension = 0.0F;
     private volatile long releasedAtMs = 0L;
     private final Vector3f aimRoomDir = new Vector3f(0.0F, 0.0F, -1.0F);
@@ -49,7 +51,7 @@ public class VRTaskBow {
         return INSTANCE;
     }
 
-    /** True when the physical bow replaces the normal use-item input. */
+    /** True when a physical two-handed bow can be controlled by the tracked controllers. */
     public boolean isBowHeld(Minecraft mc) {
         if (!VRClientSettings.worldTwoHanded || mc == null || mc.thePlayer == null || mc.currentScreen != null) {
             return false;
@@ -58,8 +60,23 @@ public class VRTaskBow {
         if (!handler.isRightHandTracked() || !handler.isLeftHandTracked()) {
             return false;
         }
-        ItemStack held = mc.thePlayer.getHeldItem();
-        return held != null && held.getItem() instanceof ItemBow;
+
+        ItemStack main = mc.thePlayer.getHeldItem();
+        if (main != null && main.getItem() instanceof ItemBow) {
+            bowInMainHand = true;
+            return true;
+        }
+
+        ItemStack offhand = com.gtnhvr.gui.VRHotbarSelector.getInstance().getOffhandItemStack(mc);
+        if (offhand != null && offhand.getItem() instanceof ItemBow) {
+            bowInMainHand = false;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean isBowInMainHand() {
+        return bowInMainHand;
     }
 
     public boolean isDrawing() {
@@ -68,6 +85,15 @@ public class VRTaskBow {
 
     public float getTension() {
         return tension;
+    }
+
+    /**
+     * A short one-shot launch window. The ItemBow mixin temporarily applies the controller
+     * direction while vanilla constructs the projectile, then restores the player's view angles.
+     */
+    public boolean hasRecentLaunchAim() {
+        long age = System.currentTimeMillis() - releasedAtMs;
+        return !drawing && releasedAtMs > 0L && age >= 0L && age < 500L && tension > 0.05F;
     }
 
     /** True while the hands decide where the player aims (drawing and a moment after the release). */
@@ -82,54 +108,68 @@ public class VRTaskBow {
 
     public void update(Minecraft mc, VRControllerHandler handler) {
         if (!isBowHeld(mc)) {
-            if (drawing) {
-                finishDraw();
-            }
+            // Losing the bow, a tracked hand, or the active screen is cancellation, not a shot.
+            // Do not leave a stale release timestamp that can affect the next vanilla arrow.
+            if (drawing) clear();
             return;
         }
 
-        Vector3f mainPos = handler.getRightHandPos();
-        Vector3f offPos = handler.getLeftHandPos();
-        float distance = mainPos.distance(offPos);
-        float offTrigger = handler.getLeftTriggerValue();
+        // Match Visor's bow task: either controller may hold the bow, and the opposite
+        // hand controls the string trigger and sets the aim direction.
+        Vector3f bowPos = bowInMainHand ? handler.getRightHandPos() : handler.getLeftHandPos();
+        Vector3f stringPos = bowInMainHand ? handler.getLeftHandPos() : handler.getRightHandPos();
+        float distance = bowPos.distance(stringPos);
+        float stringTrigger = bowInMainHand ? handler.getLeftTriggerValue() : handler.getRightTriggerValue();
 
         if (!drawing) {
-            if (offTrigger > TRIGGER_GRAB && distance < GRAB_DISTANCE) {
+            if (stringTrigger > TRIGGER_GRAB && distance < GRAB_DISTANCE) {
                 drawing = true;
                 tension = 0.0F;
-                handler.triggerHaptic(true, 10_000_000L, 0.60F, 0);
+                handler.triggerHaptic(bowInMainHand, 10_000_000L, 0.60F, 0);
             }
             return;
         }
 
-        // Aim: from the string hand through the bow hand
-        Vector3f aim = new Vector3f(mainPos).sub(offPos);
+        // Match Visor's BowAimCrosshairRenderer: the bow controller's aim pose defines
+        // the arrow direction. Hand spacing controls draw strength, not the shot's bearing.
+        org.joml.Quaternionf bowAimRotation = bowInMainHand
+                ? handler.getRightHandRot() : handler.getLeftHandRot();
+        Vector3f aim = bowAimRotation.transform(new Vector3f(0.0F, 0.0F, -1.0F));
         if (aim.lengthSquared() > 1.0E-6F) {
             aimRoomDir.set(aim).normalize();
         }
         tension = Math.max(0.0F, Math.min(1.0F, (distance - MIN_PULL) / (FULL_PULL - MIN_PULL)));
 
-        // String tension felt in the bow hand
+        // Haptic feedback in the hand that holds the bow, matching Visor's two-hand pose.
         long now = System.currentTimeMillis();
         if (tension > 0.05F && now - lastHapticMs > 60L) {
             lastHapticMs = now;
-            handler.triggerHaptic(false, 20_000_000L, 0.15F + 0.45F * tension, 0);
+            handler.triggerHaptic(!bowInMainHand, 20_000_000L, 0.15F + 0.45F * tension, 0);
         }
 
-        // Calculate arrow trajectory arc in Minecraft world (1:1 with Visor BowAimCrosshairRenderer)
+        // Calculate arrow trajectory arc in Minecraft world (1:1 with Visor bow aiming).
         trajectoryPoints.clear();
         hitPointRoom = null;
         if (tension > 0.05F && mc.theWorld != null) {
             float charge = tension * FULL_CHARGE_TICKS;
-            float f = (charge * charge + charge * 2.0F) / 3.0F / 20.0F;
+            // Exact ItemBow 1.7.10 charge curve: f = charge / 20, then
+            // f = (f*f + 2*f)/3. The old expression overcharged weak pulls.
+            float f = charge / 20.0F;
+            f = (f * f + f * 2.0F) / 3.0F;
             if (f > 1.0F) f = 1.0F;
-            float speed = f * 3.0F;
+            float speed = f * 2.0F;
 
-            Vector3f startRoom = new Vector3f(mainPos);
-            trajectoryPoints.add(new Vector3f(startRoom));
-
-            net.minecraft.util.Vec3 curWorld = handler.roomToWorld(startRoom, 1.0F);
-            Vector3f worldAim = handler.roomDirectionToWorld(new Vector3f(aimRoomDir));
+            // Vanilla 1.7.10 ItemBow creates EntityArrow at the player's eye position,
+            // offset slightly behind the look direction. Match that origin and speed so
+            // the preview predicts the projectile rather than starting at the controller.
+            Vector3f worldAim = handler.roomDirectionToWorld(new Vector3f(aimRoomDir)).normalize();
+            float launchYawRad = (float) Math.atan2(-worldAim.x, worldAim.z);
+            // Vanilla EntityArrow(world, player, speed) spawns at this eye-height origin,
+            // offset by 0.16 blocks using the same yaw that sets the launch direction.
+            net.minecraft.util.Vec3 curWorld = net.minecraft.util.Vec3.createVectorHelper(
+                    mc.thePlayer.posX - Math.cos(launchYawRad) * 0.16D,
+                    mc.thePlayer.posY + mc.thePlayer.getEyeHeight() - 0.1D,
+                    mc.thePlayer.posZ - Math.sin(launchYawRad) * 0.16D);
 
             double vx = worldAim.x * speed;
             double vy = worldAim.y * speed;
@@ -142,6 +182,15 @@ public class VRTaskBow {
             double py = mc.thePlayer.posY;
             double pz = mc.thePlayer.posZ;
 
+            // Include the real projectile spawn point as the first visible trajectory vertex.
+            double startDx = curWorld.xCoord - px;
+            double startDy = curWorld.yCoord - py;
+            double startDz = curWorld.zCoord - pz;
+            float startRx = (float) (startDx * cos - startDz * sin);
+            float startRy = (float) startDy;
+            float startRz = (float) (startDx * sin + startDz * cos);
+            trajectoryPoints.add(new Vector3f(startRx, startRy, startRz));
+
             for (int step = 0; step < 30; step++) {
                 net.minecraft.util.Vec3 nextWorld = net.minecraft.util.Vec3.createVectorHelper(
                         curWorld.xCoord + vx,
@@ -149,7 +198,6 @@ public class VRTaskBow {
                         curWorld.zCoord + vz
                 );
                 net.minecraft.util.MovingObjectPosition hit = mc.theWorld.func_147447_a(curWorld, nextWorld, false, true, false);
-
                 net.minecraft.util.Vec3 pt = (hit != null) ? hit.hitVec : nextWorld;
                 double dx = pt.xCoord - px;
                 double dy = pt.yCoord - py;
@@ -173,9 +221,9 @@ public class VRTaskBow {
             }
         }
 
-        if (offTrigger < TRIGGER_RELEASE) {
+        if (stringTrigger < TRIGGER_RELEASE) {
             finishDraw();
-            handler.triggerHaptic(true, 15_000_000L, 0.70F, 0);
+            handler.triggerHaptic(bowInMainHand, 15_000_000L, 0.70F, 0);
         }
     }
 
@@ -197,49 +245,49 @@ public class VRTaskBow {
     public void renderTrajectoryArc() {
         if (!drawing || trajectoryPoints.size() < 2) return;
 
-        org.lwjgl.opengl.GL11.glPushAttrib(org.lwjgl.opengl.GL11.GL_ALL_ATTRIB_BITS);
-        org.lwjgl.opengl.GL11.glPushMatrix();
+        com.gtnewhorizons.angelica.glsm.GLStateManager.glPushAttrib(org.lwjgl.opengl.GL11.GL_ALL_ATTRIB_BITS);
+        com.gtnewhorizons.angelica.glsm.GLStateManager.glPushMatrix();
 
         try {
-            org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_TEXTURE_2D);
-            org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
-            org.lwjgl.opengl.GL11.glEnable(org.lwjgl.opengl.GL11.GL_BLEND);
-            org.lwjgl.opengl.GL11.glBlendFunc(org.lwjgl.opengl.GL11.GL_SRC_ALPHA, org.lwjgl.opengl.GL11.GL_ONE);
-            org.lwjgl.opengl.GL11.glLineWidth(3.5F);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glDisable(org.lwjgl.opengl.GL11.GL_TEXTURE_2D);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glEnable(org.lwjgl.opengl.GL11.GL_BLEND);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glBlendFunc(org.lwjgl.opengl.GL11.GL_SRC_ALPHA, org.lwjgl.opengl.GL11.GL_ONE);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glLineWidth(3.5F);
 
             // Vibrant gradient: cyan transitioning to gold at full tension
             float r = 0.20F + 0.80F * tension;
             float g = 0.85F - 0.20F * tension;
             float b = 0.90F - 0.70F * tension;
-            org.lwjgl.opengl.GL11.glColor4f(r, g, b, 0.85F);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glColor4f(r, g, b, 0.85F);
 
-            org.lwjgl.opengl.GL11.glBegin(org.lwjgl.opengl.GL11.GL_LINE_STRIP);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glBegin(org.lwjgl.opengl.GL11.GL_LINE_STRIP);
             for (Vector3f pt : trajectoryPoints) {
-                org.lwjgl.opengl.GL11.glVertex3f(pt.x, pt.y, pt.z);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glVertex3f(pt.x, pt.y, pt.z);
             }
-            org.lwjgl.opengl.GL11.glEnd();
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glEnd();
 
             // Hit target marker ring
             if (hitPointRoom != null) {
-                org.lwjgl.opengl.GL11.glPushMatrix();
-                org.lwjgl.opengl.GL11.glTranslatef(hitPointRoom.x, hitPointRoom.y + 0.01F, hitPointRoom.z);
-                org.lwjgl.opengl.GL11.glRotatef(90.0F, 1.0F, 0.0F, 0.0F);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glPushMatrix();
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glTranslatef(hitPointRoom.x, hitPointRoom.y + 0.01F, hitPointRoom.z);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glRotatef(90.0F, 1.0F, 0.0F, 0.0F);
 
-                org.lwjgl.opengl.GL11.glColor4f(r, g, b, 0.75F);
-                org.lwjgl.opengl.GL11.glBegin(org.lwjgl.opengl.GL11.GL_LINE_LOOP);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glColor4f(r, g, b, 0.75F);
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glBegin(org.lwjgl.opengl.GL11.GL_LINE_LOOP);
                 int segments = 16;
                 float radius = 0.20F;
                 for (int s = 0; s < segments; s++) {
                     double theta = 2.0 * Math.PI * s / segments;
-                    org.lwjgl.opengl.GL11.glVertex2d(Math.cos(theta) * radius, Math.sin(theta) * radius);
+                    com.gtnewhorizons.angelica.glsm.GLStateManager.glVertex2d(Math.cos(theta) * radius, Math.sin(theta) * radius);
                 }
-                org.lwjgl.opengl.GL11.glEnd();
-                org.lwjgl.opengl.GL11.glPopMatrix();
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glEnd();
+                com.gtnewhorizons.angelica.glsm.GLStateManager.glPopMatrix();
             }
 
         } finally {
-            org.lwjgl.opengl.GL11.glPopMatrix();
-            org.lwjgl.opengl.GL11.glPopAttrib();
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glPopMatrix();
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glPopAttrib();
         }
     }
 

@@ -73,6 +73,12 @@ public class VRSettingsBody extends VROptionsSet {
                 () -> VRClientSettings.seated,
                 v -> {
                     VRClientSettings.seated = v;
+                    if (v) {
+                        // Entering seated mode must not inherit a crouch from a prior standing session.
+                        com.gtnhvr.gameplay.tasks.VRTaskRoomCrawl.getInstance()
+                                .resetHeightCalibration();
+                        com.gtnhvr.VRControllerHandler.getInstance().resetSneakToggle();
+                    }
                     VRClientSettings.save();
                 },
                 I18n.format("visor.options.movement.seated")

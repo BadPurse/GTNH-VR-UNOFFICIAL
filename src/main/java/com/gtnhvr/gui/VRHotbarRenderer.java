@@ -1,17 +1,21 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.settings.VRClientSettings;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
 /**
@@ -69,25 +73,25 @@ public final class VRHotbarRenderer {
         if (fbo != 0) {
             return;
         }
-        fbo = GL30.glGenFramebuffers();
-        texture = GL11.glGenTextures();
-        depthRb = GL30.glGenRenderbuffers();
+        fbo = GLStateManager.glGenFramebuffers();
+        texture = GLStateManager.glGenTextures();
+        depthRb = GLStateManager.glGenRenderbuffers();
 
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, FBO_SIZE, FBO_SIZE, 0, GL11.GL_RGBA,
+        GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+        GLStateManager.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, FBO_SIZE, FBO_SIZE, 0, GL11.GL_RGBA,
                 GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+        GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+        GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 
-        GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
-        GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, FBO_SIZE, FBO_SIZE);
+        GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
+        GLStateManager.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, FBO_SIZE, FBO_SIZE);
 
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
-        GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
+        GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
     }
 
     /**
@@ -101,55 +105,55 @@ public final class VRHotbarRenderer {
         }
         ensureTarget();
 
-        int previousFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-        boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        int previousFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        boolean scissor = GLStateManager.glIsEnabled(GL11.GL_SCISSOR_TEST);
         if (scissor) {
-            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
         }
-        GL11.glPushAttrib(GL11.GL_VIEWPORT_BIT);
+        GLStateManager.glPushAttrib(GL11.GL_VIEWPORT_BIT);
         rendering = true;
         try {
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-            GL11.glViewport(0, 0, FBO_SIZE, FBO_SIZE);
-            GL11.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+            GLStateManager.glViewport(0, 0, FBO_SIZE, FBO_SIZE);
+            GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+            GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-            GL11.glOrtho(0.0D, CANVAS_SIZE, CANVAS_SIZE, 0.0D, 1000.0D, 3000.0D);
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-            GL11.glTranslatef(0.0F, 0.0F, -2000.0F);
-            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glLoadIdentity();
+            GLStateManager.glOrtho(0.0D, CANVAS_SIZE, CANVAS_SIZE, 0.0D, 1000.0D, 3000.0D);
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glLoadIdentity();
+            GLStateManager.glTranslatef(0.0F, 0.0F, -2000.0F);
+            GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             try {
                 drawHotbar(mc, selectedSlice, slotMain, slotOffhand);
             } finally {
                 RenderHelper.disableStandardItemLighting();
-                GL11.glPopAttrib();
-                GL11.glMatrixMode(GL11.GL_PROJECTION);
-                GL11.glPopMatrix();
-                GL11.glMatrixMode(GL11.GL_MODELVIEW);
-                GL11.glPopMatrix();
+                GLStateManager.glPopAttrib();
+                GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+                GLStateManager.glPopMatrix();
+                GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+                GLStateManager.glPopMatrix();
             }
         } finally {
             rendering = false;
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
-            GL11.glPopAttrib();
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
+            GLStateManager.glPopAttrib();
             if (scissor) {
-                GL11.glEnable(GL11.GL_SCISSOR_TEST);
+                GLStateManager.glEnable(GL11.GL_SCISSOR_TEST);
             }
         }
     }
 
     private void drawHotbar(Minecraft mc, int selectedSlice, int slotMain, int slotOffhand) {
-        GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GLStateManager.glDisable(GL11.GL_LIGHTING);
+        GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+        GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
         final int imageX = (CANVAS_SIZE - IMAGE_SIZE) / 2;
         final int imageY = (CANVAS_SIZE - IMAGE_SIZE) / 2;
@@ -175,57 +179,35 @@ public final class VRHotbarRenderer {
             int x = imageX + slice.getItemX();
             int y = imageY + slice.getItemY();
 
-            GL11.glPushMatrix();
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glEnable(GL12.GL_RESCALE_NORMAL);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glEnable(GL12.GL_RESCALE_NORMAL);
             RenderHelper.enableGUIStandardItemLighting();
             ITEM_RENDER.renderItemAndEffectIntoGUI(mc.fontRenderer, mc.getTextureManager(), stack, x, y);
             ITEM_RENDER.renderItemOverlayIntoGUI(mc.fontRenderer, mc.getTextureManager(), stack, x, y);
             RenderHelper.disableStandardItemLighting();
-            GL11.glDisable(GL12.GL_RESCALE_NORMAL);
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            GL11.glPopMatrix();
+            GLStateManager.glDisable(GL12.GL_RESCALE_NORMAL);
+            GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glPopMatrix();
         }
 
         // ---- Name of the hovered item
         drawSelectedItemName(mc, selectedSlice, imageY);
 
         // ---- Rings around the held items
-        GL11.glEnable(GL11.GL_BLEND);
-        GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE);
+        GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
 
-        // Main Hand (Right Hand): vibrant Cyan/Blue (#26D9FF)
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        drawRing(mc, slotMain, imageX, imageY, OFF_SEL0, OFF_SEL1);
-        drawColoredSlotBorder(slotMain, imageX, imageY, 0.15F, 0.85F, 1.0F, 0.95F);
+        // Main hand: use the same pre-coloured main-hand texture as Visor.
+        // Do not apply an extra tint or draw the old square placeholder.
+        drawRing(mc, slotMain, imageX, imageY, MAIN_SEL0, MAIN_SEL1);
 
-        // Off Hand (Left Hand): vibrant Orange (#FFA61A)
+        // Offhand: use the same pre-coloured offhand texture as Visor.
         if (slotOffhand >= 0 && slotOffhand < 9) {
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            drawRing(mc, slotOffhand, imageX, imageY, MAIN_SEL0, MAIN_SEL1);
-            drawColoredSlotBorder(slotOffhand, imageX, imageY, 1.0F, 0.65F, 0.10F, 0.95F);
+            drawRing(mc, slotOffhand, imageX, imageY, OFF_SEL0, OFF_SEL1);
         }
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-    }
-
-    private void drawColoredSlotBorder(int slot, int imageX, int imageY, float r, float g, float b, float a) {
-        HotBarSlice slice = HotBarSlice.fromSlot(slot);
-        if (slice == HotBarSlice.NOT_SELECTED) return;
-        float x = imageX + slice.getItemX() - 3;
-        float y = imageY + slice.getItemY() - 3;
-        float size = 22.0F;
-
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glLineWidth(2.5F);
-        GL11.glColor4f(r, g, b, a);
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        GL11.glVertex2f(x, y);
-        GL11.glVertex2f(x + size, y);
-        GL11.glVertex2f(x + size, y + size);
-        GL11.glVertex2f(x, y + size);
-        GL11.glEnd();
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     private void drawRing(Minecraft mc, int slot, int imageX, int imageY,
@@ -234,9 +216,36 @@ public final class VRHotbarRenderer {
         if (slice == HotBarSlice.NOT_SELECTED) {
             return;
         }
-        mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
-        drawTexturedRect(imageX + slice.getItemX() - RING_INSET, imageY + slice.getItemY() - RING_INSET,
-                RING_SIZE, RING_SIZE);
+
+        int previousProgram = GLStateManager.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+        int previousActiveTexture = GLStateManager.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        try {
+            // The original Visor renderer draws these after item rendering through GuiTexture.blit.
+            // Use Angelica's GUI/fixed-function path and a Tessellator quad rather than the custom
+            // GLStateManager immediate-mode quad, which can inherit item-render state.
+            GLStateManager.glUseProgram(0);
+            GLStateManager.glActiveTexture(GL13.GL_TEXTURE0);
+            GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            // GuiTexture.blit uses shader alpha blending, not legacy alpha-test clipping.
+            // RenderItem can leave alpha-test state active, so do not let it discard the ring pixels.
+            GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                    GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GLStateManager.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            mc.getTextureManager().bindTexture(slice.getSlot() != 0 ? ring : centerRing);
+            drawSelectionTexture(imageX + slice.getItemX() - RING_INSET,
+                    imageY + slice.getItemY() - RING_INSET, RING_SIZE, RING_SIZE);
+        } finally {
+            GLStateManager.glPopAttrib();
+            GLStateManager.glActiveTexture(previousActiveTexture);
+            GLStateManager.glUseProgram(previousProgram);
+        }
     }
 
     private void drawSelectedItemName(Minecraft mc, int selectedSlice, int imageY) {
@@ -260,45 +269,61 @@ public final class VRHotbarRenderer {
             nameY += SLOT_NUMBERS_DIFF;
         }
 
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glColor4f(0.0F, 0.0F, 0.0F, ITEM_NAME_BACKGROUND_ALPHA);
+        GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glColor4f(0.0F, 0.0F, 0.0F, ITEM_NAME_BACKGROUND_ALPHA);
         drawRect(nameX - ITEM_NAME_PADDING_X, nameY - ITEM_NAME_PADDING_Y,
                 nameX + nameWidth + ITEM_NAME_PADDING_X, nameY + nameHeight + ITEM_NAME_PADDING_Y);
 
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         font.drawStringWithShadow(name, nameX, nameY, 0xFFFFFF);
     }
 
+    /**
+     * Minecraft 1.7.10 equivalent of Visor GuiTexture.blit: submit a textured quad through
+     * Tessellator and store white tint per vertex, so previously rendered item state cannot
+     * recolour or reorder the selection texture.
+     */
+    private static void drawSelectionTexture(float x, float y, float w, float h) {
+        Tessellator tessellator = Tessellator.instance;
+        tessellator.startDrawingQuads();
+        tessellator.setColorRGBA_F(1.0F, 1.0F, 1.0F, 1.0F);
+        tessellator.addVertexWithUV(x, y + h, 0.0D, 0.0D, 1.0D);
+        tessellator.addVertexWithUV(x + w, y + h, 0.0D, 1.0D, 1.0D);
+        tessellator.addVertexWithUV(x + w, y, 0.0D, 1.0D, 0.0D);
+        tessellator.addVertexWithUV(x, y, 0.0D, 0.0D, 0.0D);
+        tessellator.draw();
+    }
+
     private static void drawTexturedRect(float x, float y, float w, float h) {
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glTexCoord2f(0.0F, 0.0F); GL11.glVertex2f(x, y);
-        GL11.glTexCoord2f(1.0F, 0.0F); GL11.glVertex2f(x + w, y);
-        GL11.glTexCoord2f(1.0F, 1.0F); GL11.glVertex2f(x + w, y + h);
-        GL11.glTexCoord2f(0.0F, 1.0F); GL11.glVertex2f(x, y + h);
-        GL11.glEnd();
+        GLStateManager.glBegin(GL11.GL_QUADS);
+        GLStateManager.glTexCoord2f(0.0F, 0.0F); GLStateManager.glVertex2f(x, y);
+        GLStateManager.glTexCoord2f(1.0F, 0.0F); GLStateManager.glVertex2f(x + w, y);
+        GLStateManager.glTexCoord2f(1.0F, 1.0F); GLStateManager.glVertex2f(x + w, y + h);
+        GLStateManager.glTexCoord2f(0.0F, 1.0F); GLStateManager.glVertex2f(x, y + h);
+        GLStateManager.glEnd();
     }
 
     private static void drawRect(float x0, float y0, float x1, float y1) {
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex2f(x0, y0);
-        GL11.glVertex2f(x1, y0);
-        GL11.glVertex2f(x1, y1);
-        GL11.glVertex2f(x0, y1);
-        GL11.glEnd();
+        GLStateManager.glBegin(GL11.GL_QUADS);
+        GLStateManager.glVertex2f(x0, y0);
+        GLStateManager.glVertex2f(x1, y0);
+        GLStateManager.glVertex2f(x1, y1);
+        GLStateManager.glVertex2f(x0, y1);
+        GLStateManager.glEnd();
     }
 
     public void destroy() {
         if (fbo != 0) {
-            GL30.glDeleteFramebuffers(fbo);
+            GLStateManager.glDeleteFramebuffers(fbo);
             fbo = 0;
         }
         if (texture != 0) {
-            GL11.glDeleteTextures(texture);
+            GLStateManager.glDeleteTextures(texture);
             texture = 0;
         }
         if (depthRb != 0) {
-            GL30.glDeleteRenderbuffers(depthRb);
+            GLStateManager.glDeleteRenderbuffers(depthRb);
             depthRb = 0;
         }
     }

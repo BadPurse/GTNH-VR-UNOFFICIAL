@@ -72,7 +72,8 @@ public class VRSettingsGui extends VROptionsSet {
                 I18n.format("visor.options.gui.settings_text_scale.tooltip")
         ));
 
-        // Row 3: Curved HUD & Keyboard Auto Layout
+        // Row 3: Curved HUD. Automatic keyboard visibility is configured in the
+        // Keyboard Layouts submenu only, so users do not have multiple competing toggles.
         widgets.add(new OptionWidget.ToggleWidget(
                 OptionWidgetPosition.LEFT, 3,
                 I18n.format("visor.options.gui.curved_hud"),
@@ -82,17 +83,6 @@ public class VRSettingsGui extends VROptionsSet {
                     VRClientSettings.save();
                 },
                 I18n.format("visor.options.gui.curved_hud")
-        ));
-
-        widgets.add(new OptionWidget.ToggleWidget(
-                OptionWidgetPosition.RIGHT, 3,
-                I18n.format("visor.options.gui.keyboard.auto_layout"),
-                () -> VRClientSettings.keyboardAutoLayout,
-                v -> {
-                    VRClientSettings.keyboardAutoLayout = v;
-                    VRClientSettings.save();
-                },
-                I18n.format("visor.options.gui.keyboard.auto_layout")
         ));
     }
 }

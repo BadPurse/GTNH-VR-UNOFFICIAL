@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.settings.VROverlayConfig;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
@@ -318,13 +319,11 @@ public final class VRVirtualScreen {
     }
 
     public float getScreenAspect() {
-        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
-            return (float) com.gtnhvr.settings.VRClientSettings.virtualScreenHeight / (float) com.gtnhvr.settings.VRClientSettings.virtualScreenWidth;
-        }
-        Minecraft mc = Minecraft.getMinecraft();
-        return (mc != null && mc.displayHeight > 0 && mc.displayWidth > 0)
-                ? (float) mc.displayHeight / (float) mc.displayWidth
-                : (1668.0F / 2388.0F);
+        int captureWidth = VRGuiRenderer.getCaptureWidth();
+        int captureHeight = VRGuiRenderer.getCaptureHeight();
+        return captureWidth > 0 && captureHeight > 0
+                ? (float) captureHeight / (float) captureWidth
+                : (9.0F / 16.0F);
     }
 
     public Vector3f getDragBarWorldPos() {
@@ -381,106 +380,106 @@ public final class VRVirtualScreen {
         float resizeBottom = barCenterY - handleSide;
         float resizeTop = barCenterY + handleSide;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
 
         try {
-            GL11.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
             // The captured GUI is a flat overlay: no depth test or depth writes, otherwise NEI
             // tooltips and item overlays z-fight with the quad and flicker between the eyes.
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthMask(false);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
             // Transform into virtual screen local space via full 6DoF rotation
-            GL11.glTranslatef(screenPos.x, screenPos.y, screenPos.z);
+            GLStateManager.glTranslatef(screenPos.x, screenPos.y, screenPos.z);
             org.joml.AxisAngle4f aa = new org.joml.AxisAngle4f(screenRot);
             if (aa.angle != 0.0F && (aa.x != 0.0F || aa.y != 0.0F || aa.z != 0.0F)) {
-                GL11.glRotatef((float) Math.toDegrees(aa.angle), aa.x, aa.y, aa.z);
+                GLStateManager.glRotatef((float) Math.toDegrees(aa.angle), aa.x, aa.y, aa.z);
             }
 
             // 1. Textured virtual screen surface
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, fboTextureId);
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, fboTextureId);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
-            GL11.glBegin(GL11.GL_QUADS);
-            GL11.glTexCoord2f(0.0F, 0.0F); GL11.glVertex3f(-halfW, -halfH, 0.0F);
-            GL11.glTexCoord2f(1.0F, 0.0F); GL11.glVertex3f( halfW, -halfH, 0.0F);
-            GL11.glTexCoord2f(1.0F, 1.0F); GL11.glVertex3f( halfW,  halfH, 0.0F);
-            GL11.glTexCoord2f(0.0F, 1.0F); GL11.glVertex3f(-halfW,  halfH, 0.0F);
-            GL11.glEnd();
+            GLStateManager.glBegin(GL11.GL_QUADS);
+            GLStateManager.glTexCoord2f(0.0F, 0.0F); GLStateManager.glVertex3f(-halfW, -halfH, 0.0F);
+            GLStateManager.glTexCoord2f(1.0F, 0.0F); GLStateManager.glVertex3f( halfW, -halfH, 0.0F);
+            GLStateManager.glTexCoord2f(1.0F, 1.0F); GLStateManager.glVertex3f( halfW,  halfH, 0.0F);
+            GLStateManager.glTexCoord2f(0.0F, 1.0F); GLStateManager.glVertex3f(-halfW,  halfH, 0.0F);
+            GLStateManager.glEnd();
 
             // 2. Visor 1:1 Drag Bar & Resize Handle (disabled in Main Menu)
             Minecraft mc = Minecraft.getMinecraft();
             boolean allowHandles = (mc != null && mc.theWorld != null && !inMenuRoom);
             if (allowHandles && (isDragging || isResizing || hoveredHandle != ScreenHandle.NONE)) {
-                GL11.glDisable(GL11.GL_TEXTURE_2D);
+                GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
 
                 // Visor 1:1 Handle Colors
                 // Drag Bar (horizontal line / bar)
                 if (isDragging) {
-                    GL11.glColor4f(0.863F, 0.863F, 0.863F, 0.431F); // Active drag
+                    GLStateManager.glColor4f(0.863F, 0.863F, 0.863F, 0.431F); // Active drag
                 } else if (hoveredHandle == ScreenHandle.DRAG_BAR) {
-                    GL11.glColor4f(0.863F, 0.863F, 0.863F, 0.470F); // Hovered
+                    GLStateManager.glColor4f(0.863F, 0.863F, 0.863F, 0.470F); // Hovered
                 } else {
-                    GL11.glColor4f(0.745F, 0.745F, 0.745F, 0.333F); // Normal
+                    GLStateManager.glColor4f(0.745F, 0.745F, 0.745F, 0.333F); // Normal
                 }
-                GL11.glBegin(GL11.GL_QUADS);
-                GL11.glVertex3f(barLeft,  barBottom, 0.001F);
-                GL11.glVertex3f(barRight, barBottom, 0.001F);
-                GL11.glVertex3f(barRight, barTop,    0.001F);
-                GL11.glVertex3f(barLeft,  barTop,    0.001F);
-                GL11.glEnd();
+                GLStateManager.glBegin(GL11.GL_QUADS);
+                GLStateManager.glVertex3f(barLeft,  barBottom, 0.001F);
+                GLStateManager.glVertex3f(barRight, barBottom, 0.001F);
+                GLStateManager.glVertex3f(barRight, barTop,    0.001F);
+                GLStateManager.glVertex3f(barLeft,  barTop,    0.001F);
+                GLStateManager.glEnd();
 
                 // Resize Handle (square to the right of the bar)
                 if (isResizing) {
-                    GL11.glColor4f(0.470F, 0.863F, 1.000F, 0.627F); // Active resize
+                    GLStateManager.glColor4f(0.470F, 0.863F, 1.000F, 0.627F); // Active resize
                 } else if (hoveredHandle == ScreenHandle.RESIZE_HANDLE) {
-                    GL11.glColor4f(0.863F, 0.863F, 0.863F, 0.470F); // Hovered
+                    GLStateManager.glColor4f(0.863F, 0.863F, 0.863F, 0.470F); // Hovered
                 } else {
-                    GL11.glColor4f(0.745F, 0.745F, 0.745F, 0.333F); // Normal
+                    GLStateManager.glColor4f(0.745F, 0.745F, 0.745F, 0.333F); // Normal
                 }
-                GL11.glBegin(GL11.GL_QUADS);
-                GL11.glVertex3f(resizeLeft,  resizeBottom, 0.001F);
-                GL11.glVertex3f(resizeRight, resizeBottom, 0.001F);
-                GL11.glVertex3f(resizeRight, resizeTop,    0.001F);
-                GL11.glVertex3f(resizeLeft,  resizeTop,    0.001F);
-                GL11.glEnd();
+                GLStateManager.glBegin(GL11.GL_QUADS);
+                GLStateManager.glVertex3f(resizeLeft,  resizeBottom, 0.001F);
+                GLStateManager.glVertex3f(resizeRight, resizeBottom, 0.001F);
+                GLStateManager.glVertex3f(resizeRight, resizeTop,    0.001F);
+                GLStateManager.glVertex3f(resizeLeft,  resizeTop,    0.001F);
+                GLStateManager.glEnd();
             }
 
             // 3. Glowing border outline during resizing (Visor 1:1)
             if (isResizing) {
-                GL11.glColor4f(0.470F, 0.863F, 1.000F, 0.627F);
+                GLStateManager.glColor4f(0.470F, 0.863F, 1.000F, 0.627F);
                 float thick = Math.max(0.005F, halfW * 0.012F);
-                GL11.glBegin(GL11.GL_QUADS);
+                GLStateManager.glBegin(GL11.GL_QUADS);
                 // Top edge
-                GL11.glVertex3f(-halfW, halfH - thick, 0.002F);
-                GL11.glVertex3f( halfW, halfH - thick, 0.002F);
-                GL11.glVertex3f( halfW, halfH,         0.002F);
-                GL11.glVertex3f(-halfW, halfH,         0.002F);
+                GLStateManager.glVertex3f(-halfW, halfH - thick, 0.002F);
+                GLStateManager.glVertex3f( halfW, halfH - thick, 0.002F);
+                GLStateManager.glVertex3f( halfW, halfH,         0.002F);
+                GLStateManager.glVertex3f(-halfW, halfH,         0.002F);
                 // Bottom edge
-                GL11.glVertex3f(-halfW, -halfH,         0.002F);
-                GL11.glVertex3f( halfW, -halfH,         0.002F);
-                GL11.glVertex3f( halfW, -halfH + thick, 0.002F);
-                GL11.glVertex3f(-halfW, -halfH + thick, 0.002F);
+                GLStateManager.glVertex3f(-halfW, -halfH,         0.002F);
+                GLStateManager.glVertex3f( halfW, -halfH,         0.002F);
+                GLStateManager.glVertex3f( halfW, -halfH + thick, 0.002F);
+                GLStateManager.glVertex3f(-halfW, -halfH + thick, 0.002F);
                 // Left edge
-                GL11.glVertex3f(-halfW,         -halfH + thick, 0.002F);
-                GL11.glVertex3f(-halfW + thick, -halfH + thick, 0.002F);
-                GL11.glVertex3f(-halfW + thick,  halfH - thick, 0.002F);
-                GL11.glVertex3f(-halfW,          halfH - thick, 0.002F);
+                GLStateManager.glVertex3f(-halfW,         -halfH + thick, 0.002F);
+                GLStateManager.glVertex3f(-halfW + thick, -halfH + thick, 0.002F);
+                GLStateManager.glVertex3f(-halfW + thick,  halfH - thick, 0.002F);
+                GLStateManager.glVertex3f(-halfW,          halfH - thick, 0.002F);
                 // Right edge
-                GL11.glVertex3f(halfW - thick, -halfH + thick, 0.002F);
-                GL11.glVertex3f(halfW,         -halfH + thick, 0.002F);
-                GL11.glVertex3f(halfW,          halfH - thick, 0.002F);
-                GL11.glVertex3f(halfW - thick,  halfH - thick, 0.002F);
-                GL11.glEnd();
+                GLStateManager.glVertex3f(halfW - thick, -halfH + thick, 0.002F);
+                GLStateManager.glVertex3f(halfW,         -halfH + thick, 0.002F);
+                GLStateManager.glVertex3f(halfW,          halfH - thick, 0.002F);
+                GLStateManager.glVertex3f(halfW - thick,  halfH - thick, 0.002F);
+                GLStateManager.glEnd();
             }
 
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
         }
     }
 

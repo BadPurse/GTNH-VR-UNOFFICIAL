@@ -185,10 +185,21 @@ public class VRPauseMenuScreen extends GuiScreen {
                 // Row 2: Hand Item Offsets Screen
                 this.buttonList.add(new GuiButton(44, left, y, COLUMN_W, BTN_H, "§6" + I18n.format("visor.screen.pause_menu.button.hand_item_offsets")));
                 y += BTN_H + GAP;
+
+                // Row 3: Toggle the F7-style mob spawn markers.
+                this.buttonList.add(new GuiButton(45, left, y, COLUMN_W, BTN_H, mobSpawnButtonLabel()));
+                y += BTN_H + GAP;
             }
         }
 
         return y;
+    }
+
+    private String mobSpawnButtonLabel() {
+        String stateKey = VRMobSpawnOverlay.getInstance().isEnabled()
+                ? "visor.screen.pause_menu.state.on"
+                : "visor.screen.pause_menu.state.off";
+        return I18n.format("visor.screen.pause_menu.button.mob_spawns", I18n.format(stateKey));
     }
 
     private void registerSection(int x, int y, String text) {
@@ -198,7 +209,7 @@ public class VRPauseMenuScreen extends GuiScreen {
     private int totalColumnHeight() {
         int contentH = switch (this.currentTab) {
             case MAIN -> 3 * (BTN_H + GAP);
-            case TOOLS -> 3 * (BTN_H + GAP);
+            case TOOLS -> 4 * (BTN_H + GAP);
             case COMMANDS -> 3 * LABEL_H + 4 * (BTN_H + GAP) + 2 * SECTION_GAP;
         };
         return 9 + 16 + BTN_H + 6 + contentH + 6 + BTN_H;
@@ -243,8 +254,11 @@ public class VRPauseMenuScreen extends GuiScreen {
                 }
             }
             case 5 -> { // Vanilla Pause Menu
-                GuiEventHandler.setBypassVanillaRedirect(true);
-                this.mc.displayGuiScreen(new GuiIngameMenu());
+                GuiIngameMenu pauseMenu = new GuiIngameMenu();
+                // Allow this exact instance through the VR redirect; do not consume the bypass
+                // on an unrelated GUI init event.
+                GuiEventHandler.setBypassVanillaRedirect(pauseMenu);
+                this.mc.displayGuiScreen(pauseMenu);
             }
             case 6 -> { // VR Settings
                 this.mc.displayGuiScreen(new VRSettingsScreen(this));
@@ -299,6 +313,16 @@ public class VRPauseMenuScreen extends GuiScreen {
                 VRSettingsScreen settings = new VRSettingsScreen(this);
                 settings.pushOptionsSet(new com.gtnhvr.gui.settings.categories.controls.VRSettingsItemOffsets(settings, null));
                 this.mc.displayGuiScreen(settings);
+            }
+            case 45 -> { // Mob spawn markers
+                VRMobSpawnOverlay overlay = VRMobSpawnOverlay.getInstance();
+                overlay.toggle();
+                button.displayString = mobSpawnButtonLabel();
+                if (this.mc != null && this.mc.thePlayer != null) {
+                    this.mc.thePlayer.addChatMessage(new ChatComponentText(
+                            "§e[Visor VR] " + mobSpawnButtonLabel()
+                    ));
+                }
             }
 
             // Bottom Quit / Disconnect

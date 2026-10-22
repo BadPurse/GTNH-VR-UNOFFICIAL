@@ -18,10 +18,12 @@ public abstract class MixinGuiTextField {
         if (!OpenXRRuntime.isSessionRunning()) return;
         if (!VRClientSettings.keyboardAutoLayout) return;
 
+        Minecraft mc = Minecraft.getMinecraft();
         if (isFocused) {
-            VRVirtualKeyboard.getInstance().showAutoKeyboard();
+            if (mc != null && mc.currentScreen != null) {
+                VRVirtualKeyboard.getInstance().showAutoKeyboard(mc.currentScreen);
+            }
         } else {
-            Minecraft mc = Minecraft.getMinecraft();
             if (mc == null || (!(mc.currentScreen instanceof net.minecraft.client.gui.GuiChat)
                     && !(mc.currentScreen instanceof net.minecraft.client.gui.inventory.GuiEditSign)
                     && !(mc.currentScreen instanceof net.minecraft.client.gui.GuiScreenBook)
@@ -38,8 +40,9 @@ public abstract class MixinGuiTextField {
         if (!OpenXRRuntime.isSessionRunning()) return;
         if (!VRClientSettings.keyboardAutoLayout) return;
         GuiTextField tf = (GuiTextField) (Object) this;
-        if (tf.isFocused()) {
-            VRVirtualKeyboard.getInstance().showAutoKeyboard();
+        Minecraft mc = Minecraft.getMinecraft();
+        if (tf.isFocused() && mc != null && mc.currentScreen != null) {
+            VRVirtualKeyboard.getInstance().showAutoKeyboard(mc.currentScreen);
         }
     }
 }

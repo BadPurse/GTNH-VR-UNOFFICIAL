@@ -1,5 +1,6 @@
 package com.gtnhvr.mixin.early;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.OpenXRRuntime;
 import com.gtnhvr.gui.VRGuiRenderer;
 import net.minecraft.client.Minecraft;
@@ -9,6 +10,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.FloatBuffer;
@@ -38,20 +40,20 @@ public abstract class MixinEntityRenderer {
                 : 256.0F;
 
         // Set eye swapchain viewport to native headset resolution
-        GL11.glViewport(0, 0, OpenXRRuntime.getEyeWidth(eyeIndex), OpenXRRuntime.getEyeHeight(eyeIndex));
+        GLStateManager.glViewport(0, 0, OpenXRRuntime.getEyeWidth(eyeIndex), OpenXRRuntime.getEyeHeight(eyeIndex));
 
         // 1. Asymmetric OpenXR optical FOV projection matrix
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
+        GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
         FloatBuffer proj = OpenXRRuntime.getEyeProjectionBuffer(eyeIndex, 0.05F, farPlane);
         if (proj != null) {
-            GL11.glLoadMatrixf(proj);
+            GLStateManager.glLoadMatrix(proj);
         }
 
         // 2. 6-DoF OpenXR eye orientation and IPD translation
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
         FloatBuffer modelView = OpenXRRuntime.getEyeModelViewBuffer(eyeIndex, partialTicks);
         if (modelView != null) {
-            GL11.glLoadMatrixf(modelView);
+            GLStateManager.glLoadMatrix(modelView);
         }
 
         // 3. Update ActiveRenderInfo so Angelica and vanilla frustum culling use eye matrices
@@ -79,32 +81,31 @@ public abstract class MixinEntityRenderer {
     }
 
     /**
-     * Captures 2D main menu into VRGuiRenderer FBO for floating VR display.
-     * In-game GUIs (Esc menu, inventories, chests) are captured cleanly via
-     * GuiEventHandler (DrawScreenEvent.Pre / Post) so renderWorld is never wrapped!
+     * Interpose on the actual screen draw so capture setup and mouse-coordinate conversion
+     * happen in a single ordered path, independent of the desktop window dimensions.
      */
-    @Inject(method = {"updateCameraAndRender", "func_78480_b"}, at = @At("HEAD"))
-    private void gtnhvr$onUpdateCameraAndRenderHead(float partialTicks, CallbackInfo ci) {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (OpenXRRuntime.isSessionRunning() && mc != null && mc.theWorld == null) {
-            boolean isMainMenu = mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu;
-            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), isMainMenu);
-        }
-    }
-
-    @Inject(method = {"updateCameraAndRender", "func_78480_b"},
+    @Redirect(method = {"updateCameraAndRender", "func_78480_b"},
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;drawScreen(IIF)V"),
             require = 0)
-    private void gtnhvr$beginInGameGuiCapture(float partialTicks, CallbackInfo ci) {
+    private void gtnhvr$drawVirtualGuiScreen(net.minecraft.client.gui.GuiScreen screen,
+                                               int mouseX, int mouseY, float partialTicks) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (OpenXRRuntime.isSessionRunning() && mc != null && mc.currentScreen != null && mc.theWorld != null) {
-            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), false);
+        if (OpenXRRuntime.isSessionRunning() && mc != null && mc.currentScreen == screen
+                && !VRGuiRenderer.isCapturing()) {
+            // This catches GTNH's CustomMainMenu too; its implementation need not extend GuiMainMenu.
+            boolean mainMenu = mc.theWorld == null;
+            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), mainMenu);
         }
+
+        if (OpenXRRuntime.isSessionRunning() && VRGuiRenderer.isCapturing() && screen != null) {
+            mouseX = VRGuiRenderer.mapMouseXToLogicalScreen(mouseX, screen.width);
+            mouseY = VRGuiRenderer.mapMouseYToLogicalScreen(mouseY, screen.height);
+        }
+        screen.drawScreen(mouseX, mouseY, partialTicks);
     }
 
-
-    // The capture is NOT closed right after drawScreen(): Forge posts DrawScreenEvent.Post afterwards
-    // and NEI (item panel, bookmarks, tooltips) draws from that event. The capture ends at TAIL.
+    // Keep the capture open until updateCameraAndRender TAIL: NEI and other Forge GUI listeners
+    // draw after GuiScreen.drawScreen / DrawScreenEvent.Post.
 
     @Inject(method = {"updateCameraAndRender", "func_78480_b"}, at = @At("TAIL"))
     private void gtnhvr$onUpdateCameraAndRenderTail(float partialTicks, CallbackInfo ci) {

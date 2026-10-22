@@ -26,6 +26,16 @@ public final class GuiEventHandler {
     private static int originalGuiScale = -1;
     private static boolean reinitializingGui = false;
 
+    private static int guiPixelWidth(Minecraft mc) {
+        return com.gtnhvr.OpenXRRuntime.isSessionRunning()
+                ? VRGuiRenderer.getCaptureWidth() : mc.displayWidth;
+    }
+
+    private static int guiPixelHeight(Minecraft mc) {
+        return com.gtnhvr.OpenXRRuntime.isSessionRunning()
+                ? VRGuiRenderer.getCaptureHeight() : mc.displayHeight;
+    }
+
     private static final Field FIELD_X_SIZE = findField(GuiContainer.class, "xSize", "field_146999_f");
     private static final Field FIELD_Y_SIZE = findField(GuiContainer.class, "ySize", "field_147000_g");
     private static final Field FIELD_GUI_LEFT = findField(GuiContainer.class, "guiLeft", "field_147003_i");
@@ -64,13 +74,15 @@ public final class GuiEventHandler {
     }
 
     private static int computeScaleFactor(Minecraft mc, int guiScaleSetting) {
-        if (mc.displayWidth <= 0 || mc.displayHeight <= 0) return 1;
+        int pixelWidth = guiPixelWidth(mc);
+        int pixelHeight = guiPixelHeight(mc);
+        if (pixelWidth <= 0 || pixelHeight <= 0) return 1;
         int scale = 1;
         int k = guiScaleSetting;
         if (k == 0) {
             k = 1000;
         }
-        while (scale < k && mc.displayWidth / (scale + 1) >= 320 && mc.displayHeight / (scale + 1) >= 240) {
+        while (scale < k && pixelWidth / (scale + 1) >= 320 && pixelHeight / (scale + 1) >= 240) {
             scale++;
         }
         return scale;
@@ -85,25 +97,50 @@ public final class GuiEventHandler {
     }
 
     private static boolean bypassVanillaRedirect = false;
+    /** The exact pause-screen instance explicitly requested from Game Menu. */
+    private static GuiScreen bypassVanillaRedirectTarget = null;
 
     public static void setBypassVanillaRedirect(boolean bypass) {
         bypassVanillaRedirect = bypass;
+        bypassVanillaRedirectTarget = null;
+    }
+
+    /** Allow only this specific GuiIngameMenu instance through the VR pause-screen redirect. */
+    public static void setBypassVanillaRedirect(GuiScreen target) {
+        bypassVanillaRedirectTarget = target;
+        bypassVanillaRedirect = target != null;
     }
 
     @SubscribeEvent
     public void onGuiOpen(net.minecraftforge.client.event.GuiOpenEvent event) {
+        // The vanilla pause screen can receive multiple InitGui events: once at the actual
+        // window resolution, then again when VRGuiRenderer switches it to the fixed canvas.
+        // Keep the exception only while this exact screen remains the requested screen.
+        if (bypassVanillaRedirectTarget != null && event.gui != bypassVanillaRedirectTarget) {
+            bypassVanillaRedirectTarget = null;
+            bypassVanillaRedirect = false;
+        }
+
         if (!com.gtnhvr.OpenXRRuntime.isSessionRunning()) return;
 
         VRVirtualScreen.getInstance().resetOrientation();
 
-        if (event.gui instanceof net.minecraft.client.gui.GuiChat
+        VRVirtualKeyboard keyboard = VRVirtualKeyboard.getInstance();
+        keyboard.onGuiOpen(event.gui);
+        boolean textEntryScreen = event.gui instanceof net.minecraft.client.gui.GuiChat
                 || event.gui instanceof net.minecraft.client.gui.inventory.GuiEditSign
-                || event.gui instanceof net.minecraft.client.gui.GuiScreenBook) {
-            if (com.gtnhvr.settings.VRClientSettings.keyboardAutoLayout) {
-                VRVirtualKeyboard.getInstance().setVisible(true);
-            }
-        } else if (event.gui == null) {
-            VRVirtualKeyboard.getInstance().setVisible(false);
+                || event.gui instanceof net.minecraft.client.gui.GuiScreenBook
+                || event.gui instanceof net.minecraft.client.gui.GuiRepair;
+
+        if (event.gui == null) {
+            // Closing the GUI also closes a manually opened keyboard.
+            keyboard.setVisible(false);
+        } else if (textEntryScreen && com.gtnhvr.settings.VRClientSettings.keyboardAutoLayout) {
+            // Mark this as auto-opened so it closes again when leaving text entry.
+            keyboard.showAutoKeyboard(event.gui);
+        } else {
+            // Only hides an auto-opened keyboard; a manually toggled keyboard remains user-controlled.
+            keyboard.hideAutoKeyboard();
         }
 
         // Auto-fit oversized containers (e.g. 200+ slot chests) so they never clip offscreen
@@ -121,7 +158,7 @@ public final class GuiEventHandler {
             if (xSize > 0 && ySize > 0) {
                 int pad = 10;
                 int targetScale = currentScale;
-                while (targetScale > 1 && (mc.displayWidth / targetScale < xSize + pad || mc.displayHeight / targetScale < ySize + pad)) {
+                while (targetScale > 1 && (guiPixelWidth(mc) / targetScale < xSize + pad || guiPixelHeight(mc) / targetScale < ySize + pad)) {
                     targetScale--;
                 }
                 if (targetScale < currentScale) {
@@ -143,16 +180,39 @@ public final class GuiEventHandler {
         if (event.gui instanceof GuiIngameMenu && com.gtnhvr.OpenXRRuntime.isSessionRunning()) {
             Minecraft mc = Minecraft.getMinecraft();
             if (mc == null || mc.theWorld == null || mc.thePlayer == null || mc.thePlayer.ticksExisted < 40) {
+                if (event.gui == bypassVanillaRedirectTarget) {
+                    bypassVanillaRedirectTarget = null;
+                    bypassVanillaRedirect = false;
+                }
                 event.setCanceled(true);
                 return;
             }
-            if (!bypassVanillaRedirect) {
-                event.setCanceled(true);
-                mc.displayGuiScreen(new VRPauseMenuScreen());
+
+            // A targeted bypass must survive every initGui pass for this exact object.
+            // VRGuiRenderer changes the screen to the logical canvas during first draw, which
+            // triggers another initGui; consuming the bypass here redirects that second pass.
+            if (bypassVanillaRedirectTarget != null && event.gui == bypassVanillaRedirectTarget) {
                 return;
             }
+
+            // Legacy untargeted bypass remains a one-shot compatibility path.
+            if (bypassVanillaRedirect && bypassVanillaRedirectTarget == null) {
+                bypassVanillaRedirect = false;
+                return;
+            }
+
+            bypassVanillaRedirectTarget = null;
+            bypassVanillaRedirect = false;
+            event.setCanceled(true);
+            mc.displayGuiScreen(new VRPauseMenuScreen());
+            return;
         }
-        bypassVanillaRedirect = false;
+
+        // A target survives unrelated screen initialization, but a legacy untargeted bypass
+        // is still one-shot and must not unexpectedly disable the redirect later.
+        if (bypassVanillaRedirectTarget == null) {
+            bypassVanillaRedirect = false;
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -161,7 +221,12 @@ public final class GuiEventHandler {
         GuiScreen gui = event.gui;
         if (com.gtnhvr.OpenXRRuntime.isSessionRunning() && com.gtnhvr.settings.VRClientSettings.keyboardAutoLayout && gui != null) {
             if (GuiHelper.hasAnyFocusedTextField(gui)) {
-                VRVirtualKeyboard.getInstance().showAutoKeyboard();
+                VRVirtualKeyboard.getInstance().showAutoKeyboard(gui);
+            } else if (!(gui instanceof net.minecraft.client.gui.GuiChat)
+                    && !(gui instanceof net.minecraft.client.gui.inventory.GuiEditSign)
+                    && !(gui instanceof net.minecraft.client.gui.GuiScreenBook)) {
+                // Some mod screens reuse themselves and fire InitGui without a GuiOpen event.
+                VRVirtualKeyboard.getInstance().hideAutoKeyboard();
             }
         }
         List<Object> buttons = event.buttonList;
@@ -211,7 +276,7 @@ public final class GuiEventHandler {
                     int curEff = computeScaleFactor(mc, mc.gameSettings.guiScale);
                     int pad = 10;
                     int target = curEff;
-                    while (target > 1 && (mc.displayWidth / target < xSize + pad || mc.displayHeight / target < ySize + pad)) {
+                    while (target > 1 && (guiPixelWidth(mc) / target < xSize + pad || guiPixelHeight(mc) / target < ySize + pad)) {
                         target--;
                     }
                     if (target < curEff) {
@@ -219,7 +284,7 @@ public final class GuiEventHandler {
                         try {
                             mc.gameSettings.guiScale = target;
                             net.minecraft.client.gui.ScaledResolution scaled =
-                                    new net.minecraft.client.gui.ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+                                    new net.minecraft.client.gui.ScaledResolution(mc, guiPixelWidth(mc), guiPixelHeight(mc));
                             gui.setWorldAndResolution(mc, scaled.getScaledWidth(), scaled.getScaledHeight());
                         } finally {
                             reinitializingGui = false;
@@ -252,8 +317,10 @@ public final class GuiEventHandler {
     public void onDrawScreenPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
         if (!com.gtnhvr.OpenXRRuntime.isSessionRunning()) return;
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc != null && mc.theWorld != null && !VRGuiRenderer.isCapturing()) {
-            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), false);
+        if (mc != null && mc.currentScreen != null && !VRGuiRenderer.isCapturing()) {
+            // Include GTNH's replacement title screen and graphics/settings screens before a world loads.
+            boolean mainMenu = mc.theWorld == null;
+            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), mainMenu);
         }
     }
 
@@ -284,7 +351,8 @@ public final class GuiEventHandler {
 
         if (event.type == net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType.ALL) {
             Minecraft mc = Minecraft.getMinecraft();
-            if (mc != null && mc.theWorld != null) {
+            if (mc != null && mc.theWorld != null && !VRHudRenderer.isCapturing()) {
+                // Fallback only. MixinGuiIngame normally starts capture before ScaledResolution is created.
                 VRHudRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight());
             }
             return;
@@ -327,10 +395,11 @@ public final class GuiEventHandler {
             if (VRHudRenderer.isCapturing()) {
                 if (mc != null && mc.thePlayer != null) {
                     net.minecraft.client.gui.ScaledResolution scaled =
-                            new net.minecraft.client.gui.ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+                            new net.minecraft.client.gui.ScaledResolution(
+                                    mc, VRHudRenderer.getWidth(), VRHudRenderer.getHeight());
                     VRScreenEffects.render(scaled.getScaledWidth(), scaled.getScaledHeight());
                 }
-                VRHudRenderer.end();
+                // MixinGuiIngame closes capture at TAIL after all HUD elements draw.
             }
         }
     }

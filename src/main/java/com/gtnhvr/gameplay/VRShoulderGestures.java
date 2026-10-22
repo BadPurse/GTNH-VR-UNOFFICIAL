@@ -6,55 +6,45 @@ import com.gtnhvr.VRControllerHandler;
 import com.gtnhvr.settings.VRClientSettings;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.client.settings.KeyBinding;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.lwjgl.openxr.XrPosef;
 
-import java.lang.reflect.Method;
 
 /**
- * Shoulder gesture detector for jetpack and glide activation.
+ * Two configurable virtual controller buttons triggered by opposite-shoulder gestures.
  *
- * - Right hand pointing at left shoulder for >= 1 second -> toggle jetpack ON/OFF
- * - Left hand pointing at right shoulder for >= 1 second -> toggle glide/hover ON/OFF
+ * Right physical controller at the left shoulder emits the selected keyboard key.
+ * Left physical controller at the right shoulder emits its independently selected key.
  *
- * Works with any mod that provides a jetpack or gliding item by:
- * 1. Sending the appropriate keybind press that the mod listens for
- * 2. Using reflection to call mod-specific toggle methods
- * 3. Falling back to simulating the vanilla key event
- *
- * Compatible mods: Adventure Jetpack, Simply Jetpacks, IC2 Jetpack, Modular Powersuits,
- * GraviSuite, EnderIO Glider, OpenBlocks Hang Glider, etc.
+ * No jetpack mods or named mod-specific actions are assumed. Any keyboard key can be
+ * selected in the controls screen; Minecraft/Forge/mod key bindings assigned to that
+ * key receive the synthetic press.
  */
 @Lwjgl3Aware
 public final class VRShoulderGestures {
     private static final VRShoulderGestures INSTANCE = new VRShoulderGestures();
 
-    // Shoulder detection parameters
-    private static final float SHOULDER_DISTANCE_THRESHOLD = 0.18F;  // 18cm from shoulder region
-    private static final float SHOULDER_OFFSET_Y = 0.10F;            // Shoulder is ~10cm below head
-    private static final float SHOULDER_OFFSET_X = 0.18F;            // ~18cm left/right of head center
-    private static final long HOLD_DURATION_MS = 1000L;               // 1 second hold
-    private static final long COOLDOWN_MS = 2000L;                    // 2 second cooldown between toggles
+    private static final float SHOULDER_OFFSET_Y = 0.10F;
+    private static final float SHOULDER_OFFSET_X = 0.18F;
+    private static final long COOLDOWN_MS = 250L;
 
-    // State tracking for right hand -> left shoulder (jetpack)
-    private long rightHandOnLeftShoulderStart = 0L;
-    private boolean rightHandWasOnShoulder = false;
-    private long lastJetpackToggleTime = 0L;
+    private long rightHandOnLeftShoulderStart;
+    private boolean rightHandWasOnShoulder;
+    private boolean rightHandGestureFired;
+    private long lastRightGestureTime;
 
-    // State tracking for left hand -> right shoulder (glide)
-    private long leftHandOnRightShoulderStart = 0L;
-    private boolean leftHandWasOnShoulder = false;
-    private long lastGlideToggleTime = 0L;
+    private long leftHandOnRightShoulderStart;
+    private boolean leftHandWasOnShoulder;
+    private boolean leftHandGestureFired;
+    private long lastLeftGestureTime;
 
-    // Cached reflection methods (looked up once)
-    private static boolean reflectionInitialized = false;
-    private static Method adventureJetpackToggle = null;
-    private static Method simplyJetpacksToggle = null;
-    private static Method graviSuiteToggle = null;
+    // The selected key remains held while the controller stays at the shoulder. This
+    // makes shoulder gestures work as actual buttons and permits modifier chords such as
+    // Shift+Alt when both gestures are held at once.
+    private int rightGestureHeldKeyCode = 0;
+    private int leftGestureHeldKeyCode = 0;
 
     private VRShoulderGestures() {}
 
@@ -62,18 +52,44 @@ public final class VRShoulderGestures {
         return INSTANCE;
     }
 
-    /**
-     * Called every frame from VRControllerHandler.handleInWorldInteraction().
-     */
+    private static float getGestureDistance() {
+        return Math.max(0.10F, Math.min(0.45F, VRClientSettings.shoulderGestureDistance));
+    }
+
+    private static long getGestureHoldDurationMs() {
+        float seconds = Math.max(0.25F, Math.min(2.50F, VRClientSettings.shoulderGestureHoldSeconds));
+        return Math.round(seconds * 1000.0F);
+    }
+
     public void update(Minecraft mc, VRControllerHandler handler) {
-        if (!VRClientSettings.shoulderJetpackEnabled) return;
-        if (mc == null || mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) {
-            resetState();
+        if (!VRClientSettings.shoulderGesturesEnabled
+                || mc == null || mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) {
+            clear();
             return;
         }
 
+        boolean rightEnabled = VRClientSettings.shoulderRightToLeftEnabled
+                && VRClientSettings.shoulderRightToLeftKeyCode > 0;
+        boolean leftEnabled = VRClientSettings.shoulderLeftToRightEnabled
+                && VRClientSettings.shoulderLeftToRightKeyCode > 0;
+
+        if (!rightEnabled) {
+            releaseGestureKey(true);
+            rightHandWasOnShoulder = false;
+            rightHandGestureFired = false;
+        }
+        if (!leftEnabled) {
+            releaseGestureKey(false);
+            leftHandWasOnShoulder = false;
+            leftHandGestureFired = false;
+        }
+        if (!rightEnabled && !leftEnabled) return;
+
         XrPosef headPose = OpenXRRuntime.getHeadPose();
-        if (headPose == null) return;
+        if (headPose == null) {
+            clear();
+            return;
+        }
 
         Vector3f headPos = new Vector3f(
                 headPose.position$().x(),
@@ -87,360 +103,146 @@ public final class VRShoulderGestures {
                 headPose.orientation().w()
         );
 
-        // Calculate shoulder positions in room space
-        // Left shoulder: head position + offset to the left and slightly down
-        Vector3f leftShoulder = new Vector3f();
-        headRot.transform(new Vector3f(-SHOULDER_OFFSET_X, -SHOULDER_OFFSET_Y, 0.0F), leftShoulder);
-        leftShoulder.add(headPos);
-
-        // Right shoulder: head position + offset to the right and slightly down
-        Vector3f rightShoulder = new Vector3f();
-        headRot.transform(new Vector3f(SHOULDER_OFFSET_X, -SHOULDER_OFFSET_Y, 0.0F), rightShoulder);
-        rightShoulder.add(headPos);
+        Vector3f leftShoulder = headRot.transform(
+                new Vector3f(-SHOULDER_OFFSET_X, -SHOULDER_OFFSET_Y, 0.0F)
+        ).add(headPos);
+        Vector3f rightShoulder = headRot.transform(
+                new Vector3f(SHOULDER_OFFSET_X, -SHOULDER_OFFSET_Y, 0.0F)
+        ).add(headPos);
 
         long now = System.currentTimeMillis();
+        float distanceThreshold = getGestureDistance();
+        long holdDurationMs = getGestureHoldDurationMs();
 
-        // Check RIGHT HAND -> LEFT SHOULDER (Jetpack toggle)
-        if (handler.isRightHandTracked()) {
-            Vector3f rightHandPos = handler.getRightHandPos();
-            float distToLeftShoulder = new Vector3f(rightHandPos).sub(leftShoulder).length();
+        // Physical right controller -> left shoulder.
+        if (rightEnabled && handler.isRightGripHandTracked()) {
+            Vector3f rightGrip = handler.getRightGripHandPos();
+            float distance = new Vector3f(rightGrip).sub(leftShoulder).length();
 
-            if (distToLeftShoulder < SHOULDER_DISTANCE_THRESHOLD) {
+            if (distance <= distanceThreshold) {
                 if (!rightHandWasOnShoulder) {
                     rightHandOnLeftShoulderStart = now;
                     rightHandWasOnShoulder = true;
-                } else if (now - rightHandOnLeftShoulderStart >= HOLD_DURATION_MS
-                        && now - lastJetpackToggleTime >= COOLDOWN_MS) {
-                    // Trigger jetpack toggle!
-                    toggleJetpack(mc);
-                    lastJetpackToggleTime = now;
-                    rightHandWasOnShoulder = false;
-                    // Haptic feedback
-                    handler.triggerHaptic(false, 30_000_000L, 0.85F, 0);
-                    handler.triggerHaptic(true, 15_000_000L, 0.45F, 0);
+                    rightHandGestureFired = false;
+                } else if (!rightHandGestureFired
+                        && now - rightHandOnLeftShoulderStart >= holdDurationMs
+                        && now - lastRightGestureTime >= COOLDOWN_MS) {
+                    pressShoulderKey(VRClientSettings.shoulderRightToLeftKeyCode,
+                            "right controller -> left shoulder", true);
+                    lastRightGestureTime = now;
+                    rightHandGestureFired = true;
+                    handler.triggerHaptic(VRClientSettings.leftHanded, 30_000_000L, 0.85F, 0);
                 }
             } else {
+                releaseGestureKey(true);
                 rightHandWasOnShoulder = false;
+                rightHandGestureFired = false;
             }
+        } else {
+            releaseGestureKey(true);
+            rightHandWasOnShoulder = false;
+            rightHandGestureFired = false;
         }
 
-        // Check LEFT HAND -> RIGHT SHOULDER (Glide/Hover toggle)
-        if (handler.isLeftHandTracked()) {
-            Vector3f leftHandPos = handler.getLeftHandPos();
-            float distToRightShoulder = new Vector3f(leftHandPos).sub(rightShoulder).length();
+        // Physical left controller -> right shoulder.
+        if (leftEnabled && handler.isLeftGripHandTracked()) {
+            Vector3f leftGrip = handler.getLeftGripHandPos();
+            float distance = new Vector3f(leftGrip).sub(rightShoulder).length();
 
-            if (distToRightShoulder < SHOULDER_DISTANCE_THRESHOLD) {
+            if (distance <= distanceThreshold) {
                 if (!leftHandWasOnShoulder) {
                     leftHandOnRightShoulderStart = now;
                     leftHandWasOnShoulder = true;
-                } else if (now - leftHandOnRightShoulderStart >= HOLD_DURATION_MS
-                        && now - lastGlideToggleTime >= COOLDOWN_MS) {
-                    // Trigger glide toggle!
-                    toggleGlide(mc);
-                    lastGlideToggleTime = now;
-                    leftHandWasOnShoulder = false;
-                    // Haptic feedback
-                    handler.triggerHaptic(true, 30_000_000L, 0.85F, 0);
-                    handler.triggerHaptic(false, 15_000_000L, 0.45F, 0);
+                    leftHandGestureFired = false;
+                } else if (!leftHandGestureFired
+                        && now - leftHandOnRightShoulderStart >= holdDurationMs
+                        && now - lastLeftGestureTime >= COOLDOWN_MS) {
+                    pressShoulderKey(VRClientSettings.shoulderLeftToRightKeyCode,
+                            "left controller -> right shoulder", false);
+                    lastLeftGestureTime = now;
+                    leftHandGestureFired = true;
+                    handler.triggerHaptic(!VRClientSettings.leftHanded, 30_000_000L, 0.85F, 0);
                 }
             } else {
+                releaseGestureKey(false);
                 leftHandWasOnShoulder = false;
+                leftHandGestureFired = false;
             }
+        } else {
+            releaseGestureKey(false);
+            leftHandWasOnShoulder = false;
+            leftHandGestureFired = false;
+        }
+    }
+
+    private void pressShoulderKey(int keyCode, String gestureName, boolean rightSide) {
+        if (keyCode <= 0) return;
+
+        int currentKey = rightSide ? rightGestureHeldKeyCode : leftGestureHeldKeyCode;
+        if (currentKey == keyCode) {
+            KeyBinding.setKeyBindState(keyCode, true);
+            return;
+        }
+        if (currentKey > 0) releaseGestureKey(rightSide);
+
+        if (rightSide) rightGestureHeldKeyCode = keyCode;
+        else leftGestureHeldKeyCode = keyCode;
+
+        KeyBinding.setKeyBindState(keyCode, true);
+        KeyBinding.onTick(keyCode);
+        GTNHVRLog.info("[VR Shoulder Button] %s holding key %s (%d) while at shoulder",
+                gestureName, org.lwjgl.input.Keyboard.getKeyName(keyCode), keyCode);
+    }
+
+    private void releaseGestureKey(boolean rightSide) {
+        int keyCode = rightSide ? rightGestureHeldKeyCode : leftGestureHeldKeyCode;
+        if (rightSide) rightGestureHeldKeyCode = 0;
+        else leftGestureHeldKeyCode = 0;
+
+        if (keyCode <= 0) return;
+        boolean heldByOtherShoulder = rightGestureHeldKeyCode == keyCode || leftGestureHeldKeyCode == keyCode;
+        if (!heldByOtherShoulder && !VRControllerHandler.getInstance().isControllerMappedKeyHeld(keyCode)) {
+            KeyBinding.setKeyBindState(keyCode, false);
         }
     }
 
     /**
-     * Attempts to toggle jetpack flight using multiple strategies:
-     * 1. Simulate the keybind that Adventure Jetpack / Simply Jetpacks listens for
-     * 2. Reflection-based direct API call
-     * 3. NBT-based activation for IC2-style jetpacks
-     */
-    private void toggleJetpack(Minecraft mc) {
-        EntityPlayer player = mc.thePlayer;
-        if (player == null) return;
-
-        GTNHVRLog.info("[VR Shoulder Gesture] Jetpack toggle activated!");
-
-        // Strategy 1: Simulate the common jetpack toggle keybind
-        // Most GTNH jetpack mods listen for a keybind event
-        boolean toggled = false;
-
-        // Try Adventure Jetpack / Simply Jetpacks toggle key
-        toggled = tryKeyToggle(mc, "key.jetpack.toggle", "key.simplyjetpacks.toggle",
-                "key.adventurejetpack.toggle", "key.jetpack");
-
-        // Strategy 2: Reflection-based API calls
-        if (!toggled) {
-            toggled = tryReflectionToggleJetpack(player);
-        }
-
-        // Strategy 3: Try to find and press any registered jetpack keybind
-        if (!toggled) {
-            toggled = tryGenericJetpackKeybind(mc);
-        }
-
-        // Strategy 4: Direct capability toggle for IC2 electric jetpack
-        if (!toggled) {
-            toggled = tryIC2JetpackToggle(player);
-        }
-
-        if (!toggled) {
-            GTNHVRLog.info("[VR Shoulder Gesture] No compatible jetpack mod detected, trying generic keybind simulation");
-            // Last resort: simulate pressing the most common jetpack toggle key
-            trySimulateKey(mc, "key.jetpack");
-        }
-    }
-
-    /**
-     * Attempts to toggle glide/hover mode using multiple strategies.
-     */
-    private void toggleGlide(Minecraft mc) {
-        EntityPlayer player = mc.thePlayer;
-        if (player == null) return;
-
-        GTNHVRLog.info("[VR Shoulder Gesture] Glide/Hover toggle activated!");
-
-        boolean toggled = false;
-
-        // Strategy 1: Try common hover/glide keybinds
-        toggled = tryKeyToggle(mc, "key.jetpack.hover", "key.simplyjetpacks.hover",
-                "key.adventurejetpack.hover", "key.hover", "key.glide");
-
-        // Strategy 2: Reflection API
-        if (!toggled) {
-            toggled = tryReflectionToggleGlide(player);
-        }
-
-        // Strategy 3: Generic hover keybind
-        if (!toggled) {
-            toggled = tryGenericHoverKeybind(mc);
-        }
-
-        if (!toggled) {
-            GTNHVRLog.info("[VR Shoulder Gesture] No compatible glide mod detected, trying generic keybind simulation");
-            trySimulateKey(mc, "key.jetpack.hover");
-        }
-    }
-
-    /**
-     * Tries to find and press registered keybinds by description.
-     */
-    private boolean tryKeyToggle(Minecraft mc, String... descriptions) {
-        try {
-            net.minecraft.client.settings.KeyBinding[] allKeys = mc.gameSettings.keyBindings;
-            if (allKeys == null) return false;
-
-            for (net.minecraft.client.settings.KeyBinding kb : allKeys) {
-                if (kb == null) continue;
-                String desc = kb.getKeyDescription();
-                if (desc == null) continue;
-
-                for (String target : descriptions) {
-                    if (desc.equalsIgnoreCase(target)) {
-                        int keyCode = kb.getKeyCode();
-                        if (keyCode != 0) {
-                            // Simulate a key press and release
-                            net.minecraft.client.settings.KeyBinding.setKeyBindState(keyCode, true);
-                            net.minecraft.client.settings.KeyBinding.onTick(keyCode);
-                            // Schedule release on next tick
-                            scheduleKeyRelease(keyCode);
-                            GTNHVRLog.info("[VR Shoulder Gesture] Pressed keybind: %s (keyCode=%d)", desc, keyCode);
-                            return true;
-                        }
-                    }
-                }
-            }
-        } catch (Throwable t) {
-            GTNHVRLog.warn("[VR Shoulder Gesture] Error trying keybind toggle: %s", t);
-        }
-        return false;
-    }
-
-    private int pendingKeyRelease = 0;
-    private int keyReleaseDelay = 0;
-
-    private void scheduleKeyRelease(int keyCode) {
-        pendingKeyRelease = keyCode;
-        keyReleaseDelay = 3; // Release after 3 ticks
-    }
-
-    /**
-     * Must be called each tick to handle scheduled key releases.
+     * Called every VR interaction tick to preserve the pressed state between render frames.
+     * The key is released when the hand leaves the shoulder, so two gestures can form a chord.
      */
     public void tick() {
-        if (pendingKeyRelease != 0 && keyReleaseDelay > 0) {
-            keyReleaseDelay--;
-            if (keyReleaseDelay <= 0) {
-                net.minecraft.client.settings.KeyBinding.setKeyBindState(pendingKeyRelease, false);
-                pendingKeyRelease = 0;
-            }
-        }
+        if (rightGestureHeldKeyCode > 0) KeyBinding.setKeyBindState(rightGestureHeldKeyCode, true);
+        if (leftGestureHeldKeyCode > 0) KeyBinding.setKeyBindState(leftGestureHeldKeyCode, true);
     }
 
-    /**
-     * Try to toggle jetpack via reflection on known mod classes.
-     */
-    private boolean tryReflectionToggleJetpack(EntityPlayer player) {
-        initReflection();
-        try {
-            // Adventure Jetpack
-            if (adventureJetpackToggle != null) {
-                adventureJetpackToggle.invoke(null, player);
-                return true;
-            }
-        } catch (Throwable ignored) {}
-        return false;
+    /** True while an opposite-shoulder gesture is holding the supplied key down. */
+    public boolean isSyntheticKeyHeld(int keyCode) {
+        return keyCode > 0 && (rightGestureHeldKeyCode == keyCode || leftGestureHeldKeyCode == keyCode);
     }
 
-    /**
-     * Try to toggle glide via reflection on known mod classes.
-     */
-    private boolean tryReflectionToggleGlide(EntityPlayer player) {
-        initReflection();
-        try {
-            if (graviSuiteToggle != null) {
-                graviSuiteToggle.invoke(null, player);
-                return true;
-            }
-        } catch (Throwable ignored) {}
-        return false;
-    }
-
-    /**
-     * Try to find any registered keybind containing "jetpack" in its description.
-     */
-    private boolean tryGenericJetpackKeybind(Minecraft mc) {
-        try {
-            net.minecraft.client.settings.KeyBinding[] allKeys = mc.gameSettings.keyBindings;
-            if (allKeys == null) return false;
-            for (net.minecraft.client.settings.KeyBinding kb : allKeys) {
-                if (kb == null) continue;
-                String desc = kb.getKeyDescription();
-                if (desc != null && desc.toLowerCase().contains("jetpack")
-                        && !desc.toLowerCase().contains("hover")) {
-                    int keyCode = kb.getKeyCode();
-                    if (keyCode != 0) {
-                        net.minecraft.client.settings.KeyBinding.setKeyBindState(keyCode, true);
-                        net.minecraft.client.settings.KeyBinding.onTick(keyCode);
-                        scheduleKeyRelease(keyCode);
-                        GTNHVRLog.info("[VR Shoulder Gesture] Generic jetpack keybind: %s", desc);
-                        return true;
-                    }
-                }
-            }
-        } catch (Throwable t) {
-            GTNHVRLog.warn("[VR Shoulder Gesture] Error in generic jetpack keybind: %s", t);
-        }
-        return false;
-    }
-
-    /**
-     * Try to find any registered keybind containing "hover" or "glide" in its description.
-     */
-    private boolean tryGenericHoverKeybind(Minecraft mc) {
-        try {
-            net.minecraft.client.settings.KeyBinding[] allKeys = mc.gameSettings.keyBindings;
-            if (allKeys == null) return false;
-            for (net.minecraft.client.settings.KeyBinding kb : allKeys) {
-                if (kb == null) continue;
-                String desc = kb.getKeyDescription();
-                if (desc != null && (desc.toLowerCase().contains("hover")
-                        || desc.toLowerCase().contains("glide"))) {
-                    int keyCode = kb.getKeyCode();
-                    if (keyCode != 0) {
-                        net.minecraft.client.settings.KeyBinding.setKeyBindState(keyCode, true);
-                        net.minecraft.client.settings.KeyBinding.onTick(keyCode);
-                        scheduleKeyRelease(keyCode);
-                        GTNHVRLog.info("[VR Shoulder Gesture] Generic hover/glide keybind: %s", desc);
-                        return true;
-                    }
-                }
-            }
-        } catch (Throwable t) {
-            GTNHVRLog.warn("[VR Shoulder Gesture] Error in generic hover keybind: %s", t);
-        }
-        return false;
-    }
-
-    /**
-     * Try IC2 electric jetpack toggle via NBT on chest armor.
-     */
-    private boolean tryIC2JetpackToggle(EntityPlayer player) {
-        try {
-            ItemStack chest = player.inventory.armorInventory[2]; // Chestplate slot
-            if (chest == null) return false;
-
-            String itemClass = chest.getItem().getClass().getName().toLowerCase();
-            if (itemClass.contains("jetpack") || itemClass.contains("quantumsuit")) {
-                NBTTagCompound nbt = chest.getTagCompound();
-                if (nbt == null) {
-                    nbt = new NBTTagCompound();
-                    chest.setTagCompound(nbt);
-                }
-                // IC2 jetpack stores engine state in NBT
-                if (nbt.hasKey("engine")) {
-                    nbt.setBoolean("engine", !nbt.getBoolean("engine"));
-                    GTNHVRLog.info("[VR Shoulder Gesture] IC2 jetpack NBT toggle: engine=%b", nbt.getBoolean("engine"));
-                    return true;
-                }
-            }
-        } catch (Throwable t) {
-            GTNHVRLog.warn("[VR Shoulder Gesture] IC2 jetpack toggle error: %s", t);
-        }
-        return false;
-    }
-
-    private void trySimulateKey(Minecraft mc, String keyDescription) {
-        try {
-            net.minecraft.client.settings.KeyBinding[] allKeys = mc.gameSettings.keyBindings;
-            if (allKeys == null) return;
-            for (net.minecraft.client.settings.KeyBinding kb : allKeys) {
-                if (kb == null) continue;
-                String desc = kb.getKeyDescription();
-                if (desc != null && desc.equalsIgnoreCase(keyDescription)) {
-                    int keyCode = kb.getKeyCode();
-                    if (keyCode != 0) {
-                        net.minecraft.client.settings.KeyBinding.setKeyBindState(keyCode, true);
-                        net.minecraft.client.settings.KeyBinding.onTick(keyCode);
-                        scheduleKeyRelease(keyCode);
-                    }
-                    return;
-                }
-            }
-        } catch (Throwable ignored) {}
-    }
-
-    private static void initReflection() {
-        if (reflectionInitialized) return;
-        reflectionInitialized = true;
-        try {
-            // Adventure Jetpack
-            Class<?> ajClass = Class.forName("com.adventurejetpack.common.JetpackHandler");
-            adventureJetpackToggle = ajClass.getMethod("toggleJetpack", EntityPlayer.class);
-            GTNHVRLog.info("[VR Shoulder Gesture] Found Adventure Jetpack API");
-        } catch (Throwable ignored) {}
-        try {
-            // Simply Jetpacks
-            Class<?> sjClass = Class.forName("tonius.simplyjetpacks.handler.SyncHandler");
-            simplyJetpacksToggle = sjClass.getMethod("processToggle", EntityPlayer.class);
-            GTNHVRLog.info("[VR Shoulder Gesture] Found Simply Jetpacks API");
-        } catch (Throwable ignored) {}
-        try {
-            // GraviSuite hover
-            Class<?> gsClass = Class.forName("gravisuite.GraviSuiteHandler");
-            graviSuiteToggle = gsClass.getMethod("toggleHover", EntityPlayer.class);
-            GTNHVRLog.info("[VR Shoulder Gesture] Found GraviSuite API");
-        } catch (Throwable ignored) {}
-    }
-
-    private void resetState() {
+    private void resetGestureState() {
         rightHandWasOnShoulder = false;
+        rightHandGestureFired = false;
         leftHandWasOnShoulder = false;
+        leftHandGestureFired = false;
+        rightHandOnLeftShoulderStart = 0L;
+        leftHandOnRightShoulderStart = 0L;
     }
 
     public void clear() {
-        resetState();
-        pendingKeyRelease = 0;
-        keyReleaseDelay = 0;
+        resetGestureState();
+
+        int rightKey = rightGestureHeldKeyCode;
+        int leftKey = leftGestureHeldKeyCode;
+        rightGestureHeldKeyCode = 0;
+        leftGestureHeldKeyCode = 0;
+
+        if (rightKey > 0 && rightKey != leftKey
+                && !VRControllerHandler.getInstance().isControllerMappedKeyHeld(rightKey)) {
+            KeyBinding.setKeyBindState(rightKey, false);
+        }
+        if (leftKey > 0 && !VRControllerHandler.getInstance().isControllerMappedKeyHeld(leftKey)) {
+            KeyBinding.setKeyBindState(leftKey, false);
+        }
     }
 }

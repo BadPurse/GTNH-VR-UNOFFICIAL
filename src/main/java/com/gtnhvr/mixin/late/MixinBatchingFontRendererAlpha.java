@@ -27,4 +27,21 @@ public abstract class MixinBatchingFontRendererAlpha {
         }
         return color;
     }
+
+    /**
+     * Some formatted/shadow glyph paths reach pushTexRect with a 24-bit RGB value
+     * after the outer drawString color was already normalized. Normalize at the final
+     * per-glyph boundary too, while preserving intentional non-zero alpha values.
+     */
+    @ModifyVariable(
+        method = "pushTexRect(FFFFFIFFFFZ)V",
+        at = @At("HEAD"),
+        argsOnly = true,
+        ordinal = 0,
+        remap = false,
+        require = 0
+    )
+    private int gtnhvr$ensureOpaqueGlyphColor(int rgba) {
+        return (rgba & 0xFF000000) == 0 ? rgba | 0xFF000000 : rgba;
+    }
 }

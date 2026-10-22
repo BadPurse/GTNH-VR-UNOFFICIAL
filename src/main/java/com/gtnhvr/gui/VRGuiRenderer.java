@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.OpenXRRuntime;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
@@ -26,6 +27,9 @@ public final class VRGuiRenderer {
     private static int width = 0;
     private static int height = 0;
     private static boolean capturing = false;
+    private static boolean logicalGuiResolutionActive = false;
+    private static boolean captureGlStatePushed = false;
+    private static int previousMatrixMode = GL11.GL_MODELVIEW;
     private static int previousFbo = 0;
     private static long frameId = 0L;
     private static long clearedFrameId = -1L;
@@ -33,21 +37,275 @@ public final class VRGuiRenderer {
 
     private static VRGuiFramebuffer guiFramebuffer = null;
     private static Framebuffer savedMinecraftFramebuffer = null;
+    private static int savedDisplayWidth = -1;
+    private static int savedDisplayHeight = -1;
+    private static int savedScaledGuiWidth = -1;
+    private static int savedScaledGuiHeight = -1;
+
+    // Remember the last screen initialized for the logical canvas. Some third-party screens
+    // mutate their width/height during draw; re-running initGui every capture frame causes
+    // expensive AE2/NEI reinitialization and transient blank/loading-looking frames.
+    private static net.minecraft.client.gui.GuiScreen lastLogicalGuiScreen = null;
+    private static int lastLogicalGuiWidth = -1;
+    private static int lastLogicalGuiHeight = -1;
+
+    // Some modded tooltip renderers read raw Mouse coordinates rather than drawScreen arguments.
+    // Keep those pixels in the same virtual coordinate space as the active GUI canvas.
+    private static java.lang.reflect.Field[] mouseCoordinateFields;
+    private static int[] savedMouseCoordinates;
+    private static boolean mouseCoordinatesAdjusted = false;
+
+    // Some mod GUIs (notably scrollable option screens) consume Mouse.next() from inside
+    // drawScreen(). Their event coordinates are window pixels, so input handling must see
+    // the original window dimensions even while the surrounding GUI is rendered to 1920x1080.
+    private static int mouseInputScopeDepth = 0;
+    private static int mouseInputSavedDisplayWidth = -1;
+    private static int mouseInputSavedDisplayHeight = -1;
+
+    // Same fixed GUI target as Visor's VRGuiManagerImpl. The screen canvas must not
+    // inherit the desktop aspect ratio or the custom 2388x1668 default, which is not 16:9.
+    private static final int VR_GUI_WIDTH = 1920;
+    private static final int VR_GUI_HEIGHT = 1080;
 
     public static int getCaptureWidth() {
-        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
-            return com.gtnhvr.settings.VRClientSettings.virtualScreenWidth;
-        }
         Minecraft mc = Minecraft.getMinecraft();
-        return (mc != null && mc.displayWidth > 0) ? mc.displayWidth : 2388;
+        if (com.gtnhvr.OpenXRRuntime.isSessionRunning()) return VR_GUI_WIDTH;
+        return (mc != null && mc.displayWidth > 0) ? mc.displayWidth : VR_GUI_WIDTH;
     }
 
     public static int getCaptureHeight() {
-        if (com.gtnhvr.settings.VRClientSettings.autonomousResolution) {
-            return com.gtnhvr.settings.VRClientSettings.virtualScreenHeight;
-        }
         Minecraft mc = Minecraft.getMinecraft();
-        return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : 1668;
+        if (com.gtnhvr.OpenXRRuntime.isSessionRunning()) return VR_GUI_HEIGHT;
+        return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : VR_GUI_HEIGHT;
+    }
+
+    /**
+     * Physical window dimensions for synthesizing controller mouse events. During GUI capture,
+     * Minecraft.displayWidth/Height temporarily contain the virtual canvas size; using those
+     * values here and then mapping the queued Mouse event would scale the pointer twice.
+     */
+    public static int getPhysicalWindowWidth() {
+        if (savedDisplayWidth > 0) return savedDisplayWidth;
+        Minecraft mc = Minecraft.getMinecraft();
+        return mc != null && mc.displayWidth > 0 ? mc.displayWidth : VR_GUI_WIDTH;
+    }
+
+    public static int getPhysicalWindowHeight() {
+        if (savedDisplayHeight > 0) return savedDisplayHeight;
+        Minecraft mc = Minecraft.getMinecraft();
+        return mc != null && mc.displayHeight > 0 ? mc.displayHeight : VR_GUI_HEIGHT;
+    }
+
+    private static void useLogicalGuiResolution(Minecraft mc) {
+        if (mc == null) return;
+        // This flag is true only while a GUI/HUD render target is active, not during the 3D world pass.
+        logicalGuiResolutionActive = true;
+        if (savedDisplayWidth < 0 || savedDisplayHeight < 0) {
+            savedDisplayWidth = mc.displayWidth;
+            savedDisplayHeight = mc.displayHeight;
+            net.minecraft.client.gui.ScaledResolution sourceScaled =
+                    new net.minecraft.client.gui.ScaledResolution(mc, savedDisplayWidth, savedDisplayHeight);
+            savedScaledGuiWidth = sourceScaled.getScaledWidth();
+            savedScaledGuiHeight = sourceScaled.getScaledHeight();
+        }
+        mc.displayWidth = width;
+        mc.displayHeight = height;
+        if (mc.currentScreen != null) {
+            net.minecraft.client.gui.ScaledResolution scaled =
+                    new net.minecraft.client.gui.ScaledResolution(mc, width, height);
+            int logicalWidth = scaled.getScaledWidth();
+            int logicalHeight = scaled.getScaledHeight();
+            boolean newScreen = mc.currentScreen != lastLogicalGuiScreen;
+            boolean targetSizeChanged = logicalWidth != lastLogicalGuiWidth
+                    || logicalHeight != lastLogicalGuiHeight;
+
+            // Reinitialize only on screen/target changes, never repeatedly just because a modded
+            // screen writes different dimensions while rendering its own content.
+            if ((newScreen || targetSizeChanged)
+                    && (mc.currentScreen.width != logicalWidth || mc.currentScreen.height != logicalHeight)) {
+                mc.currentScreen.setWorldAndResolution(mc, logicalWidth, logicalHeight);
+            }
+            lastLogicalGuiScreen = mc.currentScreen;
+            lastLogicalGuiWidth = logicalWidth;
+            lastLogicalGuiHeight = logicalHeight;
+        } else {
+            lastLogicalGuiScreen = null;
+            lastLogicalGuiWidth = -1;
+            lastLogicalGuiHeight = -1;
+        }
+    }
+
+    private static void setupLogicalGuiProjection(Minecraft mc) {
+        if (mc == null) return;
+        net.minecraft.client.gui.ScaledResolution scaled =
+                new net.minecraft.client.gui.ScaledResolution(mc, width, height);
+        GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+        GLStateManager.glLoadIdentity();
+        GLStateManager.glOrtho(
+                0.0D, scaled.getScaledWidth_double(),
+                scaled.getScaledHeight_double(), 0.0D,
+                1000.0D, 3000.0D);
+        GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+        GLStateManager.glLoadIdentity();
+        GLStateManager.glTranslatef(0.0F, 0.0F, -2000.0F);
+    }
+
+    private static void restoreWindowResolution(Minecraft mc) {
+        if (mc != null && savedDisplayWidth >= 0 && savedDisplayHeight >= 0) {
+            mc.displayWidth = savedDisplayWidth;
+            mc.displayHeight = savedDisplayHeight;
+        }
+        savedDisplayWidth = -1;
+        savedDisplayHeight = -1;
+        savedScaledGuiWidth = -1;
+        savedScaledGuiHeight = -1;
+        logicalGuiResolutionActive = false;
+    }
+
+    /** Used by the separate HUD capture to share the same scoped Display dimensions. */
+    public static void setLogicalGuiResolutionActive(boolean active) {
+        logicalGuiResolutionActive = active;
+    }
+
+    /**
+     * Minecraft computes drawScreen's hover coordinates before our FBO capture starts.
+     * Scale those already-GUI-space coordinates from the desktop's old ScaledResolution
+     * to the logical VR screen dimensions, without touching the input event queue.
+     */
+    public static int mapMouseXToLogicalScreen(int mouseX, int logicalWidth) {
+        if (!capturing || savedScaledGuiWidth <= 0 || logicalWidth <= 0) return mouseX;
+        return Math.round(mouseX * (logicalWidth / (float) savedScaledGuiWidth));
+    }
+
+    public static int mapMouseYToLogicalScreen(int mouseY, int logicalHeight) {
+        if (!capturing || savedScaledGuiHeight <= 0 || logicalHeight <= 0) return mouseY;
+        return Math.round(mouseY * (logicalHeight / (float) savedScaledGuiHeight));
+    }
+
+    /**
+     * Convert raw LWJGL event pixels to the virtual GUI pixel canvas. Some third-party
+     * containers/options screens poll Mouse.next() directly and bypass our scoped
+     * GuiScreen.handleMouseInput wrapper, so their getEventX/getEventY values must be
+     * expressed in the same pixel space as Minecraft.displayWidth/displayHeight.
+     */
+    public static int mapPhysicalMouseEventXToLogicalCanvas(int eventX) {
+        if (!capturing || !logicalGuiResolutionActive || mouseInputScopeDepth > 0
+                || savedDisplayWidth <= 0 || width <= 0) return eventX;
+        return Math.round(eventX * (width / (float) savedDisplayWidth));
+    }
+
+    public static int mapPhysicalMouseEventYToLogicalCanvas(int eventY) {
+        if (!capturing || !logicalGuiResolutionActive || mouseInputScopeDepth > 0
+                || savedDisplayHeight <= 0 || height <= 0) return eventY;
+        return Math.round(eventY * (height / (float) savedDisplayHeight));
+    }
+
+    private static void adjustMouseCoordinatesForVirtualCanvas() {
+        if (mouseCoordinatesAdjusted || savedDisplayWidth <= 0 || savedDisplayHeight <= 0
+                || width <= 0 || height <= 0) {
+            return;
+        }
+
+        try {
+            if (mouseCoordinateFields == null) {
+                Class<?> mouseClass = Class.forName("org.lwjglx.input.Mouse");
+                String[] names = {"x", "y", "latestX", "latestY", "lastEventX", "lastEventY"};
+                java.lang.reflect.Field[] fields = new java.lang.reflect.Field[names.length];
+                for (int i = 0; i < names.length; i++) {
+                    try {
+                        fields[i] = mouseClass.getDeclaredField(names[i]);
+                        fields[i].setAccessible(true);
+                    } catch (NoSuchFieldException ignored) {
+                        // lastEventX/Y are optional in some lwjgl3ify versions.
+                    }
+                }
+                if (fields[0] == null || fields[1] == null) return;
+                mouseCoordinateFields = fields;
+            }
+
+            int[] saved = new int[mouseCoordinateFields.length];
+            for (int i = 0; i < mouseCoordinateFields.length; i++) {
+                java.lang.reflect.Field field = mouseCoordinateFields[i];
+                if (field != null) saved[i] = field.getInt(null);
+            }
+
+            // Mark the snapshot before mutating fields so a partial reflection failure can roll back.
+            savedMouseCoordinates = saved;
+            mouseCoordinatesAdjusted = true;
+
+            float scaleX = width / (float) savedDisplayWidth;
+            float scaleY = height / (float) savedDisplayHeight;
+            for (int i = 0; i < mouseCoordinateFields.length; i++) {
+                java.lang.reflect.Field field = mouseCoordinateFields[i];
+                if (field != null) {
+                    field.setInt(null, Math.round(saved[i] * ((i % 2 == 0) ? scaleX : scaleY)));
+                }
+            }
+        } catch (Throwable ignored) {
+            restoreMouseCoordinates();
+        }
+    }
+
+    private static void restoreMouseCoordinates() {
+        if (!mouseCoordinatesAdjusted || mouseCoordinateFields == null || savedMouseCoordinates == null) {
+            return;
+        }
+        try {
+            for (int i = 0; i < mouseCoordinateFields.length; i++) {
+                java.lang.reflect.Field field = mouseCoordinateFields[i];
+                if (field != null) field.setInt(null, savedMouseCoordinates[i]);
+            }
+        } catch (Throwable ignored) {
+        } finally {
+            mouseCoordinatesAdjusted = false;
+            savedMouseCoordinates = null;
+        }
+    }
+
+    /**
+     * Temporarily restore the physical window coordinate space while a screen consumes
+     * queued mouse events from inside rendering. This is needed by custom GUIs that call
+     * handleMouseInput() during drawScreen(), rather than during Minecraft's normal tick.
+     */
+    public static void beginMouseInputScope() {
+        if (!capturing || savedDisplayWidth <= 0 || savedDisplayHeight <= 0) return;
+        if (mouseInputScopeDepth++ > 0) return;
+
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null) {
+            mouseInputScopeDepth = 0;
+            return;
+        }
+
+        mouseInputSavedDisplayWidth = mc.displayWidth;
+        mouseInputSavedDisplayHeight = mc.displayHeight;
+
+        // Restore the raw cursor fields too. Queued Mouse events are still stored in physical
+        // window pixels; leaving only the current x/y fields scaled would mix coordinate spaces.
+        restoreMouseCoordinates();
+        mc.displayWidth = savedDisplayWidth;
+        mc.displayHeight = savedDisplayHeight;
+        logicalGuiResolutionActive = false;
+    }
+
+    public static void endMouseInputScope() {
+        if (mouseInputScopeDepth <= 0) return;
+        if (--mouseInputScopeDepth > 0) return;
+
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc != null && mouseInputSavedDisplayWidth > 0 && mouseInputSavedDisplayHeight > 0) {
+            mc.displayWidth = mouseInputSavedDisplayWidth;
+            mc.displayHeight = mouseInputSavedDisplayHeight;
+        }
+        mouseInputSavedDisplayWidth = -1;
+        mouseInputSavedDisplayHeight = -1;
+
+        if (capturing) {
+            logicalGuiResolutionActive = true;
+            // Re-enter the logical render coordinate space and preserve the physical values
+            // for VRGuiRenderer.end(), which restores them after this screen is drawn.
+            adjustMouseCoordinatesForVirtualCanvas();
+        }
     }
 
     /** Called once at the start of every render tick; allows exactly one clear per frame. */
@@ -60,101 +318,142 @@ public final class VRGuiRenderer {
     public static void checkSize(int w, int h) {
         if (w <= 0) w = 854;
         if (h <= 0) h = 480;
+        if (capturing && (width != w || height != h)) end();
         if (fbo == 0 || width != w || height != h) {
+            int oldFbo = fbo;
+            int oldTexture = texture;
+            int oldDepthRb = depthRb;
+            int restoreFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+            int restoreTexture = GLStateManager.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            int restoreRenderbuffer = GLStateManager.glGetInteger(GL30.GL_RENDERBUFFER_BINDING);
+
             destroy();
             width = w;
             height = h;
 
-            fbo = GL30.glGenFramebuffers();
-            texture = GL11.glGenTextures();
-            depthRb = GL30.glGenRenderbuffers();
+            fbo = GLStateManager.glGenFramebuffers();
+            texture = GLStateManager.glGenTextures();
+            depthRb = GLStateManager.glGenRenderbuffers();
 
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+            GLStateManager.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 
-            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
-            GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH24_STENCIL8, width, height);
+            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
+            GLStateManager.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH24_STENCIL8, width, height);
 
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-            GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
-            GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+            GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
+            GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
+
+            if (guiFramebuffer == null) guiFramebuffer = new VRGuiFramebuffer(width, height);
+            guiFramebuffer.update(fbo, texture, depthRb, width, height);
+
+            // Resource allocation must not unbind another renderer's framebuffer or leave deleted attachments bound.
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, restoreFbo == oldFbo ? 0 : restoreFbo);
+            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, restoreRenderbuffer == oldDepthRb ? 0 : restoreRenderbuffer);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, restoreTexture == oldTexture ? 0 : restoreTexture);
+            clearedFrameId = -1L;
+            clearedAsMenu = false;
         }
-
-        if (guiFramebuffer == null) {
-            guiFramebuffer = new VRGuiFramebuffer(width, height);
-        }
+        if (guiFramebuffer == null) guiFramebuffer = new VRGuiFramebuffer(width, height);
         guiFramebuffer.update(fbo, texture, depthRb, width, height);
     }
 
     public static void begin(int w, int h, boolean inMainMenu) {
         checkSize(w, h);
         Minecraft mc = Minecraft.getMinecraft();
-        if (!capturing) {
-            previousFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        boolean startingCapture = !capturing;
+        if (startingCapture) {
+            previousFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+            previousMatrixMode = GLStateManager.glGetInteger(GL11.GL_MATRIX_MODE);
+            GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            captureGlStatePushed = true;
+
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glPushMatrix();
+
             if (mc != null) {
                 savedMinecraftFramebuffer = OpenXRRuntime.getMinecraftFramebuffer(mc);
                 OpenXRRuntime.setMinecraftFramebuffer(mc, guiFramebuffer);
+                useLogicalGuiResolution(mc);
+                adjustMouseCoordinatesForVirtualCanvas();
+                setupLogicalGuiProjection(mc);
             }
         }
+
         capturing = true;
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL11.glViewport(0, 0, width, height);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GLStateManager.glViewport(0, 0, width, height);
 
-        // A second begin() in the same frame must not wipe what was already drawn
-        // (NEI panels, container slots); the buffer is cleared once per frame only.
-        if (clearedFrameId != frameId || clearedAsMenu != inMainMenu) {
-            boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-            if (scissor) {
-                GL11.glDisable(GL11.GL_SCISSOR_TEST);
-            }
-            // Ensure depth mask and color mask allow full clearing
-            GL11.glDepthMask(true);
-            GL11.glColorMask(true, true, true, true);
+        // Never inherit a scissor rectangle from the desktop/world/Angelica render pass.
+        // Individual GUI widgets can enable their own clipping during this capture.
+        GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
 
-            if (inMainMenu) {
-                GL11.glClearColor(0.06F, 0.07F, 0.10F, 1.0F);
-            } else {
-                GL11.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
-            }
-            GL11.glClearDepth(1.0D);
-            GL11.glClearStencil(0);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_STENCIL_BUFFER_BIT);
-            if (scissor) {
-                GL11.glEnable(GL11.GL_SCISSOR_TEST);
-            }
+        // A nested begin must not erase pixels already drawn by GuiScreen / NEI.
+        if (startingCapture || clearedFrameId != frameId || clearedAsMenu != inMainMenu) {
+            GLStateManager.glDepthMask(true);
+            GLStateManager.glColorMask(true, true, true, true);
+            if (inMainMenu) GLStateManager.glClearColor(0.06F, 0.07F, 0.10F, 1.0F);
+            else GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+            GLStateManager.glClearDepth(1.0D);
+            GLStateManager.glClearStencil(0);
+            GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_STENCIL_BUFFER_BIT);
             clearedFrameId = frameId;
             clearedAsMenu = inMainMenu;
         }
 
-        GL11.glColorMask(true, true, true, true);
-        GL11.glEnable(GL11.GL_BLEND);
-        org.lwjgl.opengl.GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GLStateManager.glColorMask(true, true, true, true);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     public static void end() {
         if (!capturing) return;
+
+        // Defensive recovery if a third-party screen threw while processing a nested input loop.
+        if (mouseInputScopeDepth > 0) {
+            mouseInputScopeDepth = 0;
+            Minecraft scopeMc = Minecraft.getMinecraft();
+            if (scopeMc != null && mouseInputSavedDisplayWidth > 0 && mouseInputSavedDisplayHeight > 0) {
+                scopeMc.displayWidth = mouseInputSavedDisplayWidth;
+                scopeMc.displayHeight = mouseInputSavedDisplayHeight;
+            }
+            mouseInputSavedDisplayWidth = -1;
+            mouseInputSavedDisplayHeight = -1;
+        }
+
         capturing = false;
+        GLStateManager.glColorMask(true, true, true, true);
+        GLStateManager.glFlush();
 
-        // Ensure all color/alpha channels are writable
-        GL11.glColorMask(true, true, true, true);
-
-        // Flush draw commands so GUI texture is completely ready for sampling
-        GL11.glFlush();
-
-        // Restore vanilla Minecraft framebuffer
         Minecraft mc = Minecraft.getMinecraft();
         if (mc != null && savedMinecraftFramebuffer != null) {
             OpenXRRuntime.setMinecraftFramebuffer(mc, savedMinecraftFramebuffer);
             savedMinecraftFramebuffer = null;
         }
+        restoreMouseCoordinates();
+        restoreWindowResolution(mc);
 
-        // Restore previous framebuffer binding
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
+        if (captureGlStatePushed) {
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glPopMatrix();
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPopMatrix();
+            GLStateManager.glMatrixMode(previousMatrixMode);
+            GLStateManager.glPopAttrib();
+            captureGlStatePushed = false;
+        }
+
+        // FBO bindings are not included in glPushAttrib.
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
+        previousFbo = 0;
     }
 
     public static int getTextureId() {
@@ -173,17 +472,23 @@ public final class VRGuiRenderer {
         return capturing;
     }
 
+    /** True while a GUI screen is being laid out/rendered on the virtual GUI canvas. */
+    public static boolean isLogicalGuiResolutionActive() {
+        return logicalGuiResolutionActive;
+    }
+
     public static void destroy() {
+        if (capturing) end();
         if (fbo != 0) {
-            GL30.glDeleteFramebuffers(fbo);
+            GLStateManager.glDeleteFramebuffers(fbo);
             fbo = 0;
         }
         if (texture != 0) {
-            GL11.glDeleteTextures(texture);
+            GLStateManager.glDeleteTextures(texture);
             texture = 0;
         }
         if (depthRb != 0) {
-            GL30.glDeleteRenderbuffers(depthRb);
+            GLStateManager.glDeleteRenderbuffers(depthRb);
             depthRb = 0;
         }
         if (guiFramebuffer != null) {
@@ -193,6 +498,9 @@ public final class VRGuiRenderer {
         height = 0;
         capturing = false;
         previousFbo = 0;
+        captureGlStatePushed = false;
+        Minecraft mc = Minecraft.getMinecraft();
+        restoreWindowResolution(mc);
         savedMinecraftFramebuffer = null;
     }
 }

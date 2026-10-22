@@ -39,6 +39,14 @@ public abstract class VROptionsSet {
 
     protected abstract void buildWidgets();
 
+    /**
+     * Gives specialized settings pages a chance to consume a physical keyboard key,
+     * for example while waiting for a new binding. Return true when handled.
+     */
+    public boolean handleKeyTyped(char typedChar, int keyCode) {
+        return false;
+    }
+
     public int getMaxScroll() {
         int maxRow = 0;
         for (OptionWidget w : widgets) {

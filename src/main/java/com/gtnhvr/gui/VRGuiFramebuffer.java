@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.coderbot.iris.rendertarget.IRenderTargetExt;
 import net.minecraft.client.shader.Framebuffer;
@@ -63,25 +64,25 @@ public class VRGuiFramebuffer extends Framebuffer implements IRenderTargetExt {
 
     @Override
     public void bindFramebuffer(boolean setViewport) {
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.framebufferObject);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.framebufferObject);
         if (setViewport) {
-            GL11.glViewport(0, 0, this.framebufferWidth, this.framebufferHeight);
+            GLStateManager.glViewport(0, 0, this.framebufferWidth, this.framebufferHeight);
         }
     }
 
     @Override
     public void unbindFramebuffer() {
         // Keep the GUI capture FBO bound during GUI capture pass
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.framebufferObject);
+        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.framebufferObject);
     }
 
     @Override
     public void bindFramebufferTexture() {
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.framebufferTexture);
+        GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, this.framebufferTexture);
     }
 
     @Override
     public void unbindFramebufferTexture() {
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, 0);
     }
 }

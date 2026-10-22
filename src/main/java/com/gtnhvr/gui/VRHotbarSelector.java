@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.VRControllerHandler;
 import com.gtnhvr.settings.VRClientSettings;
 import com.gtnhvr.settings.VROverlayConfig;
@@ -438,16 +439,16 @@ public final class VRHotbarSelector {
         }
         float half = QUAD_WIDTH * 0.5F * radial.scale;
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
         try {
-            GL11.glDisable(GL11.GL_CULL_FACE);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glDisable(GL11.GL_FOG);
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthMask(false);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glDisable(GL11.GL_FOG);
+            GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
                     GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
             // Compute quad corners directly in room space from center, right and up vectors.
@@ -460,24 +461,24 @@ public final class VRHotbarSelector {
             float uy = radial.up.y * half;
             float uz = radial.up.z * half;
 
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
             // top of the canvas is stored at v = 1
-            GL11.glBegin(GL11.GL_QUADS);
-            GL11.glTexCoord2f(0.0F, 0.0F);
-            GL11.glVertex3f(c.x - rx - ux, c.y - ry - uy, c.z - rz - uz);
-            GL11.glTexCoord2f(1.0F, 0.0F);
-            GL11.glVertex3f(c.x + rx - ux, c.y + ry - uy, c.z + rz - uz);
-            GL11.glTexCoord2f(1.0F, 1.0F);
-            GL11.glVertex3f(c.x + rx + ux, c.y + ry + uy, c.z + rz + uz);
-            GL11.glTexCoord2f(0.0F, 1.0F);
-            GL11.glVertex3f(c.x - rx + ux, c.y - ry + uy, c.z - rz + uz);
-            GL11.glEnd();
+            GLStateManager.glBegin(GL11.GL_QUADS);
+            GLStateManager.glTexCoord2f(0.0F, 0.0F);
+            GLStateManager.glVertex3f(c.x - rx - ux, c.y - ry - uy, c.z - rz - uz);
+            GLStateManager.glTexCoord2f(1.0F, 0.0F);
+            GLStateManager.glVertex3f(c.x + rx - ux, c.y + ry - uy, c.z + rz - uz);
+            GLStateManager.glTexCoord2f(1.0F, 1.0F);
+            GLStateManager.glVertex3f(c.x + rx + ux, c.y + ry + uy, c.z + rz + uz);
+            GLStateManager.glTexCoord2f(0.0F, 1.0F);
+            GLStateManager.glVertex3f(c.x - rx + ux, c.y - ry + uy, c.z - rz + uz);
+            GLStateManager.glEnd();
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
         }
     }
 

@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.OpenXRRuntime;
 import com.gtnhvr.gui.settings.OptionWidget;
 import com.gtnhvr.gui.settings.VROptionsSet;
@@ -145,9 +146,9 @@ public class VRSettingsScreen extends GuiScreen {
         int bgW = scaleHelper.scaledSize(256);
         int bgH = scaleHelper.scaledSize(159);
 
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        GL11.glEnable(GL11.GL_BLEND);
-        OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         // 1. Draw Visor Background Frame
         this.mc.getTextureManager().bindTexture(BACKGROUND_TEX);
@@ -335,6 +336,11 @@ public class VRSettingsScreen extends GuiScreen {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) {
+        // Binding screens consume key presses before the global Escape/back handler.
+        // This lets Escape cancel capture instead of unexpectedly closing VR settings.
+        if (currentOptionsSet != null && currentOptionsSet.handleKeyTyped(typedChar, keyCode)) {
+            return;
+        }
         if (keyCode == 1) { // ESCAPE
             VRClientSettings.save();
             if (this.mc != null && this.mc.theWorld != null) {
@@ -544,12 +550,12 @@ public class VRSettingsScreen extends GuiScreen {
         int sy = (screenH - (guiY + guiH)) * mc.displayHeight / screenH;
         int sw = Math.max(1, guiW * mc.displayWidth / screenW);
         int sh = Math.max(1, guiH * mc.displayHeight / screenH);
-        GL11.glEnable(GL11.GL_SCISSOR_TEST);
-        GL11.glScissor(sx, sy, sw, sh);
+        GLStateManager.glEnable(GL11.GL_SCISSOR_TEST);
+        GLStateManager.glScissor(sx, sy, sw, sh);
     }
 
     public static void disableScissor() {
-        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
     }
 
     // --- Utility Drawing Helpers ---
@@ -576,11 +582,11 @@ public class VRSettingsScreen extends GuiScreen {
         }
 
         float scale = (float) maxW / (float) strW;
-        GL11.glPushMatrix();
-        GL11.glTranslatef(centerX, centerY + 4, 0.0F);
-        GL11.glScalef(scale, scale, 1.0F);
+        GLStateManager.glPushMatrix();
+        GLStateManager.glTranslatef(centerX, centerY + 4, 0.0F);
+        GLStateManager.glScalef(scale, scale, 1.0F);
         this.fontRendererObj.drawStringWithShadow(text, -strW / 2, -4, color);
-        GL11.glPopMatrix();
+        GLStateManager.glPopMatrix();
     }
 
     public void playClickSound() {

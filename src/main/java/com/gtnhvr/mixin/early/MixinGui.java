@@ -1,5 +1,6 @@
 package com.gtnhvr.mixin.early;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.OpenXRRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -30,28 +31,28 @@ public abstract class MixinGui {
         }
 
         if (com.gtnhvr.gui.VRGuiRenderer.isCapturing()) {
-            org.lwjgl.opengl.GL11.glColorMask(true, true, true, false);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glColorMask(true, true, true, false);
         }
     }
 
     @Inject(method = {"drawGradientRect", "func_73733_a"}, at = @At("TAIL"))
     private void gtnhvr$restoreGradientColorMask(int left, int top, int right, int bottom, int startColor, int endColor, CallbackInfo ci) {
         if (com.gtnhvr.gui.VRGuiRenderer.isCapturing()) {
-            org.lwjgl.opengl.GL11.glColorMask(true, true, true, true);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glColorMask(true, true, true, true);
         }
     }
 
     @Inject(method = {"drawRect", "func_73734_a"}, at = @At("HEAD"))
     private static void gtnhvr$protectAlphaInDrawRect(int left, int top, int right, int bottom, int color, CallbackInfo ci) {
         if (com.gtnhvr.gui.VRGuiRenderer.isCapturing() && ((color >>> 24) & 255) < 255) {
-            org.lwjgl.opengl.GL11.glColorMask(true, true, true, false);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glColorMask(true, true, true, false);
         }
     }
 
     @Inject(method = {"drawRect", "func_73734_a"}, at = @At("TAIL"))
     private static void gtnhvr$restoreAlphaInDrawRect(int left, int top, int right, int bottom, int color, CallbackInfo ci) {
         if (com.gtnhvr.gui.VRGuiRenderer.isCapturing()) {
-            org.lwjgl.opengl.GL11.glColorMask(true, true, true, true);
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glColorMask(true, true, true, true);
         }
     }
 }

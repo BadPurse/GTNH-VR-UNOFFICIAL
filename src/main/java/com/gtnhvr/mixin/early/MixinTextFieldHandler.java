@@ -26,7 +26,11 @@ public abstract class MixinTextFieldHandler {
         if (OpenXRRuntime.isSessionRunning() || VRClientSettings.vrPlayMode != VRPlayMode.DISABLED) {
             ci.cancel();
             if (VRClientSettings.keyboardAutoLayout) {
-                com.gtnhvr.gui.VRVirtualKeyboard.getInstance().showAutoKeyboard();
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+                if (mc != null && mc.currentScreen != null
+                        && com.gtnhvr.gui.GuiHelper.hasAnyFocusedTextField(mc.currentScreen)) {
+                    com.gtnhvr.gui.VRVirtualKeyboard.getInstance().showAutoKeyboard(mc.currentScreen);
+                }
             }
         }
     }
@@ -35,6 +39,10 @@ public abstract class MixinTextFieldHandler {
     private static void gtnhvr$cancelEndTextInput(GuiTextField field, CallbackInfo ci) {
         if (OpenXRRuntime.isSessionRunning() || VRClientSettings.vrPlayMode != VRPlayMode.DISABLED) {
             ci.cancel();
+            // endTextInput is cancelled to avoid SDL/Windows IME crashes, but its Java-side
+            // focus bookkeeping still has to be cleaned up. Otherwise a weak reference to the
+            // last GuiTextField can make unrelated GregTech/NEI screens look like text editors.
+            com.gtnhvr.gui.GuiHelper.clearFocusedTextField(field);
             if (VRClientSettings.keyboardAutoLayout) {
                 net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
                 if (mc == null || (!(mc.currentScreen instanceof net.minecraft.client.gui.GuiChat)
@@ -53,6 +61,9 @@ public abstract class MixinTextFieldHandler {
     private static void gtnhvr$cancelResetTextInput(CallbackInfo ci) {
         if (OpenXRRuntime.isSessionRunning() || VRClientSettings.vrPlayMode != VRPlayMode.DISABLED) {
             ci.cancel();
+            // Keep LWJGL3ify's focus field in sync while still suppressing SDL_StopTextInput.
+            com.gtnhvr.gui.GuiHelper.clearFocusedTextField(null);
+            com.gtnhvr.gui.VRVirtualKeyboard.getInstance().hideAutoKeyboard();
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.settings.VROverlayConfig;
 import com.gtnhvr.OpenXRRuntime;
 import com.gtnhvr.VRControllerHandler;
@@ -68,12 +69,12 @@ public final class VRHandRenderer {
         boolean hidden = (body != null && (body.equalsIgnoreCase("Hidden") || body.equalsIgnoreCase("hidden")));
         boolean isSlim = (body != null && (body.toLowerCase().contains("alex") || body.toLowerCase().contains("slim")));
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
 
         try {
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL11.GL_LEQUAL);
+            GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthFunc(GL11.GL_LEQUAL);
 
             if (inMenu && !isItemOffsetsScreen) {
                 // ---- MENU STAGE: Render Sleek Pointer Tool from Visor ----
@@ -107,8 +108,8 @@ public final class VRHandRenderer {
             }
 
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
         }
     }
 
@@ -137,15 +138,15 @@ public final class VRHandRenderer {
         double camZ = renderEntity.prevPosZ + (renderEntity.posZ - renderEntity.prevPosZ) * (double) partialTicks;
 
         // Switch to World Camera Space for crosshair and laser rendering
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glPushMatrix();
+        GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+        GLStateManager.glPushMatrix();
         FloatBuffer proj = OpenXRRuntime.getEyeProjectionBuffer(eyeIndex, 0.05F, 100.0F);
-        if (proj != null) GL11.glLoadMatrixf(proj);
+        if (proj != null) GLStateManager.glLoadMatrix(proj);
 
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glPushMatrix();
+        GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+        GLStateManager.glPushMatrix();
         FloatBuffer mv = OpenXRRuntime.getEyeModelViewBuffer(eyeIndex, partialTicks);
-        if (mv != null) GL11.glLoadMatrixf(mv);
+        if (mv != null) GLStateManager.glLoadMatrix(mv);
 
         try {
             // Render Right Hand Crosshair & Laser
@@ -160,10 +161,10 @@ public final class VRHandRenderer {
                 renderSingleHandCrosshair(mc, handler, eyeIndex, true, partialTicks, camX, camY, camZ);
             }
         } finally {
-            GL11.glPopMatrix(); // Pop world MODELVIEW
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glPopMatrix(); // Pop world PROJECTION
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
+            GLStateManager.glPopMatrix(); // Pop world MODELVIEW
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPopMatrix(); // Pop world PROJECTION
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
         }
     }
 
@@ -217,30 +218,30 @@ public final class VRHandRenderer {
             return;
         }
 
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
 
         try {
-            org.lwjgl.opengl.GL13.glActiveTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
-            GL11.glDisable(GL11.GL_CULL_FACE);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glDisable(GL11.GL_ALPHA_TEST);
-            GL11.glEnable(GL11.GL_BLEND);
-            GL14.glBlendFuncSeparate(
+            com.gtnewhorizons.angelica.glsm.GLStateManager.glActiveTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFuncSeparate(
                     GL11.GL_ONE_MINUS_DST_COLOR,
                     GL11.GL_ONE_MINUS_SRC_COLOR,
                     GL11.GL_ONE,
                     GL11.GL_ZERO
             );
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthMask(false);
-            GL11.glDepthFunc(GL11.GL_ALWAYS);
+            GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
+            GLStateManager.glDepthFunc(GL11.GL_ALWAYS);
 
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             mc.getTextureManager().bindTexture(ICONS_TEX);
-            GL11.glColor4f(brightness, brightness, brightness, 1.0F);
+            GLStateManager.glColor4f(brightness, brightness, brightness, 1.0F);
 
-            GL11.glTranslatef(relCross.x, relCross.y, relCross.z);
+            GLStateManager.glTranslatef(relCross.x, relCross.y, relCross.z);
 
             float handYaw = isLeft ? handler.getLeftHandWorldYaw() : handler.getRightHandWorldYaw();
             float handPitch = isLeft ? handler.getLeftHandWorldPitch() : handler.getRightHandWorldPitch();
@@ -249,45 +250,45 @@ public final class VRHandRenderer {
                 // 1:1 Visor HandEffectCrosshair block face orientation in world space
                 switch (sideHit) {
                     case 0: // DOWN (bottom face)
-                        GL11.glRotatef(handYaw, 0.0F, 1.0F, 0.0F);
-                        GL11.glRotatef(-90.0F, 1.0F, 0.0F, 0.0F);
+                        GLStateManager.glRotatef(handYaw, 0.0F, 1.0F, 0.0F);
+                        GLStateManager.glRotatef(-90.0F, 1.0F, 0.0F, 0.0F);
                         break;
                     case 1: // UP (top face)
-                        GL11.glRotatef(-handYaw, 0.0F, 1.0F, 0.0F);
-                        GL11.glRotatef(90.0F, 1.0F, 0.0F, 0.0F);
+                        GLStateManager.glRotatef(-handYaw, 0.0F, 1.0F, 0.0F);
+                        GLStateManager.glRotatef(90.0F, 1.0F, 0.0F, 0.0F);
                         break;
                     case 2: // NORTH
                         break;
                     case 3: // SOUTH
-                        GL11.glRotatef(180.0F, 0.0F, 1.0F, 0.0F);
+                        GLStateManager.glRotatef(180.0F, 0.0F, 1.0F, 0.0F);
                         break;
                     case 4: // WEST
-                        GL11.glRotatef(90.0F, 0.0F, 1.0F, 0.0F);
+                        GLStateManager.glRotatef(90.0F, 0.0F, 1.0F, 0.0F);
                         break;
                     case 5: // EAST
-                        GL11.glRotatef(-90.0F, 0.0F, 1.0F, 0.0F);
+                        GLStateManager.glRotatef(-90.0F, 0.0F, 1.0F, 0.0F);
                         break;
                 }
             } else {
                 // 1:1 Visor HandEffectCrosshair: Perpendicular to hand aim in world space
-                GL11.glRotatef(-handYaw, 0.0F, 1.0F, 0.0F);
-                GL11.glRotatef(-handPitch, 1.0F, 0.0F, 0.0F);
+                GLStateManager.glRotatef(-handYaw, 0.0F, 1.0F, 0.0F);
+                GLStateManager.glRotatef(-handPitch, 1.0F, 0.0F, 0.0F);
             }
 
             // Crosshair Quad size (0.125m base scale)
             float s = 0.125F * VROverlayConfig.get(VROverlayConfig.CROSSHAIR).scale;
             float uv = 16.0F / 256.0F; // 16x16 pixels crosshair at top-left of icons.png
 
-            GL11.glBegin(GL11.GL_QUADS);
-            GL11.glTexCoord2f(0.0F, 0.0F); GL11.glVertex3f(-s,  s, 0.0F);
-            GL11.glTexCoord2f(uv,   0.0F); GL11.glVertex3f( s,  s, 0.0F);
-            GL11.glTexCoord2f(uv,   uv);   GL11.glVertex3f( s, -s, 0.0F);
-            GL11.glTexCoord2f(0.0F, uv);   GL11.glVertex3f(-s, -s, 0.0F);
-            GL11.glEnd();
+            GLStateManager.glBegin(GL11.GL_QUADS);
+            GLStateManager.glTexCoord2f(0.0F, 0.0F); GLStateManager.glVertex3f(-s,  s, 0.0F);
+            GLStateManager.glTexCoord2f(uv,   0.0F); GLStateManager.glVertex3f( s,  s, 0.0F);
+            GLStateManager.glTexCoord2f(uv,   uv);   GLStateManager.glVertex3f( s, -s, 0.0F);
+            GLStateManager.glTexCoord2f(0.0F, uv);   GLStateManager.glVertex3f(-s, -s, 0.0F);
+            GLStateManager.glEnd();
 
         } finally {
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
         }
     }
 
@@ -296,30 +297,30 @@ public final class VRHandRenderer {
     }
 
     public static void renderLaserBeam(Vector3f start, Vector3f end, float r, float g, float b, float alpha) {
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        GL11.glDepthMask(false);
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glDisable(GL11.GL_LIGHTING);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        GLStateManager.glDepthMask(false);
 
-        GL11.glLineWidth(4.0F);
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glColor4f(r, g, b, 0.25F * alpha);
-        GL11.glVertex3f(start.x, start.y, start.z);
-        GL11.glColor4f(r, g, b, 0.65F * alpha);
-        GL11.glVertex3f(end.x, end.y, end.z);
-        GL11.glEnd();
+        GLStateManager.glLineWidth(4.0F);
+        GLStateManager.glBegin(GL11.GL_LINES);
+        GLStateManager.glColor4f(r, g, b, 0.25F * alpha);
+        GLStateManager.glVertex3f(start.x, start.y, start.z);
+        GLStateManager.glColor4f(r, g, b, 0.65F * alpha);
+        GLStateManager.glVertex3f(end.x, end.y, end.z);
+        GLStateManager.glEnd();
 
-        GL11.glLineWidth(2.0F);
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 0.70F * alpha);
-        GL11.glVertex3f(start.x, start.y, start.z);
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 0.95F * alpha);
-        GL11.glVertex3f(end.x, end.y, end.z);
-        GL11.glEnd();
+        GLStateManager.glLineWidth(2.0F);
+        GLStateManager.glBegin(GL11.GL_LINES);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 0.70F * alpha);
+        GLStateManager.glVertex3f(start.x, start.y, start.z);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 0.95F * alpha);
+        GLStateManager.glVertex3f(end.x, end.y, end.z);
+        GLStateManager.glEnd();
 
-        GL11.glPopAttrib();
+        GLStateManager.glPopAttrib();
     }
 
     private static ResourceLocation getPlayerSkin(Minecraft mc) {
@@ -338,31 +339,31 @@ public final class VRHandRenderer {
     private static void renderSkinArm(Vector3f pos, Quaternionf rot, ResourceLocation skin, boolean isRight, Minecraft mc, boolean isSlim) {
         if (mc == null) return;
 
-        GL11.glPushMatrix();
-        GL11.glTranslatef(pos.x, pos.y, pos.z);
+        GLStateManager.glPushMatrix();
+        GLStateManager.glTranslatef(pos.x, pos.y, pos.z);
 
         // Apply controller orientation
         applyQuaternionRotation(rot);
 
         // Arm model transform: forearm extends along +Z (backward along arm)
-        GL11.glRotatef(-90.0F, 1.0F, 0.0F, 0.0F);
+        GLStateManager.glRotatef(-90.0F, 1.0F, 0.0F, 0.0F);
 
         // Scale arm cuboid: 4x12x4 units scaled to VR dimensions (~0.025F per unit -> 0.30m arm length, 1:1 Visor)
         float s = 0.025F;
-        GL11.glScalef(s, s, s);
+        GLStateManager.glScalef(s, s, s);
 
         // Lateral shift for natural wrist angle (inward towards torso)
         float handFactor = isRight ? 1.0F : -1.0F;
-        GL11.glTranslatef(-0.20F * handFactor, 0.0F, 0.0F);
+        GLStateManager.glTranslatef(-0.20F * handFactor, 0.0F, 0.0F);
 
         // SOLID ARMS WITHOUT CULLING: Backface culling is disabled so wrist inside and back of arm are never hollow
-        GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glDisable(GL11.GL_BLEND);
-        GL11.glDisable(GL11.GL_ALPHA_TEST);
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glDisable(GL11.GL_CULL_FACE);
+        GLStateManager.glDisable(GL11.GL_LIGHTING);
+        GLStateManager.glDisable(GL11.GL_BLEND);
+        GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
+        GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glDisable(GL11.GL_CULL_FACE);
         mc.getTextureManager().bindTexture(skin);
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
         // Check if hand holds Thaumometer - if so, suppress VR arm model for clear line of sight
         ItemStack preview = com.gtnhvr.gui.settings.categories.controls.VRSettingsItemOffsets.getActivePreviewItem();
@@ -372,7 +373,7 @@ public final class VRHandRenderer {
         boolean skipArm = isThaumometer(heldItem);
 
         if (!skipArm) {
-            int texH = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+            int texH = GLStateManager.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
             boolean is64x64 = (texH >= 64);
 
             // Draw Base 3D textured arm cuboid
@@ -380,17 +381,17 @@ public final class VRHandRenderer {
 
             // Draw Outer 3D Sleeve Layer (expanded by 0.25F with alpha transparency) if 64x64
             if (is64x64) {
-                GL11.glEnable(GL11.GL_BLEND);
-                GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-                GL11.glEnable(GL11.GL_ALPHA_TEST);
-                GL11.glAlphaFunc(GL11.GL_GREATER, 0.1F);
+                GLStateManager.glEnable(GL11.GL_BLEND);
+                GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                GLStateManager.glEnable(GL11.GL_ALPHA_TEST);
+                GLStateManager.glAlphaFunc(GL11.GL_GREATER, 0.1F);
                 drawTexturedArmBox(isRight, isSlim, true, true);
-                GL11.glDisable(GL11.GL_ALPHA_TEST);
-                GL11.glDisable(GL11.GL_BLEND);
+                GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
+                GLStateManager.glDisable(GL11.GL_BLEND);
             }
         }
 
-        GL11.glPopMatrix(); // Pop arm matrix
+        GLStateManager.glPopMatrix(); // Pop arm matrix
 
         // Render Held Item / Block in Hand in Controller Root Space
         renderHeldItem(pos, rot, isRight, mc);
@@ -509,6 +510,91 @@ public final class VRHandRenderer {
      * - Full support for Tinkers' Construct (ToolCore) and modded Forge IItemRenderer items
      * - Multi-pass color tinting for GTNH / TConstruct tools and potions
      */
+    private static java.lang.reflect.Field gtnhvr$bowItemInUseField;
+    private static java.lang.reflect.Field gtnhvr$bowItemInUseCountField;
+    private static boolean gtnhvr$bowUseFieldsSearched;
+
+    private static void gtnhvr$findBowUseFields() {
+        if (gtnhvr$bowUseFieldsSearched) return;
+        gtnhvr$bowUseFieldsSearched = true;
+        Class<?> type = net.minecraft.entity.player.EntityPlayer.class;
+        while (type != null) {
+            if (gtnhvr$bowItemInUseField == null) {
+                for (String name : new String[] {"itemInUse", "field_71074_e"}) {
+                    try {
+                        gtnhvr$bowItemInUseField = type.getDeclaredField(name);
+                        gtnhvr$bowItemInUseField.setAccessible(true);
+                        break;
+                    } catch (Throwable ignored) {}
+                }
+            }
+            if (gtnhvr$bowItemInUseCountField == null) {
+                for (String name : new String[] {"itemInUseCount", "field_71072_f"}) {
+                    try {
+                        gtnhvr$bowItemInUseCountField = type.getDeclaredField(name);
+                        gtnhvr$bowItemInUseCountField.setAccessible(true);
+                        break;
+                    } catch (Throwable ignored) {}
+                }
+            }
+            type = type.getSuperclass();
+        }
+    }
+
+    /**
+     * Draw the vanilla bow texture in the same pull stage as its physical VR string.
+     * This is render-only: the player's actual item-use state is restored immediately.
+     */
+    private static void gtnhvr$renderHeldStackWithBowTension(Minecraft mc, ItemStack stack, int pass) {
+        if (mc == null || mc.thePlayer == null || stack == null) return;
+
+        if (!(stack.getItem() instanceof ItemBow)) {
+            RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
+            return;
+        }
+
+        com.gtnhvr.gameplay.tasks.VRTaskBow bow = com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance();
+        if (!bow.isDrawing() || !bow.isBowHeld(mc)
+                || (bow.isBowInMainHand() ? mc.thePlayer.getHeldItem()
+                    : VRHotbarSelector.getInstance().getOffhandItemStack(mc)) != stack) {
+            RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
+            return;
+        }
+
+        gtnhvr$findBowUseFields();
+        if (gtnhvr$bowItemInUseField == null || gtnhvr$bowItemInUseCountField == null) {
+            RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
+            return;
+        }
+
+        Object oldStack = null;
+        int oldCount = 0;
+        boolean saved = false;
+        try {
+            oldStack = gtnhvr$bowItemInUseField.get(mc.thePlayer);
+            oldCount = gtnhvr$bowItemInUseCountField.getInt(mc.thePlayer);
+            saved = true;
+
+            int maxUse = stack.getMaxItemUseDuration();
+            int drawTicks = Math.max(0, Math.min(20, Math.round(bow.getTension() * 20.0F)));
+            gtnhvr$bowItemInUseField.set(mc.thePlayer, stack);
+            gtnhvr$bowItemInUseCountField.setInt(mc.thePlayer, Math.max(0, maxUse - drawTicks));
+        } catch (Throwable ignored) {
+            // Fall back to the normal item icon when reflective use-state fields are unavailable.
+        }
+
+        try {
+            RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
+        } finally {
+            if (saved) {
+                try {
+                    gtnhvr$bowItemInUseField.set(mc.thePlayer, oldStack);
+                    gtnhvr$bowItemInUseCountField.setInt(mc.thePlayer, oldCount);
+                } catch (Throwable ignored) {}
+            }
+        }
+    }
+
     private static void renderHeldItem(Vector3f pos, Quaternionf rot, boolean isRight, Minecraft mc) {
         if (mc == null) return;
         ItemStack preview = com.gtnhvr.gui.settings.categories.controls.VRSettingsItemOffsets.getActivePreviewItem();
@@ -523,29 +609,36 @@ public final class VRHandRenderer {
 
         if (heldItem == null || heldItem.getItem() == null) return;
 
-        GL11.glPushMatrix();
-        GL11.glTranslatef(pos.x, pos.y, pos.z);
+        // Visor's notched bow state renders the string hand/arm without its held item.
+        // Avoid showing a second miniature item (usually the arrow) inside the drawn bow.
+        com.gtnhvr.gameplay.tasks.VRTaskBow bowTask = com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance();
+        if (preview == null && bowTask.isDrawing() && isRight != bowTask.isBowInMainHand()) {
+            return;
+        }
+
+        GLStateManager.glPushMatrix();
+        GLStateManager.glTranslatef(pos.x, pos.y, pos.z);
         applyQuaternionRotation(rot);
 
         float handX = isRight ? 0.015F : -0.015F;
         float handCant = isRight ? -5.0F : 5.0F; // natural inward wrist tilt
 
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glEnable(GL11.GL_ALPHA_TEST);
-        GL11.glAlphaFunc(GL11.GL_GREATER, 0.1F);
-        GL11.glDisable(GL11.GL_CULL_FACE);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL11.GL_LEQUAL);
-        GL11.glDepthMask(true);
-        GL11.glEnable(GL12.GL_RESCALE_NORMAL);
+        GLStateManager.glEnable(GL11.GL_BLEND);
+        GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GLStateManager.glEnable(GL11.GL_ALPHA_TEST);
+        GLStateManager.glAlphaFunc(GL11.GL_GREATER, 0.1F);
+        GLStateManager.glDisable(GL11.GL_CULL_FACE);
+        GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+        GLStateManager.glDepthFunc(GL11.GL_LEQUAL);
+        GLStateManager.glDepthMask(true);
+        GLStateManager.glEnable(GL12.GL_RESCALE_NORMAL);
         RenderHelper.enableStandardItemLighting();
 
         int brightness = (mc.thePlayer != null) ? mc.thePlayer.getBrightnessForRender(1.0F) : 0xF000F0;
         int lightX = brightness % 65536;
         int lightY = brightness / 65536;
-        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, (float) lightX, (float) lightY);
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GLStateManager.glMultiTexCoord2f(OpenGlHelper.lightmapTexUnit, (float) lightX, (float) lightY);
+        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
         VRItemCategory category = getItemCategory(heldItem);
         com.gtnhvr.gui.settings.categories.controls.VRSettingsItemOffsets.OffsetCategory offsetCat =
@@ -565,90 +658,101 @@ public final class VRHandRenderer {
             if (isThaumo) {
                 // Dedicated Thaumcraft Thaumometer handheld scanner transform:
                 // Compact scale, centered in hand, tilted towards eyes for comfortable scanning
-                GL11.glTranslatef(handX + offset.posX, 0.020F + offset.posY, -0.060F + offset.posZ);
-                GL11.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
-                if (offset.yaw != 0.0F) GL11.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
-                if (offset.pitch != 0.0F) GL11.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
-                if (offset.roll != 0.0F) GL11.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
+                GLStateManager.glTranslatef(handX + offset.posX, 0.020F + offset.posY, -0.060F + offset.posZ);
+                GLStateManager.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
+                if (offset.yaw != 0.0F) GLStateManager.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
+                if (offset.pitch != 0.0F) GLStateManager.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
+                if (offset.roll != 0.0F) GLStateManager.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
                 float thaumoScale = 0.08F * (offset.scale > 0.01F ? (offset.scale / 0.20F) : 1.0F);
-                GL11.glScalef(thaumoScale, thaumoScale, thaumoScale);
-                GL11.glTranslatef(-0.5F, -0.5F, -0.5F); // center scanner.obj (Thaumcraft translates 0.5, 0.5, 0.5)
-                GL11.glRotatef(25.0F, 1.0F, 0.0F, 0.0F); // tilt screen up towards face
+                GLStateManager.glScalef(thaumoScale, thaumoScale, thaumoScale);
+                GLStateManager.glTranslatef(-0.5F, -0.5F, -0.5F); // center scanner.obj (Thaumcraft translates 0.5, 0.5, 0.5)
+                GLStateManager.glRotatef(25.0F, 1.0F, 0.0F, 0.0F); // tilt screen up towards face
             } else {
                 switch (category) {
                     case BLOCK_3D: {
-                        GL11.glTranslatef(handX + offset.posX, 0.025F + offset.posY, -0.090F + offset.posZ);
-                        GL11.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
-                        if (offset.yaw != 0.0F) GL11.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
-                        if (offset.pitch != 0.0F) GL11.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
-                        if (offset.roll != 0.0F) GL11.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
-                        GL11.glScalef(offset.scale, offset.scale, offset.scale);
-                        GL11.glTranslatef(-0.5F, -0.5F, -0.5F); // center 1x1x1 unit cube
+                        GLStateManager.glTranslatef(handX + offset.posX, 0.025F + offset.posY, -0.090F + offset.posZ);
+                        GLStateManager.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
+                        if (offset.yaw != 0.0F) GLStateManager.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
+                        if (offset.pitch != 0.0F) GLStateManager.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
+                        if (offset.roll != 0.0F) GLStateManager.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
+                        GLStateManager.glScalef(offset.scale, offset.scale, offset.scale);
+                        GLStateManager.glTranslatef(-0.5F, -0.5F, -0.5F); // center 1x1x1 unit cube
                         break;
                     }
                     case SWORD: {
-                        GL11.glTranslatef(handX + offset.posX, 0.015F + offset.posY, -0.015F + offset.posZ);
-                        GL11.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
-                        if (offset.yaw != 0.0F) GL11.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
-                        if (offset.pitch != 0.0F) GL11.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
-                        if (offset.roll != 0.0F) GL11.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
-                        GL11.glScalef(offset.scale, offset.scale, offset.scale);
-                        GL11.glTranslatef(0.177F, -0.621F, -1.164F);
-                        GL11.glRotatef(37.2F, 0.0F, 1.0F, 0.0F);
-                        GL11.glRotatef(-25.4F, 1.0F, 0.0F, 0.0F);
+                        GLStateManager.glTranslatef(handX + offset.posX, 0.015F + offset.posY, -0.015F + offset.posZ);
+                        GLStateManager.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
+                        if (offset.yaw != 0.0F) GLStateManager.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
+                        if (offset.pitch != 0.0F) GLStateManager.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
+                        if (offset.roll != 0.0F) GLStateManager.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
+                        GLStateManager.glScalef(offset.scale, offset.scale, offset.scale);
+                        GLStateManager.glTranslatef(0.177F, -0.621F, -1.164F);
+                        GLStateManager.glRotatef(37.2F, 0.0F, 1.0F, 0.0F);
+                        GLStateManager.glRotatef(-25.4F, 1.0F, 0.0F, 0.0F);
                         break;
                     }
                     case TOOL:
                     case TINKER: {
-                        GL11.glTranslatef(handX + offset.posX, 0.015F + offset.posY, -0.015F + offset.posZ);
-                        GL11.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
-                        if (offset.yaw != 0.0F) GL11.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
-                        if (offset.pitch != 0.0F) GL11.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
-                        if (offset.roll != 0.0F) GL11.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
-                        GL11.glScalef(offset.scale, offset.scale, offset.scale);
-                        GL11.glTranslatef(0.250F, -0.754F, -1.068F);
-                        GL11.glRotatef(37.2F, 0.0F, 1.0F, 0.0F);
-                        GL11.glRotatef(-35.4F, 1.0F, 0.0F, 0.0F);
+                        GLStateManager.glTranslatef(handX + offset.posX, 0.015F + offset.posY, -0.015F + offset.posZ);
+                        GLStateManager.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
+                        if (offset.yaw != 0.0F) GLStateManager.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
+                        if (offset.pitch != 0.0F) GLStateManager.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
+                        if (offset.roll != 0.0F) GLStateManager.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
+                        GLStateManager.glScalef(offset.scale, offset.scale, offset.scale);
+                        GLStateManager.glTranslatef(0.250F, -0.754F, -1.068F);
+                        GLStateManager.glRotatef(37.2F, 0.0F, 1.0F, 0.0F);
+                        GLStateManager.glRotatef(-35.4F, 1.0F, 0.0F, 0.0F);
                         break;
                     }
                     case BOW: {
-                        GL11.glTranslatef(handX + offset.posX, 0.015F + offset.posY, -0.055F + offset.posZ);
-                        GL11.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
-                        if (offset.yaw != 0.0F) GL11.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
-                        if (offset.pitch != 0.0F) GL11.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
-                        if (offset.roll != 0.0F) GL11.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
-                        GL11.glScalef(offset.scale, offset.scale, offset.scale);
-                        GL11.glTranslatef(-0.103F, -0.646F, 0.0F);
-                        GL11.glRotatef(-160.0F, 0.0F, 0.0F, 1.0F);
-                        GL11.glRotatef(50.0F, 0.0F, 1.0F, 0.0F);
-                        GL11.glRotatef(-180.0F, 1.0F, 0.0F, 0.0F);
+                        // VisorEssentials BowItemPose: translate the bow out from the grip,
+                        // cant it by hand side, and rotate it using the controller's live
+                        // aim-to-grip "gun angle" rather than a fixed upright model transform.
+                        float handDir = isRight ? 1.0F : -1.0F;
+                        float gunAngle = VRControllerHandler.getInstance().getControllerGunAngle(isRight);
+                        GLStateManager.glTranslatef(handDir * 0.10F + offset.posX,
+                                offset.posY, -0.10F + offset.posZ);
+                        GLStateManager.glRotatef(handDir * -10.0F + offset.roll, 0.0F, 0.0F, 1.0F);
+                        if (offset.yaw != 0.0F) {
+                            GLStateManager.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
+                        }
+                        GLStateManager.glRotatef(gunAngle - 67.0F + offset.pitch, 1.0F, 0.0F, 0.0F);
+
+                        // Keep the Visor pose but scale the Minecraft 1.7.10 item model to a
+                        // hand-sized bow. Pull the rendered model slightly toward the player
+                        // as the physical string is drawn, rather than leaving a static vanilla bow.
+                        float bowTension = bowTask.isBowInMainHand() == isRight
+                                ? bowTask.getTension() : 0.0F;
+                        GLStateManager.glTranslatef(0.0F, 0.0F, 0.06F * bowTension);
+                        float bowScale = 0.18F * Math.max(0.0F, offset.scale / 0.28F);
+                        GLStateManager.glScalef(bowScale, bowScale, bowScale);
                         break;
                     }
                     case TORCH: {
-                        GL11.glTranslatef(handX + offset.posX, 0.020F + offset.posY, -0.055F + offset.posZ);
-                        GL11.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
-                        if (offset.yaw != 0.0F) GL11.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
-                        if (offset.pitch != 0.0F) GL11.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
-                        if (offset.roll != 0.0F) GL11.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
-                        GL11.glScalef(offset.scale, offset.scale, offset.scale);
-                        GL11.glTranslatef(-0.646F, 1.163F, 0.0F);
-                        GL11.glRotatef(110.0F, 0.0F, 0.0F, 1.0F);
-                        GL11.glRotatef(50.0F, 0.0F, 1.0F, 0.0F);
-                        GL11.glRotatef(-180.0F, 1.0F, 0.0F, 0.0F);
+                        GLStateManager.glTranslatef(handX + offset.posX, 0.020F + offset.posY, -0.055F + offset.posZ);
+                        GLStateManager.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
+                        if (offset.yaw != 0.0F) GLStateManager.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
+                        if (offset.pitch != 0.0F) GLStateManager.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
+                        if (offset.roll != 0.0F) GLStateManager.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
+                        GLStateManager.glScalef(offset.scale, offset.scale, offset.scale);
+                        GLStateManager.glTranslatef(-0.646F, 1.163F, 0.0F);
+                        GLStateManager.glRotatef(110.0F, 0.0F, 0.0F, 1.0F);
+                        GLStateManager.glRotatef(50.0F, 0.0F, 1.0F, 0.0F);
+                        GLStateManager.glRotatef(-180.0F, 1.0F, 0.0F, 0.0F);
                         break;
                     }
                     case CONSUMABLE:
                     case GENERIC:
                     default: {
-                        GL11.glTranslatef(handX + offset.posX, 0.025F + offset.posY, -0.055F + offset.posZ);
-                        GL11.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
-                        if (offset.yaw != 0.0F) GL11.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
-                        if (offset.pitch != 0.0F) GL11.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
-                        if (offset.roll != 0.0F) GL11.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
-                        GL11.glScalef(offset.scale, offset.scale, offset.scale);
-                        GL11.glTranslatef(0.485F, -0.141F, 0.416F);
-                        GL11.glRotatef(50.0F, 0.0F, 0.0F, 1.0F);
-                        GL11.glRotatef(-65.0F, 1.0F, 0.0F, 0.0F);
+                        GLStateManager.glTranslatef(handX + offset.posX, 0.025F + offset.posY, -0.055F + offset.posZ);
+                        GLStateManager.glRotatef(handCant, 0.0F, 0.0F, 1.0F);
+                        if (offset.yaw != 0.0F) GLStateManager.glRotatef(offset.yaw, 0.0F, 1.0F, 0.0F);
+                        if (offset.pitch != 0.0F) GLStateManager.glRotatef(offset.pitch, 1.0F, 0.0F, 0.0F);
+                        if (offset.roll != 0.0F) GLStateManager.glRotatef(offset.roll, 0.0F, 0.0F, 1.0F);
+                        GLStateManager.glScalef(offset.scale, offset.scale, offset.scale);
+                        GLStateManager.glTranslatef(0.485F, -0.141F, 0.416F);
+                        GLStateManager.glRotatef(50.0F, 0.0F, 0.0F, 1.0F);
+                        GLStateManager.glRotatef(-65.0F, 1.0F, 0.0F, 0.0F);
                         break;
                     }
                 }
@@ -675,10 +779,10 @@ public final class VRHandRenderer {
                                         : net.minecraftforge.client.IItemRenderer.ItemRenderType.EQUIPPED);
 
                 if (customRenderer.shouldUseRenderHelper(renderType, heldItem, net.minecraftforge.client.IItemRenderer.ItemRendererHelper.EQUIPPED_BLOCK)) {
-                    GL11.glPushMatrix();
-                    GL11.glTranslatef(-0.5F, -0.5F, -0.5F);
+                    GLStateManager.glPushMatrix();
+                    GLStateManager.glTranslatef(-0.5F, -0.5F, -0.5F);
                     customRenderer.renderItem(renderType, heldItem, rb, mc.thePlayer);
-                    GL11.glPopMatrix();
+                    GLStateManager.glPopMatrix();
                 } else {
                     customRenderer.renderItem(renderType, heldItem, rb, mc.thePlayer);
                 }
@@ -691,17 +795,17 @@ public final class VRHandRenderer {
                         float cr = (float) (color >> 16 & 255) / 255.0F;
                         float cg = (float) (color >> 8 & 255) / 255.0F;
                         float cb = (float) (color & 255) / 255.0F;
-                        GL11.glColor4f(cr, cg, cb, 1.0F);
-                        RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, heldItem, pass);
+                        GLStateManager.glColor4f(cr, cg, cb, 1.0F);
+                        gtnhvr$renderHeldStackWithBowTension(mc, heldItem, pass);
                     }
                 }
             }
         } catch (Throwable ignored) {}
 
         RenderHelper.disableStandardItemLighting();
-        GL11.glDisable(GL12.GL_RESCALE_NORMAL);
-        GL11.glDisable(GL11.GL_ALPHA_TEST);
-        GL11.glPopMatrix();
+        GLStateManager.glDisable(GL12.GL_RESCALE_NORMAL);
+        GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
+        GLStateManager.glPopMatrix();
     }
 
     /**
@@ -782,51 +886,51 @@ public final class VRHandRenderer {
             z0 -= expand; z1 += expand;
         }
 
-        GL11.glBegin(GL11.GL_QUADS);
+        GLStateManager.glBegin(GL11.GL_QUADS);
 
         // Front Face: u1..u2, v1..v2 (y0 = elbow / v1, y1 = wrist / v2)
-        GL11.glNormal3f(0.0F, 0.0F, 1.0F);
-        GL11.glTexCoord2f(u1, v1); GL11.glVertex3f(x0, y0, z1);
-        GL11.glTexCoord2f(u2, v1); GL11.glVertex3f(x1, y0, z1);
-        GL11.glTexCoord2f(u2, v2); GL11.glVertex3f(x1, y1, z1);
-        GL11.glTexCoord2f(u1, v2); GL11.glVertex3f(x0, y1, z1);
+        GLStateManager.glNormal3f(0.0F, 0.0F, 1.0F);
+        GLStateManager.glTexCoord2f(u1, v1); GLStateManager.glVertex3f(x0, y0, z1);
+        GLStateManager.glTexCoord2f(u2, v1); GLStateManager.glVertex3f(x1, y0, z1);
+        GLStateManager.glTexCoord2f(u2, v2); GLStateManager.glVertex3f(x1, y1, z1);
+        GLStateManager.glTexCoord2f(u1, v2); GLStateManager.glVertex3f(x0, y1, z1);
 
         // Back Face: u3..u4, v1..v2 (y0 = elbow / v1, y1 = wrist / v2)
-        GL11.glNormal3f(0.0F, 0.0F, -1.0F);
-        GL11.glTexCoord2f(u3, v1); GL11.glVertex3f(x1, y0, z0);
-        GL11.glTexCoord2f(u4, v1); GL11.glVertex3f(x0, y0, z0);
-        GL11.glTexCoord2f(u4, v2); GL11.glVertex3f(x0, y1, z0);
-        GL11.glTexCoord2f(u3, v2); GL11.glVertex3f(x1, y1, z0);
+        GLStateManager.glNormal3f(0.0F, 0.0F, -1.0F);
+        GLStateManager.glTexCoord2f(u3, v1); GLStateManager.glVertex3f(x1, y0, z0);
+        GLStateManager.glTexCoord2f(u4, v1); GLStateManager.glVertex3f(x0, y0, z0);
+        GLStateManager.glTexCoord2f(u4, v2); GLStateManager.glVertex3f(x0, y1, z0);
+        GLStateManager.glTexCoord2f(u3, v2); GLStateManager.glVertex3f(x1, y1, z0);
 
         // Hand End Cap (at Y = y1, pointing towards fingers): Bottom Face UVs u2..u3, v0..v1
-        GL11.glNormal3f(0.0F, 1.0F, 0.0F);
-        GL11.glTexCoord2f(u2, v0); GL11.glVertex3f(x0, y1, z1);
-        GL11.glTexCoord2f(u3, v0); GL11.glVertex3f(x1, y1, z1);
-        GL11.glTexCoord2f(u3, v1); GL11.glVertex3f(x1, y1, z0);
-        GL11.glTexCoord2f(u2, v1); GL11.glVertex3f(x0, y1, z0);
+        GLStateManager.glNormal3f(0.0F, 1.0F, 0.0F);
+        GLStateManager.glTexCoord2f(u2, v0); GLStateManager.glVertex3f(x0, y1, z1);
+        GLStateManager.glTexCoord2f(u3, v0); GLStateManager.glVertex3f(x1, y1, z1);
+        GLStateManager.glTexCoord2f(u3, v1); GLStateManager.glVertex3f(x1, y1, z0);
+        GLStateManager.glTexCoord2f(u2, v1); GLStateManager.glVertex3f(x0, y1, z0);
 
         // Elbow End Cap (at Y = y0, pointing backward to elbow): Top Face UVs u1..u2, v0..v1
-        GL11.glNormal3f(0.0F, -1.0F, 0.0F);
-        GL11.glTexCoord2f(u1, v0); GL11.glVertex3f(x0, y0, z0);
-        GL11.glTexCoord2f(u2, v0); GL11.glVertex3f(x1, y0, z0);
-        GL11.glTexCoord2f(u2, v1); GL11.glVertex3f(x1, y0, z1);
-        GL11.glTexCoord2f(u1, v1); GL11.glVertex3f(x0, y0, z1);
+        GLStateManager.glNormal3f(0.0F, -1.0F, 0.0F);
+        GLStateManager.glTexCoord2f(u1, v0); GLStateManager.glVertex3f(x0, y0, z0);
+        GLStateManager.glTexCoord2f(u2, v0); GLStateManager.glVertex3f(x1, y0, z0);
+        GLStateManager.glTexCoord2f(u2, v1); GLStateManager.glVertex3f(x1, y0, z1);
+        GLStateManager.glTexCoord2f(u1, v1); GLStateManager.glVertex3f(x0, y0, z1);
 
         // Left Side Face (X = x0, normal -1, 0, 0):
-        GL11.glNormal3f(-1.0F, 0.0F, 0.0F);
-        GL11.glTexCoord2f(uLeft0, v1); GL11.glVertex3f(x0, y0, z0);
-        GL11.glTexCoord2f(uLeft1, v1); GL11.glVertex3f(x0, y0, z1);
-        GL11.glTexCoord2f(uLeft1, v2); GL11.glVertex3f(x0, y1, z1);
-        GL11.glTexCoord2f(uLeft0, v2); GL11.glVertex3f(x0, y1, z0);
+        GLStateManager.glNormal3f(-1.0F, 0.0F, 0.0F);
+        GLStateManager.glTexCoord2f(uLeft0, v1); GLStateManager.glVertex3f(x0, y0, z0);
+        GLStateManager.glTexCoord2f(uLeft1, v1); GLStateManager.glVertex3f(x0, y0, z1);
+        GLStateManager.glTexCoord2f(uLeft1, v2); GLStateManager.glVertex3f(x0, y1, z1);
+        GLStateManager.glTexCoord2f(uLeft0, v2); GLStateManager.glVertex3f(x0, y1, z0);
 
         // Right Side Face (X = x1, normal +1, 0, 0):
-        GL11.glNormal3f(1.0F, 0.0F, 0.0F);
-        GL11.glTexCoord2f(uRight0, v1); GL11.glVertex3f(x1, y0, z1);
-        GL11.glTexCoord2f(uRight1, v1); GL11.glVertex3f(x1, y0, z0);
-        GL11.glTexCoord2f(uRight1, v2); GL11.glVertex3f(x1, y1, z0);
-        GL11.glTexCoord2f(uRight0, v2); GL11.glVertex3f(x1, y1, z1);
+        GLStateManager.glNormal3f(1.0F, 0.0F, 0.0F);
+        GLStateManager.glTexCoord2f(uRight0, v1); GLStateManager.glVertex3f(x1, y0, z1);
+        GLStateManager.glTexCoord2f(uRight1, v1); GLStateManager.glVertex3f(x1, y0, z0);
+        GLStateManager.glTexCoord2f(uRight1, v2); GLStateManager.glVertex3f(x1, y1, z0);
+        GLStateManager.glTexCoord2f(uRight0, v2); GLStateManager.glVertex3f(x1, y1, z1);
 
-        GL11.glEnd();
+        GLStateManager.glEnd();
     }
 
     /**
@@ -835,17 +939,17 @@ public final class VRHandRenderer {
      * from whose forward tip the laser beam shoots directly towards the virtual screen.
      */
     private static void renderPointerTool(Vector3f pos, Quaternionf rot, boolean isRight) {
-        GL11.glPushMatrix();
-        GL11.glTranslatef(pos.x, pos.y, pos.z);
+        GLStateManager.glPushMatrix();
+        GLStateManager.glTranslatef(pos.x, pos.y, pos.z);
 
         // Rotate into controller aim orientation
         applyQuaternionRotation(rot);
 
-        org.lwjgl.opengl.GL13.glActiveTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glDisable(GL11.GL_FOG);
-        GL11.glDisable(GL11.GL_CULL_FACE);
+        com.gtnewhorizons.angelica.glsm.GLStateManager.glActiveTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
+        GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+        GLStateManager.glDisable(GL11.GL_LIGHTING);
+        GLStateManager.glDisable(GL11.GL_FOG);
+        GLStateManager.glDisable(GL11.GL_CULL_FACE);
 
         // Pointer cuboid extends FORWARD along -Z:
         // Tip is at z0 = -0.160F (forward towards screen), Handle is at z1 = +0.020F (at controller grip)
@@ -854,33 +958,33 @@ public final class VRHandRenderer {
         float z0 = -0.160F, z1 = 0.020F;
 
         // 1. Dark charcoal/titanium pointer chassis
-        GL11.glColor4f(0.12F, 0.14F, 0.18F, 1.0F);
+        GLStateManager.glColor4f(0.12F, 0.14F, 0.18F, 1.0F);
         drawBox(x0, y0, z0, x1, y1, z1);
 
         // 2. Sleek beveled edge wireframe
-        GL11.glLineWidth(1.5F);
-        GL11.glColor4f(0.25F, 0.28F, 0.35F, 0.85F);
+        GLStateManager.glLineWidth(1.5F);
+        GLStateManager.glColor4f(0.25F, 0.28F, 0.35F, 0.85F);
         drawBoxWireframe(x0, y0, z0, x1, y1, z1);
 
         // 3. Glowing neon accent stripe (Cyan for right pointer, Amber for left pointer)
         if (isRight) {
-            GL11.glColor4f(0.0F, 0.85F, 1.0F, 0.95F); // Electric Cyan
+            GLStateManager.glColor4f(0.0F, 0.85F, 1.0F, 0.95F); // Electric Cyan
         } else {
-            GL11.glColor4f(1.0F, 0.65F, 0.10F, 0.95F); // Warm Amber
+            GLStateManager.glColor4f(1.0F, 0.65F, 0.10F, 0.95F); // Warm Amber
         }
         float stripeH = 0.003F;
         drawBox(x0 - 0.0005F, -stripeH, z0 + 0.015F, x1 + 0.0005F, stripeH, z1 - 0.015F);
 
         // 4. Luminous emitter ring around forward tip (Z = -0.160F)
-        GL11.glLineWidth(2.5F);
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        GL11.glVertex3f(x0 * 0.7F, y0 * 0.7F, z0 - 0.001F);
-        GL11.glVertex3f(x1 * 0.7F, y0 * 0.7F, z0 - 0.001F);
-        GL11.glVertex3f(x1 * 0.7F, y1 * 0.7F, z0 - 0.001F);
-        GL11.glVertex3f(x0 * 0.7F, y1 * 0.7F, z0 - 0.001F);
-        GL11.glEnd();
+        GLStateManager.glLineWidth(2.5F);
+        GLStateManager.glBegin(GL11.GL_LINE_LOOP);
+        GLStateManager.glVertex3f(x0 * 0.7F, y0 * 0.7F, z0 - 0.001F);
+        GLStateManager.glVertex3f(x1 * 0.7F, y0 * 0.7F, z0 - 0.001F);
+        GLStateManager.glVertex3f(x1 * 0.7F, y1 * 0.7F, z0 - 0.001F);
+        GLStateManager.glVertex3f(x0 * 0.7F, y1 * 0.7F, z0 - 0.001F);
+        GLStateManager.glEnd();
 
-        GL11.glPopMatrix();
+        GLStateManager.glPopMatrix();
     }
 
     private static void applyQuaternionRotation(Quaternionf rot) {
@@ -894,53 +998,53 @@ public final class VRHandRenderer {
         float sinHalf = (float) Math.sqrt(Math.max(0.0F, 1.0F - qw * qw));
         if (sinHalf > 1e-4F) {
             float angleDeg = (float) Math.toDegrees(2.0 * Math.acos(Math.min(1.0F, qw)));
-            GL11.glRotatef(angleDeg, qx / sinHalf, qy / sinHalf, qz / sinHalf);
+            GLStateManager.glRotatef(angleDeg, qx / sinHalf, qy / sinHalf, qz / sinHalf);
         }
     }
 
     private static void drawBox(float x0, float y0, float z0, float x1, float y1, float z1) {
-        GL11.glBegin(GL11.GL_QUADS);
+        GLStateManager.glBegin(GL11.GL_QUADS);
         // Front (Z = z0, tip)
-        GL11.glNormal3f(0.0F, 0.0F, -1.0F);
-        GL11.glVertex3f(x0, y0, z0); GL11.glVertex3f(x1, y0, z0);
-        GL11.glVertex3f(x1, y1, z0); GL11.glVertex3f(x0, y1, z0);
+        GLStateManager.glNormal3f(0.0F, 0.0F, -1.0F);
+        GLStateManager.glVertex3f(x0, y0, z0); GLStateManager.glVertex3f(x1, y0, z0);
+        GLStateManager.glVertex3f(x1, y1, z0); GLStateManager.glVertex3f(x0, y1, z0);
         // Back (Z = z1, handle)
-        GL11.glNormal3f(0.0F, 0.0F, 1.0F);
-        GL11.glVertex3f(x1, y0, z1); GL11.glVertex3f(x0, y0, z1);
-        GL11.glVertex3f(x0, y1, z1); GL11.glVertex3f(x1, y1, z1);
+        GLStateManager.glNormal3f(0.0F, 0.0F, 1.0F);
+        GLStateManager.glVertex3f(x1, y0, z1); GLStateManager.glVertex3f(x0, y0, z1);
+        GLStateManager.glVertex3f(x0, y1, z1); GLStateManager.glVertex3f(x1, y1, z1);
         // Top (Y = y1)
-        GL11.glNormal3f(0.0F, 1.0F, 0.0F);
-        GL11.glVertex3f(x0, y1, z0); GL11.glVertex3f(x1, y1, z0);
-        GL11.glVertex3f(x1, y1, z1); GL11.glVertex3f(x0, y1, z1);
+        GLStateManager.glNormal3f(0.0F, 1.0F, 0.0F);
+        GLStateManager.glVertex3f(x0, y1, z0); GLStateManager.glVertex3f(x1, y1, z0);
+        GLStateManager.glVertex3f(x1, y1, z1); GLStateManager.glVertex3f(x0, y1, z1);
         // Bottom (Y = y0)
-        GL11.glNormal3f(0.0F, -1.0F, 0.0F);
-        GL11.glVertex3f(x0, y0, z1); GL11.glVertex3f(x1, y0, z1);
-        GL11.glVertex3f(x1, y0, z0); GL11.glVertex3f(x0, y0, z0);
+        GLStateManager.glNormal3f(0.0F, -1.0F, 0.0F);
+        GLStateManager.glVertex3f(x0, y0, z1); GLStateManager.glVertex3f(x1, y0, z1);
+        GLStateManager.glVertex3f(x1, y0, z0); GLStateManager.glVertex3f(x0, y0, z0);
         // Left (X = x0)
-        GL11.glNormal3f(-1.0F, 0.0F, 0.0F);
-        GL11.glVertex3f(x0, y0, z1); GL11.glVertex3f(x0, y0, z0);
-        GL11.glVertex3f(x0, y1, z0); GL11.glVertex3f(x0, y1, z1);
+        GLStateManager.glNormal3f(-1.0F, 0.0F, 0.0F);
+        GLStateManager.glVertex3f(x0, y0, z1); GLStateManager.glVertex3f(x0, y0, z0);
+        GLStateManager.glVertex3f(x0, y1, z0); GLStateManager.glVertex3f(x0, y1, z1);
         // Right (X = x1)
-        GL11.glNormal3f(1.0F, 0.0F, 0.0F);
-        GL11.glVertex3f(x1, y0, z0); GL11.glVertex3f(x1, y0, z1);
-        GL11.glVertex3f(x1, y1, z1); GL11.glVertex3f(x1, y1, z0);
-        GL11.glEnd();
+        GLStateManager.glNormal3f(1.0F, 0.0F, 0.0F);
+        GLStateManager.glVertex3f(x1, y0, z0); GLStateManager.glVertex3f(x1, y0, z1);
+        GLStateManager.glVertex3f(x1, y1, z1); GLStateManager.glVertex3f(x1, y1, z0);
+        GLStateManager.glEnd();
     }
 
     private static void drawBoxWireframe(float x0, float y0, float z0, float x1, float y1, float z1) {
-        GL11.glBegin(GL11.GL_LINE_STRIP);
-        GL11.glVertex3f(x0, y0, z0); GL11.glVertex3f(x1, y0, z0);
-        GL11.glVertex3f(x1, y1, z0); GL11.glVertex3f(x0, y1, z0);
-        GL11.glVertex3f(x0, y0, z0);
-        GL11.glVertex3f(x0, y0, z1); GL11.glVertex3f(x1, y0, z1);
-        GL11.glVertex3f(x1, y1, z1); GL11.glVertex3f(x0, y1, z1);
-        GL11.glVertex3f(x0, y0, z1);
-        GL11.glEnd();
+        GLStateManager.glBegin(GL11.GL_LINE_STRIP);
+        GLStateManager.glVertex3f(x0, y0, z0); GLStateManager.glVertex3f(x1, y0, z0);
+        GLStateManager.glVertex3f(x1, y1, z0); GLStateManager.glVertex3f(x0, y1, z0);
+        GLStateManager.glVertex3f(x0, y0, z0);
+        GLStateManager.glVertex3f(x0, y0, z1); GLStateManager.glVertex3f(x1, y0, z1);
+        GLStateManager.glVertex3f(x1, y1, z1); GLStateManager.glVertex3f(x0, y1, z1);
+        GLStateManager.glVertex3f(x0, y0, z1);
+        GLStateManager.glEnd();
 
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glVertex3f(x1, y0, z0); GL11.glVertex3f(x1, y0, z1);
-        GL11.glVertex3f(x1, y1, z0); GL11.glVertex3f(x1, y1, z1);
-        GL11.glVertex3f(x0, y1, z0); GL11.glVertex3f(x0, y1, z1);
-        GL11.glEnd();
+        GLStateManager.glBegin(GL11.GL_LINES);
+        GLStateManager.glVertex3f(x1, y0, z0); GLStateManager.glVertex3f(x1, y0, z1);
+        GLStateManager.glVertex3f(x1, y1, z0); GLStateManager.glVertex3f(x1, y1, z1);
+        GLStateManager.glVertex3f(x0, y1, z0); GLStateManager.glVertex3f(x0, y1, z1);
+        GLStateManager.glEnd();
     }
 }
