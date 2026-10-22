@@ -28,8 +28,163 @@ public final class VRCustomOverlayRenderer {
     }
 
     private static final Map<String, PoseState> POSES = new HashMap<>();
+    private static final Map<String, PreviewPoseState> PREVIEW_POSES = new HashMap<>();
+
+    private static final class PreviewPoseState {
+        final Vector3f position = new Vector3f();
+        final Quaternionf rotation = new Quaternionf();
+        boolean initialized;
+        int optionSignature;
+    }
 
     private VRCustomOverlayRenderer() {}
+
+    /**
+     * In-world pose preview for Setup Overlays. The preview deliberately ignores
+     * the target's visibility flag so a hidden overlay can still be positioned.
+     * The regular overlay renderers are normally not drawn while a GuiScreen is
+     * active, hence this small isolated path is called from the settings GUI pass.
+     */
+    public static void renderSetupPreview(String overlayId, int eyeIndex,
+            Vector3f hmdPosition, Quaternionf hmdRotation) {
+        if (overlayId == null || hmdPosition == null || hmdRotation == null) return;
+        if (VROverlayConfig.GAME_SCREEN.equals(overlayId)) return;
+
+        VROverlayConfig.Entry config = VROverlayConfig.get(overlayId);
+        if (config == null) return;
+
+        String template = config.custom ? config.template : overlayId;
+        if (VROverlayConfig.GAME_SCREEN.equals(template)) return;
+
+        PreviewPoseState pose = PREVIEW_POSES.computeIfAbsent(overlayId, key -> new PreviewPoseState());
+        int signature = config.anchor.hashCode();
+        signature = 31 * signature + Float.floatToIntBits(config.distance);
+        signature = 31 * signature + Float.floatToIntBits(config.offsetX);
+        signature = 31 * signature + Float.floatToIntBits(config.offsetY);
+        if (!pose.initialized || (eyeIndex == 0
+                && ("WORLD".equals(config.anchor) && pose.optionSignature != signature))) {
+            updatePreviewPose(pose, config, hmdPosition, hmdRotation);
+            pose.optionSignature = signature;
+        } else if (!"WORLD".equals(config.anchor) && eyeIndex == 0) {
+            updatePreviewPose(pose, config, hmdPosition, hmdRotation);
+            pose.optionSignature = signature;
+        }
+
+        float baseWidth = VROverlayConfig.HUD.equals(template) ? 1.35F
+                : VROverlayConfig.KEYBOARD.equals(template) ? 0.62F
+                : VROverlayConfig.HOTBAR_MAIN.equals(template) || VROverlayConfig.HOTBAR_OFFHAND.equals(template) ? 0.36F
+                : VROverlayConfig.CROSSHAIR.equals(template) ? 0.16F : 0.58F;
+        int texture = VROverlayConfig.HUD.equals(template) ? VRHudRenderer.getTextureId() : 0;
+        int textureWidth = texture > 0 ? VRHudRenderer.getWidth() : 0;
+        int textureHeight = texture > 0 ? VRHudRenderer.getHeight() : 0;
+        float aspect = textureWidth > 0 && textureHeight > 0
+                ? (float) textureHeight / (float) textureWidth
+                : (VROverlayConfig.KEYBOARD.equals(template) ? 0.42F : 0.62F);
+        float width = baseWidth * Math.max(0.2F, Math.min(3.0F, config.scale));
+        float halfWidth = width * 0.5F;
+        float halfHeight = width * aspect * 0.5F;
+        float alpha = Math.max(0.18F, Math.min(1.0F, config.opacity));
+        boolean enabled = config.visible;
+
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
+        try {
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthMask(false);
+            GLStateManager.glEnable(GL11.GL_BLEND);
+            GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GLStateManager.glTranslatef(pose.position.x, pose.position.y, pose.position.z);
+            AxisAngle4f axisAngle = new AxisAngle4f(pose.rotation);
+            if (axisAngle.angle != 0.0F
+                    && (axisAngle.x != 0.0F || axisAngle.y != 0.0F || axisAngle.z != 0.0F)) {
+                GLStateManager.glRotatef((float) Math.toDegrees(axisAngle.angle),
+                        axisAngle.x, axisAngle.y, axisAngle.z);
+            }
+
+            if (texture > 0 && textureWidth > 0 && textureHeight > 0) {
+                GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+                GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+                GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, enabled ? alpha : Math.min(0.3F, alpha));
+                GLStateManager.glBegin(GL11.GL_QUADS);
+                GLStateManager.glTexCoord2f(0.0F, 0.0F); GLStateManager.glVertex3f(-halfWidth, -halfHeight, 0.0F);
+                GLStateManager.glTexCoord2f(1.0F, 0.0F); GLStateManager.glVertex3f( halfWidth, -halfHeight, 0.0F);
+                GLStateManager.glTexCoord2f(1.0F, 1.0F); GLStateManager.glVertex3f( halfWidth,  halfHeight, 0.0F);
+                GLStateManager.glTexCoord2f(0.0F, 1.0F); GLStateManager.glVertex3f(-halfWidth,  halfHeight, 0.0F);
+                GLStateManager.glEnd();
+            } else {
+                GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+                GLStateManager.glColor4f(0.06F, 0.10F, 0.15F, enabled ? Math.min(0.72F, alpha) : 0.22F);
+                GLStateManager.glBegin(GL11.GL_QUADS);
+                GLStateManager.glVertex3f(-halfWidth, -halfHeight, 0.0F);
+                GLStateManager.glVertex3f( halfWidth, -halfHeight, 0.0F);
+                GLStateManager.glVertex3f( halfWidth,  halfHeight, 0.0F);
+                GLStateManager.glVertex3f(-halfWidth,  halfHeight, 0.0F);
+                GLStateManager.glEnd();
+
+                // Draw a recognizable template silhouette inside the translucent plane.
+                GLStateManager.glColor4f(0.34F, 0.72F, 1.0F, enabled ? 0.88F : 0.52F);
+                GLStateManager.glBegin(GL11.GL_LINES);
+                if (VROverlayConfig.HOTBAR_MAIN.equals(template) || VROverlayConfig.HOTBAR_OFFHAND.equals(template)) {
+                    for (int row = 0; row <= 3; row++) {
+                        float y = -halfHeight + (2.0F * halfHeight * row / 3.0F);
+                        GLStateManager.glVertex3f(-halfWidth * 0.78F, y, 0.001F);
+                        GLStateManager.glVertex3f( halfWidth * 0.78F, y, 0.001F);
+                    }
+                    for (int col = 0; col <= 3; col++) {
+                        float x = -halfWidth * 0.78F + (1.56F * halfWidth * col / 3.0F);
+                        GLStateManager.glVertex3f(x, -halfHeight, 0.001F);
+                        GLStateManager.glVertex3f(x, halfHeight, 0.001F);
+                    }
+                } else {
+                    for (int row = 1; row <= 3; row++) {
+                        float y = -halfHeight + (2.0F * halfHeight * row / 4.0F);
+                        GLStateManager.glVertex3f(-halfWidth * 0.76F, y, 0.001F);
+                        GLStateManager.glVertex3f( halfWidth * 0.76F, y, 0.001F);
+                    }
+                    GLStateManager.glVertex3f(-halfWidth * 0.76F, -halfHeight * 0.5F, 0.001F);
+                    GLStateManager.glVertex3f( halfWidth * 0.76F, -halfHeight * 0.5F, 0.001F);
+                }
+                GLStateManager.glEnd();
+            }
+
+            // A thin cyan/red outline indicates the preview target even at low opacity.
+            GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glLineWidth(1.6F);
+            GLStateManager.glColor4f(enabled ? 0.30F : 1.0F, enabled ? 0.78F : 0.28F,
+                    enabled ? 1.0F : 0.30F, 0.95F);
+            GLStateManager.glBegin(GL11.GL_LINE_LOOP);
+            GLStateManager.glVertex3f(-halfWidth, -halfHeight, 0.003F);
+            GLStateManager.glVertex3f( halfWidth, -halfHeight, 0.003F);
+            GLStateManager.glVertex3f( halfWidth,  halfHeight, 0.003F);
+            GLStateManager.glVertex3f(-halfWidth,  halfHeight, 0.003F);
+            GLStateManager.glEnd();
+        } finally {
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
+        }
+    }
+
+    private static void updatePreviewPose(PreviewPoseState pose, VROverlayConfig.Entry config,
+            Vector3f hmdPosition, Quaternionf hmdRotation) {
+        if ("MAIN_HAND".equals(config.anchor) || "OFFHAND".equals(config.anchor)) {
+            VRControllerHandler handler = VRControllerHandler.getInstance();
+            boolean main = "MAIN_HAND".equals(config.anchor);
+            Vector3f handPosition = main ? handler.getRightHandPos() : handler.getLeftHandPos();
+            Quaternionf handRotation = main ? handler.getRightHandRot() : handler.getLeftHandRot();
+            pose.rotation.set(handRotation);
+            pose.position.set(handPosition).add(handRotation.transform(
+                    new Vector3f(config.offsetX, config.offsetY, -config.distance), new Vector3f()));
+        } else if ("WORLD".equals(config.anchor) && pose.initialized) {
+            // A world-anchored preview only moves when one of its position settings changes.
+        } else {
+            pose.rotation.set(hmdRotation);
+            pose.position.set(hmdPosition).add(hmdRotation.transform(
+                    new Vector3f(config.offsetX, config.offsetY, -config.distance), new Vector3f()));
+        }
+        pose.initialized = true;
+    }
 
     public static void resetPoses() {
         POSES.clear();
