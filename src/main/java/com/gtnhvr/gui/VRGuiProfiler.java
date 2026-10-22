@@ -37,6 +37,10 @@ public final class VRGuiProfiler {
 
     private VRGuiProfiler() {}
 
+    public static boolean isEnabled() {
+        return ENABLED;
+    }
+
     public static long startCpu() {
         return ENABLED ? System.nanoTime() : 0L;
     }

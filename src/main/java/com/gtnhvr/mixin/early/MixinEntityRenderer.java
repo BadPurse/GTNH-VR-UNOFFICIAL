@@ -101,6 +101,11 @@ public abstract class MixinEntityRenderer {
             mouseX = VRGuiRenderer.mapMouseXToLogicalScreen(mouseX, screen.width);
             mouseY = VRGuiRenderer.mapMouseYToLogicalScreen(mouseY, screen.height);
         }
+        if (!com.gtnhvr.gui.VRGuiProfiler.isEnabled()) {
+            screen.drawScreen(mouseX, mouseY, partialTicks);
+            return;
+        }
+
         long drawStartNanos = com.gtnhvr.gui.VRGuiProfiler.startCpu();
         try {
             screen.drawScreen(mouseX, mouseY, partialTicks);
