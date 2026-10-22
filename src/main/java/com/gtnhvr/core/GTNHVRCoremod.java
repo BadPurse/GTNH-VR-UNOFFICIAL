@@ -42,6 +42,7 @@ public class GTNHVRCoremod implements IFMLLoadingPlugin, IEarlyMixinLoader {
                 "MixinGuiSlot",
                 "MixinGuiTextField",
                 "MixinItemRenderer",
+                "MixinModelBipedRemoteVRArms",
                 "MixinLWJGLXDisplay",
                 "MixinLWJGLXMouse",
                 "MixinLWJGLXGL11Alpha",

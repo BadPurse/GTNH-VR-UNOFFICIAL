@@ -24,6 +24,7 @@
     "MixinGuiSlot",
     "MixinGuiTextField",
     "MixinItemRenderer",
+    "MixinModelBipedRemoteVRArms",
     "MixinLWJGLXDisplay",
     "MixinLWJGLXMouse",
     "MixinLWJGLXGL11Alpha",
