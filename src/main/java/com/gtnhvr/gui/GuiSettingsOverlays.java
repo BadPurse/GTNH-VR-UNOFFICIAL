@@ -83,6 +83,7 @@ public class GuiSettingsOverlays extends GuiScreen {
     private GuiTextField overlaySearchField;
     private GuiTextField customNameField;
     private GuiTextField customDescriptionField;
+    private GuiTextField templateSearchField;
     private boolean showFilterPanel;
     private boolean filterBuiltIn = true;
     private boolean filterCustom = true;
@@ -450,6 +451,10 @@ public class GuiSettingsOverlays extends GuiScreen {
             customDescriptionField = new GuiTextField(2, this.fontRendererObj, 0, 0, 1, 1);
             customDescriptionField.setMaxStringLength(120);
         }
+        if (templateSearchField == null) {
+            templateSearchField = new GuiTextField(3, this.fontRendererObj, 0, 0, 1, 1);
+            templateSearchField.setMaxStringLength(64);
+        }
         layoutTextFields();
     }
 
@@ -472,11 +477,18 @@ public class GuiSettingsOverlays extends GuiScreen {
             customDescriptionField.width = scaleHelper.scaledSize(126);
             customDescriptionField.height = scaleHelper.scaledSize(15);
         }
+        if (templateSearchField != null) {
+            templateSearchField.xPosition = scaleHelper.scaledX(14);
+            templateSearchField.yPosition = scaleHelper.scaledY(35);
+            templateSearchField.width = scaleHelper.scaledSize(96);
+            templateSearchField.height = scaleHelper.scaledSize(15);
+        }
     }
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         scaleHelper.computeScale(this.width, this.height);
+        layoutTextFields();
 
         // Dark translucent background tint
         drawDefaultBackground();
@@ -809,49 +821,73 @@ public class GuiSettingsOverlays extends GuiScreen {
 
     private void drawCreateTab(int mouseX, int mouseY, int bgX, int bgY) {
         int listX = bgX + scaleHelper.scaledSize(14);
-        int listY = bgY + scaleHelper.scaledSize(40);
+        int searchY = bgY + scaleHelper.scaledSize(35);
+        int listY = bgY + scaleHelper.scaledSize(54);
         int listW = scaleHelper.scaledSize(96);
-        int itemH = scaleHelper.scaledSize(22);
+        int itemH = scaleHelper.scaledSize(24);
 
-        drawString(this.fontRendererObj, "\u00a77Select Template:", listX, listY - scaleHelper.scaledSize(8), 0xAAAAAA);
+        drawString(this.fontRendererObj, "\u00a77SELECT TEMPLATE", listX,
+                listY - scaleHelper.scaledSize(7), 0xAAAAAA);
+        if (templateSearchField != null) templateSearchField.drawTextBox();
 
+        String query = templateSearchField == null ? "" : templateSearchField.getText().trim().toLowerCase(Locale.ROOT);
         for (int i = 0; i < TEMPLATES.length; i++) {
-            int curY = listY + i * itemH;
-            boolean hovered = isHovered(mouseX, mouseY, listX, curY, listW, itemH - scaleHelper.scaledSize(2));
-            boolean selected = (i == selectedTemplate);
-
-            drawRect(listX, curY, listX + listW, curY + itemH - scaleHelper.scaledSize(2),
+            String searchable = (TEMPLATES[i] + " " + templateDescription(TEMPLATE_IDS[i])).toLowerCase(Locale.ROOT);
+            if (!query.isEmpty() && !searchable.contains(query)) continue;
+            int visibleIndex = visibleTemplateIndexBefore(i, query);
+            int rowY = listY + visibleIndex * itemH;
+            boolean hovered = isHovered(mouseX, mouseY, listX, rowY, listW, itemH - scaleHelper.scaledSize(2));
+            boolean selected = i == selectedTemplate;
+            drawRect(listX, rowY, listX + listW, rowY + itemH - scaleHelper.scaledSize(2),
                     selected ? 0xFF305080 : (hovered ? 0xFF404040 : 0xFF202020));
-            if (selected) {
-                drawRect(listX, curY, listX + scaleHelper.scaledSize(2), curY + itemH - scaleHelper.scaledSize(2), 0xFF26D9FF);
-            }
+            if (selected) drawRect(listX, rowY, listX + scaleHelper.scaledSize(2),
+                    rowY + itemH - scaleHelper.scaledSize(2), 0xFF26D9FF);
             drawString(this.fontRendererObj, TEMPLATES[i], listX + scaleHelper.scaledSize(6),
-                    curY + (itemH - 10) / 2, selected ? 0xFFFFFF : 0xCCCCCC);
+                    rowY + scaleHelper.scaledSize(7), selected ? 0xFFFFFFFF : 0xFFCCCCCC);
         }
 
-        // Right side: Creation Properties
         int detailX = bgX + scaleHelper.scaledSize(118);
         int detailY = bgY + scaleHelper.scaledSize(40);
         int detailW = scaleHelper.scaledSize(128);
+        drawString(this.fontRendererObj, "\u00a7f\u00a7lCreate Overlay", detailX, detailY, 0xFFFFFFFF);
+        drawString(this.fontRendererObj, "\u00a77Display name", detailX, bgY + scaleHelper.scaledSize(61), 0xFFAAAAAA);
+        if (customNameField != null) customNameField.drawTextBox();
+        drawString(this.fontRendererObj, "\u00a77Description (optional)", detailX,
+                bgY + scaleHelper.scaledSize(89), 0xFFAAAAAA);
+        if (customDescriptionField != null) customDescriptionField.drawTextBox();
 
-        drawString(this.fontRendererObj, "\u00a7f\u00a7lCreate " + TEMPLATES[selectedTemplate] + " Overlay", detailX, detailY, 0xFFFFFF);
-        detailY += scaleHelper.scaledSize(18);
+        int infoY = bgY + scaleHelper.scaledSize(122);
+        drawString(this.fontRendererObj, "\u00a77Template behaviour", detailX, infoY, 0xFFAAAAAA);
+        this.fontRendererObj.drawSplitString(templateDescription(TEMPLATE_IDS[selectedTemplate]), detailX,
+                infoY + scaleHelper.scaledSize(11), detailW, 0x999999);
 
-        drawRect(detailX, detailY, detailX + detailW, detailY + scaleHelper.scaledSize(16), 0xFF202020);
-        drawString(this.fontRendererObj, "\u00a78Name: custom_" + TEMPLATES[selectedTemplate].toLowerCase(),
-                detailX + scaleHelper.scaledSize(4), detailY + scaleHelper.scaledSize(4), 0xAAAAAA);
-        detailY += scaleHelper.scaledSize(22);
-
-        drawRect(detailX, detailY, detailX + detailW, detailY + scaleHelper.scaledSize(16), 0xFF202020);
-        drawString(this.fontRendererObj, "\u00a78Anchor: HMD",
-                detailX + scaleHelper.scaledSize(4), detailY + scaleHelper.scaledSize(4), 0xAAAAAA);
-        detailY += scaleHelper.scaledSize(28);
-
-        // Create Button
-        boolean createHover = isHovered(mouseX, mouseY, detailX, detailY, detailW, scaleHelper.scaledSize(18));
-        drawRect(detailX, detailY, detailX + detailW, detailY + scaleHelper.scaledSize(18), createHover ? 0xFF306030 : 0xFF204020);
+        int createY = bgY + scaleHelper.scaledSize(218);
+        int createH = scaleHelper.scaledSize(16);
+        boolean createHover = isHovered(mouseX, mouseY, detailX, createY, detailW, createH);
+        boolean valid = customNameField != null && !customNameField.getText().trim().isEmpty();
+        drawRect(detailX, createY, detailX + detailW, createY + createH,
+                !valid ? 0xFF252525 : (createHover ? 0xFF306030 : 0xFF204020));
         drawCenteredString(this.fontRendererObj, "\u00a7a+ Create Overlay", detailX + detailW / 2,
-                detailY + (scaleHelper.scaledSize(18) - 8) / 2, 0xFFFFFF);
+                createY + (createH - 8) / 2, valid ? 0xFFFFFFFF : 0xFF777777);
+    }
+
+    private static String templateDescription(String template) {
+        if (VROverlayConfig.GAME_SCREEN.equals(template)) {
+            return "Independent copy of the live GUI texture for inventory, crafting, AE2 and machine screens.";
+        }
+        if (VROverlayConfig.KEYBOARD.equals(template)) {
+            return "Independent copy of the virtual keyboard texture, with its own placement and scale.";
+        }
+        return "Independent copy of the captured HUD texture. Its position, anchor, scale and curvature are saved separately.";
+    }
+
+    private int visibleTemplateIndexBefore(int templateIndex, String query) {
+        int count = 0;
+        for (int i = 0; i < templateIndex; i++) {
+            String searchable = (TEMPLATES[i] + " " + templateDescription(TEMPLATE_IDS[i])).toLowerCase(Locale.ROOT);
+            if (query.isEmpty() || searchable.contains(query)) count++;
+        }
+        return count;
     }
 
     @Override
