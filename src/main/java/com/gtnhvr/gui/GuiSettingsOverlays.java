@@ -731,9 +731,43 @@ public class GuiSettingsOverlays extends GuiScreen {
     }
 
     private void rebuildSelection() {
-        List<String> ids = VROverlayConfig.getAllIds().length == 0 ? new ArrayList<>() : List.of(VROverlayConfig.getAllIds());
+        List<String> ids = new ArrayList<>();
+        for (String id : VROverlayConfig.getAllIds()) ids.add(id);
         selectedId = ids.isEmpty() ? null : ids.get(0);
         refreshSelectedFields();
+    }
+
+    private float stickScrollAccum;
+
+    /**
+     * Thumbstick navigation provided by VRControllerHandler while this screen is open.
+     * Scroll the filtered overlay list when pointing at the left pane; otherwise
+     * cycle the selected option group so every group is reachable without a mouse.
+     */
+    public void handleStickScroll(float stickY, int mouseX, int mouseY) {
+        if (tab != Tab.OVERLAYS) return;
+        if (Math.abs(stickY) < 0.15F) {
+            stickScrollAccum = 0.0F;
+            return;
+        }
+        stickScrollAccum += stickY * 0.55F;
+        if (Math.abs(stickScrollAccum) < 0.42F) return;
+        int steps = Math.max(1, (int) Math.abs(stickScrollAccum));
+        int direction = stickScrollAccum > 0.0F ? -1 : 1;
+        stickScrollAccum = 0.0F;
+        int logicalX = toLogicalX(mouseX);
+        int logicalY = toLogicalY(mouseY);
+        if (logicalX <= 108 && logicalY >= 48 && logicalY <= 191) {
+            int maxScroll = Math.max(0, getVisibleIds().size() - Math.max(1, (190 - (showFilters ? 80 : 50) - 2) / 11));
+            listScroll = Math.max(0, Math.min(maxScroll, listScroll + direction * steps));
+        } else {
+            Group[] groups = Group.values();
+            int current = group.ordinal();
+            int next = Math.max(0, Math.min(groups.length - 1, current + direction * steps));
+            if (groups[next] != Group.GENERAL || (selectedId != null && VROverlayConfig.get(selectedId).custom)) {
+                group = groups[next];
+            }
+        }
     }
 
     private boolean containsId(String id) {
