@@ -196,6 +196,9 @@ public final class VRHudRenderer {
         if (texture <= 0 || width <= 0 || height <= 0) return;
 
         VROverlayConfig.Entry cfg = VROverlayConfig.get(VROverlayConfig.HUD);
+        // User-created HUD copies render independently of the visibility of the built-in HUD.
+        VRCustomOverlayRenderer.renderFromPose(VROverlayConfig.HUD, eyeIndex, hmdPos, hmdRot,
+                texture, width, height, 1.35F, 1.0F, 1.0F, false);
         if (!cfg.visible) return;
 
         if (eyeIndex == 0) {
