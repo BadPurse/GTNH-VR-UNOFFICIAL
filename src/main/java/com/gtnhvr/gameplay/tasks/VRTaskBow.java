@@ -108,7 +108,9 @@ public class VRTaskBow {
 
     public void update(Minecraft mc, VRControllerHandler handler) {
         if (!isBowHeld(mc)) {
-            if (drawing) finishDraw();
+            // Losing the bow, a tracked hand, or the active screen is cancellation, not a shot.
+            // Do not leave a stale release timestamp that can affect the next vanilla arrow.
+            if (drawing) clear();
             return;
         }
 
