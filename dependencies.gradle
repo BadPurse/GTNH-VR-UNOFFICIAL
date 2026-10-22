@@ -47,6 +47,10 @@ dependencies {
     shadowImplementation("org.lwjgl:lwjgl-openxr:3.4.3:natives-windows") {
         transitive = false
     }
+    // OpenXR runtime support on Linux (e.g. Monado). Keep native packaging aligned with the README.
+    shadowImplementation("org.lwjgl:lwjgl-openxr:3.4.3:natives-linux") {
+        transitive = false
+    }
 
     // JOML for 3D math & VR camera projection matrices
     shadowImplementation("org.joml:joml:1.10.8") {
