@@ -76,7 +76,7 @@ public final class VRWristMapOverlay {
         Quaternionf rotOffset = new Quaternionf().rotationY(
                 wristIsRight ? -(float) (Math.PI / 2.0) : (float) (Math.PI / 2.0)
         );
-        Quaternionf panelRot = new Quaternionf(wristRot).mul(rotOffset);
+        Quaternionf panelRot = VRCustomOverlayRenderer.getConfiguredRotation(cfg, hmdRot).mul(rotOffset).normalize();
 
         panelRot.transform(new Vector3f(1.0F, 0.0F, 0.0F), right);
         panelRot.transform(new Vector3f(0.0F, 1.0F, 0.0F), up);
