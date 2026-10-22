@@ -12,10 +12,10 @@ import org.joml.Vector3f;
 
 /**
  * Physical two-handed bow. With a bow in the main hand, the off hand grabs the string by pulling
- * the off hand trigger close to the bow hand. The distance between the hands sets the draw
- * strength, the line from the off hand to the bow hand sets the shot direction and releasing
- * the trigger shoots. Draw strength is applied to the arrow through Forge's ArrowLooseEvent
- * (integrated server), the direction through the player look direction at release time.
+ * the off hand trigger close to the bow hand. The distance between the hands sets draw strength;
+ * the bow controller's aim pose sets the shot direction, matching the VR aim crosshair. Releasing
+ * the trigger shoots. Draw strength is applied through Forge's ArrowLooseEvent, while the aim is
+ * applied to player rotation for projectile creation and synchronized to a compatible server.
  */
 @Lwjgl3Aware
 public class VRTaskBow {
