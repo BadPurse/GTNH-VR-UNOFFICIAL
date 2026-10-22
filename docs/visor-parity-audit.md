@@ -47,8 +47,8 @@ The branch has passed GitHub Actions compile and post-build checks on code commi
 3. Run in-game checks for each settings toggle and preset: change the value, save, restart, and verify both behavior and config persistence.
 4. Test controller mappings, hand styles, GUI focus/drag/drop/scrolling, container slots, inventory screens, and bow draw/release with the actual GTNH set of container mods.
 5. Test remote pose relay with two Java 25 GTNHVR clients on an integrated server and a dedicated GTNH server; also join with an older GTNHVR client and a non-GTNHVR client to verify handshake compatibility and packet gating.
-5. Test startup and shutdown on Windows/OpenXR and Linux/Monado, including the client-only code path and a dedicated server.
-6. Compare networking and remote-player behavior explicitly before claiming multiplayer parity.
+6. Test startup and shutdown on Windows/OpenXR and Linux/Monado, including the client-only code path and a dedicated server.
+7. Compare networking and remote-player behavior explicitly before claiming multiplayer parity.
 
 ## Source links
 
