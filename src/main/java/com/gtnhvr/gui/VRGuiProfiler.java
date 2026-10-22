@@ -139,7 +139,7 @@ public final class VRGuiProfiler {
             while (it.hasNext()) {
                 GpuSample sample = it.next();
                 if (GL15.glGetQueryObjecti(sample.query, GL15.GL_QUERY_RESULT_AVAILABLE) == 0) continue;
-                long elapsedNanos = GL33.glGetQueryObjecti64(sample.query, GL15.GL_QUERY_RESULT);
+                long elapsedNanos = GL33.glGetQueryObjectui64(sample.query, GL15.GL_QUERY_RESULT);
                 it.remove();
                 GL15.glDeleteQueries(sample.query);
                 addSample("gpu/" + sample.label, Math.max(0L, elapsedNanos));
