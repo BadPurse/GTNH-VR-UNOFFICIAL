@@ -1,8 +1,10 @@
 package com.gtnhvr.mixin.early;
 
 import com.gtnhvr.gui.VRGuiRenderer;
+import com.gtnhvr.gui.VRGuiProfiler;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -14,6 +16,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(GuiContainer.class)
 public abstract class MixinGuiContainerMouseInput {
+
+    @Unique
+    private long gtnhvr$containerDrawStartNanos;
+
+    @Inject(method = {"drawScreen", "func_73863_a"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$profileContainerDrawStart(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+        gtnhvr$containerDrawStartNanos = VRGuiProfiler.startCpu();
+    }
+
+    @Inject(method = {"drawScreen", "func_73863_a"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$profileContainerDrawEnd(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+        VRGuiProfiler.endCpu(
+                "container-base-draw/" + ((GuiContainer) (Object) this).getClass().getName(),
+                gtnhvr$containerDrawStartNanos);
+        gtnhvr$containerDrawStartNanos = 0L;
+    }
+
     @Inject(method = {"handleMouseInput", "func_146274_d"}, at = @At("HEAD"))
     private void gtnhvr$beginPhysicalMouseInput(CallbackInfo ci) {
         VRGuiRenderer.beginMouseInputScope();
