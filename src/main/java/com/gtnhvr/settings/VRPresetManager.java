@@ -124,7 +124,9 @@ public final class VRPresetManager {
         for (File f : files) {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8))) {
                 String line;
-                String name = f.getName().replace(".cfg", "").replace(".yml", "");
+                String filename = f.getName();
+                int extension = filename.lastIndexOf('.');
+                String name = extension > 0 ? filename.substring(0, extension) : filename;
                 StringBuilder desc = new StringBuilder();
                 Map<String, String> map = new HashMap<>();
 
@@ -177,7 +179,11 @@ public final class VRPresetManager {
                 writer.write("worldRotationStep=" + VRClientSettings.worldRotationStep); writer.newLine();
                 writer.write("worldRotationSmoothSensitivity=" + VRClientSettings.worldRotationSmoothSensitivity); writer.newLine();
                 writer.write("walkUpEnabled=" + VRClientSettings.walkUpEnabled); writer.newLine();
+                writer.write("compatibleLookDirection=" + VRClientSettings.compatibleLookDirection); writer.newLine();
                 writer.write("sprintThreshold=" + VRClientSettings.sprintThreshold); writer.newLine();
+                writer.write("treadmillEnabled=" + VRClientSettings.treadmillEnabled); writer.newLine();
+                writer.write("treadmillSpeedScale=" + VRClientSettings.treadmillSpeedScale); writer.newLine();
+                writer.write("rotationFlyMode=" + VRClientSettings.rotationFlyMode.name()); writer.newLine();
             }
             if (controls) {
                 writer.write("leftHanded=" + VRClientSettings.leftHanded); writer.newLine();
@@ -186,7 +192,36 @@ public final class VRPresetManager {
                 writer.write("physicalClimbing=" + VRClientSettings.physicalClimbing); writer.newLine();
                 writer.write("physicalCrawling=" + VRClientSettings.physicalCrawling); writer.newLine();
                 writer.write("realisticJump=" + VRClientSettings.realisticJump); writer.newLine();
+                writer.write("roomSwimEnabled=" + VRClientSettings.roomSwimEnabled); writer.newLine();
+                writer.write("roomDismountVehicleEnabled=" + VRClientSettings.roomDismountVehicleEnabled); writer.newLine();
+                writer.write("roomBoatRowingEnabled=" + VRClientSettings.roomBoatRowingEnabled); writer.newLine();
                 writer.write("roomConsumeEnabled=" + VRClientSettings.roomConsumeEnabled); writer.newLine();
+                writer.write("roomSneakThreshold=" + VRClientSettings.roomSneakThreshold); writer.newLine();
+                writer.write("roomCrawlThreshold=" + VRClientSettings.roomCrawlThreshold); writer.newLine();
+                writer.write("roomJumpThreshold=" + VRClientSettings.roomJumpThreshold); writer.newLine();
+                writer.write("swingSpeedThreshold=" + VRClientSettings.swingSpeedThreshold); writer.newLine();
+                writer.write("swingInCreative=" + VRClientSettings.swingInCreative); writer.newLine();
+                writer.write("defaultVrBody=" + VRClientSettings.defaultVrBody); writer.newLine();
+                writer.write("vrBodyModel=" + VRClientSettings.vrBodyModel); writer.newLine();
+                writer.write("fbtEnabled=" + VRClientSettings.fbtEnabled); writer.newLine();
+                writer.write("handTrackingEnabled=" + VRClientSettings.handTrackingEnabled); writer.newLine();
+                writer.write("bodyHapticsEnabled=" + VRClientSettings.bodyHapticsEnabled); writer.newLine();
+                writer.write("playerModelArmsScale=" + VRClientSettings.playerModelArmsScale); writer.newLine();
+                writer.write("playerModelBodyScale=" + VRClientSettings.playerModelBodyScale); writer.newLine();
+                writer.write("playerModelLegScale=" + VRClientSettings.playerModelLegScale); writer.newLine();
+                writer.write("heightMode=" + VRClientSettings.heightMode.name()); writer.newLine();
+                writer.write("heightAdjustment=" + VRClientSettings.heightAdjustment.name()); writer.newLine();
+                writer.write("heightUnits=" + VRClientSettings.heightUnits.name()); writer.newLine();
+                writer.write("heightAuto=" + VRClientSettings.heightAuto); writer.newLine();
+                writer.write("playerHeight=" + VRClientSettings.playerHeight); writer.newLine();
+                writer.write("seated=" + VRClientSettings.seated); writer.newLine();
+                writer.write("hapticStrength=" + VRClientSettings.hapticStrength); writer.newLine();
+                writer.write("worldTwoHanded=" + VRClientSettings.worldTwoHanded); writer.newLine();
+                writer.write("worldBetterSwinging=" + VRClientSettings.worldBetterSwinging); writer.newLine();
+                writer.write("worldRoomscaleShield=" + VRClientSettings.worldRoomscaleShield); writer.newLine();
+                writer.write("worldAttacksWhileBlocking=" + VRClientSettings.worldAttacksWhileBlocking); writer.newLine();
+                writer.write("worldRoomCrawling=" + VRClientSettings.worldRoomCrawling); writer.newLine();
+                writer.write("worldRoomClimbing=" + VRClientSettings.worldRoomClimbing); writer.newLine();
                 writer.write("interactionDistance=" + VRClientSettings.interactionDistance); writer.newLine();
                 writer.write("vrCrosshair=" + VRClientSettings.vrCrosshair); writer.newLine();
             }
@@ -198,6 +233,11 @@ public final class VRPresetManager {
                 writer.write("hotbarCenterRadius=" + VRClientSettings.hotbarCenterRadius); writer.newLine();
                 writer.write("hotbarHysteresisMargin=" + VRClientSettings.hotbarHysteresisMargin); writer.newLine();
                 writer.write("hotbarSlotNumbers=" + VRClientSettings.hotbarSlotNumbers); writer.newLine();
+                writer.write("settingsTextScale=" + VRClientSettings.settingsTextScale); writer.newLine();
+                writer.write("guiScale=" + VRClientSettings.guiScale); writer.newLine();
+                writer.write("keyboardAutoLayout=" + VRClientSettings.keyboardAutoLayout); writer.newLine();
+                writer.write("keyboardLayouts=" + VRClientSettings.keyboardLayouts); writer.newLine();
+                writer.write("hudDisableHotbar=" + VRClientSettings.hudDisableHotbar); writer.newLine();
             }
         } catch (Throwable t) {
             GTNHVRLog.warn("Failed to save custom preset %s: %s", target.getName(), t);
@@ -275,17 +315,55 @@ public final class VRPresetManager {
                     case "worldRotationStep" -> VRClientSettings.worldRotationStep = Float.parseFloat(v);
                     case "worldRotationSmoothSensitivity" -> VRClientSettings.worldRotationSmoothSensitivity = Float.parseFloat(v);
                     case "walkUpEnabled" -> VRClientSettings.walkUpEnabled = Boolean.parseBoolean(v);
+                    case "compatibleLookDirection" -> VRClientSettings.compatibleLookDirection = Boolean.parseBoolean(v);
                     case "sprintThreshold" -> VRClientSettings.sprintThreshold = Float.parseFloat(v);
+                    case "treadmillEnabled" -> VRClientSettings.treadmillEnabled = Boolean.parseBoolean(v);
+                    case "treadmillSpeedScale" -> VRClientSettings.treadmillSpeedScale = Float.parseFloat(v);
+                    case "rotationFlyMode" -> VRClientSettings.rotationFlyMode = RotationMode.parse(v, RotationMode.OFFHAND);
                     case "leftHanded" -> VRClientSettings.leftHanded = Boolean.parseBoolean(v);
                     case "hapticsEnabled" -> VRClientSettings.hapticsEnabled = Boolean.parseBoolean(v);
                     case "physicalSneaking" -> VRClientSettings.physicalSneaking = Boolean.parseBoolean(v);
                     case "physicalClimbing" -> VRClientSettings.physicalClimbing = Boolean.parseBoolean(v);
                     case "physicalCrawling" -> VRClientSettings.physicalCrawling = Boolean.parseBoolean(v);
                     case "realisticJump" -> VRClientSettings.realisticJump = Boolean.parseBoolean(v);
+                    case "roomSwimEnabled" -> VRClientSettings.roomSwimEnabled = Boolean.parseBoolean(v);
+                    case "roomDismountVehicleEnabled" -> VRClientSettings.roomDismountVehicleEnabled = Boolean.parseBoolean(v);
+                    case "roomBoatRowingEnabled" -> VRClientSettings.roomBoatRowingEnabled = Boolean.parseBoolean(v);
                     case "roomConsumeEnabled" -> VRClientSettings.roomConsumeEnabled = Boolean.parseBoolean(v);
+                    case "roomSneakThreshold" -> VRClientSettings.roomSneakThreshold = Float.parseFloat(v);
+                    case "roomCrawlThreshold" -> VRClientSettings.roomCrawlThreshold = Float.parseFloat(v);
+                    case "roomJumpThreshold" -> VRClientSettings.roomJumpThreshold = Float.parseFloat(v);
+                    case "swingSpeedThreshold" -> VRClientSettings.swingSpeedThreshold = Float.parseFloat(v);
+                    case "swingInCreative" -> VRClientSettings.swingInCreative = Boolean.parseBoolean(v);
+                    case "defaultVrBody" -> VRClientSettings.defaultVrBody = v;
+                    case "vrBodyModel" -> VRClientSettings.vrBodyModel = v;
+                    case "fbtEnabled" -> VRClientSettings.fbtEnabled = Boolean.parseBoolean(v);
+                    case "handTrackingEnabled" -> VRClientSettings.handTrackingEnabled = Boolean.parseBoolean(v);
+                    case "bodyHapticsEnabled" -> VRClientSettings.bodyHapticsEnabled = Boolean.parseBoolean(v);
+                    case "playerModelArmsScale" -> VRClientSettings.playerModelArmsScale = Float.parseFloat(v);
+                    case "playerModelBodyScale" -> VRClientSettings.playerModelBodyScale = Float.parseFloat(v);
+                    case "playerModelLegScale" -> VRClientSettings.playerModelLegScale = Float.parseFloat(v);
+                    case "heightMode" -> VRClientSettings.heightMode = HeightMode.valueOf(v);
+                    case "heightAdjustment" -> VRClientSettings.heightAdjustment = HeightAdjustment.valueOf(v);
+                    case "heightUnits" -> VRClientSettings.heightUnits = HeightUnits.valueOf(v);
+                    case "heightAuto" -> VRClientSettings.heightAuto = Boolean.parseBoolean(v);
+                    case "playerHeight" -> VRClientSettings.playerHeight = Float.parseFloat(v);
+                    case "seated" -> VRClientSettings.seated = Boolean.parseBoolean(v);
+                    case "hapticStrength" -> VRClientSettings.hapticStrength = Float.parseFloat(v);
+                    case "worldTwoHanded" -> VRClientSettings.worldTwoHanded = Boolean.parseBoolean(v);
+                    case "worldBetterSwinging" -> VRClientSettings.worldBetterSwinging = Boolean.parseBoolean(v);
+                    case "worldRoomscaleShield" -> VRClientSettings.worldRoomscaleShield = Boolean.parseBoolean(v);
+                    case "worldAttacksWhileBlocking" -> VRClientSettings.worldAttacksWhileBlocking = Boolean.parseBoolean(v);
+                    case "worldRoomCrawling" -> VRClientSettings.worldRoomCrawling = Boolean.parseBoolean(v);
+                    case "worldRoomClimbing" -> VRClientSettings.worldRoomClimbing = Boolean.parseBoolean(v);
                     case "interactionDistance" -> VRClientSettings.interactionDistance = Float.parseFloat(v);
                     case "vrCrosshair" -> VRClientSettings.vrCrosshair = Boolean.parseBoolean(v);
                     case "hotbarMode" -> VRClientSettings.hotbarMode = Integer.parseInt(v);
+                    case "settingsTextScale" -> VRClientSettings.settingsTextScale = Float.parseFloat(v);
+                    case "guiScale" -> VRClientSettings.guiScale = Float.parseFloat(v);
+                    case "keyboardAutoLayout" -> VRClientSettings.keyboardAutoLayout = Boolean.parseBoolean(v);
+                    case "keyboardLayouts" -> VRClientSettings.keyboardLayouts = v;
+                    case "hudDisableHotbar" -> VRClientSettings.hudDisableHotbar = Boolean.parseBoolean(v);
                     case "hudDistance" -> VRClientSettings.hudDistance = Float.parseFloat(v);
                     case "hudScale" -> VRClientSettings.hudScale = Float.parseFloat(v);
                     case "curvedHud" -> VRClientSettings.curvedHud = Boolean.parseBoolean(v);
