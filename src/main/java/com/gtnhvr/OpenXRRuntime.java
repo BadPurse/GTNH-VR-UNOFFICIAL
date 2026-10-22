@@ -594,6 +594,7 @@ public final class OpenXRRuntime {
                 com.gtnhvr.gui.VRHandRenderer.render(eyeIndex, hmdPos, hmdRot);
                 VRControllerHandler.getInstance().renderLaser();
             }
+            com.gtnhvr.api.VRAddonRegistry.dispatchWorldRender(mc, eyeIndex, partialTicks, inGameGui);
         } catch (Throwable t) {
             GTNHVRLog.warn("Error rendering stereo overlays for eye %d: %s", eyeIndex, t);
         } finally {
@@ -963,6 +964,7 @@ public final class OpenXRRuntime {
                         // Render sleek pointer tool at hand and 3D laser beam pointing at virtual screen
                         com.gtnhvr.gui.VRHandRenderer.render(eyeIndex, hmdPos, hmdRot);
                         VRControllerHandler.getInstance().renderLaser();
+                        com.gtnhvr.api.VRAddonRegistry.dispatchWorldRender(mc, eyeIndex, partialTicks, true);
 
                         if (eyeIndex == (com.gtnhvr.settings.VRClientSettings.mirrorEye == 1 ? 1 : 0)) {
                             blitToDesktop(eye, desktopFbo, desktopW, desktopH);
