@@ -114,7 +114,7 @@ public final class GuiHelper {
      */
     public static net.minecraft.client.gui.GuiTextField getFocusedTextField(GuiScreen screen) {
         if (screen == null) return null;
-        net.minecraft.client.gui.GuiTextField focused = getFocusedTextField(screen);
+        net.minecraft.client.gui.GuiTextField focused = getFocusedTextField();
         return focused != null && focused.isFocused() && screenContainsObject(screen, focused)
                 ? focused : null;
     }
