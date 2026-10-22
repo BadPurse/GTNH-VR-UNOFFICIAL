@@ -25,6 +25,7 @@ public final class VRCustomOverlayRenderer {
         final Vector3f position = new Vector3f();
         final Quaternionf rotation = new Quaternionf();
         boolean initialized;
+        int positionSignature;
     }
 
     private static final Map<String, PoseState> POSES = new HashMap<>();
@@ -35,6 +36,7 @@ public final class VRCustomOverlayRenderer {
         final Quaternionf rotation = new Quaternionf();
         boolean initialized;
         int optionSignature;
+        int rotationSignature;
     }
 
     private VRCustomOverlayRenderer() {}
@@ -61,14 +63,21 @@ public final class VRCustomOverlayRenderer {
         signature = 31 * signature + Float.floatToIntBits(config.distance);
         signature = 31 * signature + Float.floatToIntBits(config.offsetX);
         signature = 31 * signature + Float.floatToIntBits(config.offsetY);
-        if (!pose.initialized || (eyeIndex == 0
-                && ("WORLD".equals(config.anchor) && pose.optionSignature != signature))) {
-            updatePreviewPose(pose, config, hmdPosition, hmdRotation);
-            pose.optionSignature = signature;
-        } else if (!"WORLD".equals(config.anchor) && eyeIndex == 0) {
-            updatePreviewPose(pose, config, hmdPosition, hmdRotation);
+        int rotationSignature = config.rotationAnchor.hashCode();
+        rotationSignature = 31 * rotationSignature + Float.floatToIntBits(config.rotationX);
+        rotationSignature = 31 * rotationSignature + Float.floatToIntBits(config.rotationY);
+        rotationSignature = 31 * rotationSignature + Float.floatToIntBits(config.rotationZ);
+        if (!pose.initialized || (eyeIndex == 0 && !"WORLD".equals(config.anchor))
+                || (eyeIndex == 0 && pose.optionSignature != signature)) {
+            updatePreviewPosition(pose, config, hmdPosition, hmdRotation);
             pose.optionSignature = signature;
         }
+        if (!pose.initialized || (eyeIndex == 0 && pose.rotationSignature != rotationSignature)
+                || (eyeIndex == 0 && !"WORLD".equals(config.rotationAnchor))) {
+            updatePreviewRotation(pose, config, hmdRotation);
+            pose.rotationSignature = rotationSignature;
+        }
+        pose.initialized = true;
 
         float baseWidth = VROverlayConfig.HUD.equals(template) ? 1.35F
                 : VROverlayConfig.KEYBOARD.equals(template) ? 0.62F
@@ -151,7 +160,7 @@ public final class VRCustomOverlayRenderer {
 
             // A thin cyan/red outline indicates the preview target even at low opacity.
             GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
-            GLStateManager.glLineWidth(1.6F);
+            GL11.glLineWidth(1.6F);
             GLStateManager.glColor4f(enabled ? 0.30F : 1.0F, enabled ? 0.78F : 0.28F,
                     enabled ? 1.0F : 0.30F, 0.95F);
             GLStateManager.glBegin(GL11.GL_LINE_LOOP);
@@ -166,22 +175,36 @@ public final class VRCustomOverlayRenderer {
         }
     }
 
-    private static void updatePreviewPose(PreviewPoseState pose, VROverlayConfig.Entry config,
+    private static void updatePreviewPosition(PreviewPoseState pose, VROverlayConfig.Entry config,
             Vector3f hmdPosition, Quaternionf hmdRotation) {
         if ("MAIN_HAND".equals(config.anchor) || "OFFHAND".equals(config.anchor)) {
             VRControllerHandler handler = VRControllerHandler.getInstance();
             boolean main = "MAIN_HAND".equals(config.anchor);
             Vector3f handPosition = main ? handler.getRightHandPos() : handler.getLeftHandPos();
             Quaternionf handRotation = main ? handler.getRightHandRot() : handler.getLeftHandRot();
-            pose.rotation.set(handRotation);
             pose.position.set(handPosition).add(handRotation.transform(
                     new Vector3f(config.offsetX, config.offsetY, -config.distance), new Vector3f()));
         } else {
-            pose.rotation.set(hmdRotation);
             pose.position.set(hmdPosition).add(hmdRotation.transform(
                     new Vector3f(config.offsetX, config.offsetY, -config.distance), new Vector3f()));
         }
-        pose.initialized = true;
+    }
+
+    private static void updatePreviewRotation(PreviewPoseState pose, VROverlayConfig.Entry config,
+            Quaternionf hmdRotation) {
+        Quaternionf baseRotation = rotationForAnchor(config.rotationAnchor, hmdRotation);
+        Quaternionf offsetRotation = new Quaternionf().rotationXYZ(
+                (float) Math.toRadians(config.rotationX),
+                (float) Math.toRadians(config.rotationY),
+                (float) Math.toRadians(config.rotationZ));
+        pose.rotation.set(baseRotation).mul(offsetRotation).normalize();
+    }
+
+    private static Quaternionf rotationForAnchor(String anchor, Quaternionf hmdRotation) {
+        if ("MAIN_HAND".equals(anchor)) return new Quaternionf(VRControllerHandler.getInstance().getRightHandRot());
+        if ("OFFHAND".equals(anchor)) return new Quaternionf(VRControllerHandler.getInstance().getLeftHandRot());
+        if ("WORLD".equals(anchor)) return new Quaternionf().identity();
+        return new Quaternionf(hmdRotation);
     }
 
     public static void resetPoses() {
@@ -298,28 +321,31 @@ public final class VRCustomOverlayRenderer {
 
     private static void updatePose(PoseState pose, String id, VROverlayConfig.Entry config,
             Vector3f hmdPosition, Quaternionf hmdRotation) {
-        if ("WORLD".equals(config.anchor) && pose.initialized) return;
-
-        if ("MAIN_HAND".equals(config.anchor) || "OFFHAND".equals(config.anchor)) {
-            VRControllerHandler handler = VRControllerHandler.getInstance();
-            boolean main = "MAIN_HAND".equals(config.anchor);
-            Vector3f handPos = main ? handler.getRightHandPos() : handler.getLeftHandPos();
-            Quaternionf handRot = main ? handler.getRightHandRot() : handler.getLeftHandRot();
-            pose.position.set(handPos).add(handRot.transform(
-                    new Vector3f(config.offsetX, config.offsetY, -config.distance),
-                    new Vector3f()));
-            pose.rotation.set(handRot);
-        } else if ("WORLD".equals(config.anchor)) {
-            pose.rotation.set(hmdRotation);
-            pose.position.set(hmdPosition).add(hmdRotation.transform(
-                    new Vector3f(config.offsetX, config.offsetY, -config.distance),
-                    new Vector3f()));
-        } else {
-            pose.rotation.set(hmdRotation);
-            pose.position.set(hmdPosition).add(hmdRotation.transform(
-                    new Vector3f(config.offsetX, config.offsetY, -config.distance),
-                    new Vector3f()));
+        int positionSignature = config.anchor.hashCode();
+        positionSignature = 31 * positionSignature + Float.floatToIntBits(config.distance);
+        positionSignature = 31 * positionSignature + Float.floatToIntBits(config.offsetX);
+        positionSignature = 31 * positionSignature + Float.floatToIntBits(config.offsetY);
+        if (!pose.initialized || !"WORLD".equals(config.anchor) || pose.positionSignature != positionSignature) {
+            if ("MAIN_HAND".equals(config.anchor) || "OFFHAND".equals(config.anchor)) {
+                VRControllerHandler handler = VRControllerHandler.getInstance();
+                boolean main = "MAIN_HAND".equals(config.anchor);
+                Vector3f handPos = main ? handler.getRightHandPos() : handler.getLeftHandPos();
+                Quaternionf handRot = main ? handler.getRightHandRot() : handler.getLeftHandRot();
+                pose.position.set(handPos).add(handRot.transform(
+                        new Vector3f(config.offsetX, config.offsetY, -config.distance), new Vector3f()));
+            } else {
+                pose.position.set(hmdPosition).add(hmdRotation.transform(
+                        new Vector3f(config.offsetX, config.offsetY, -config.distance), new Vector3f()));
+            }
+            pose.positionSignature = positionSignature;
         }
+
+        Quaternionf baseRotation = rotationForAnchor(config.rotationAnchor, hmdRotation);
+        Quaternionf offsetRotation = new Quaternionf().rotationXYZ(
+                (float) Math.toRadians(config.rotationX),
+                (float) Math.toRadians(config.rotationY),
+                (float) Math.toRadians(config.rotationZ));
+        pose.rotation.set(baseRotation).mul(offsetRotation).normalize();
         pose.initialized = true;
     }
 }
