@@ -633,9 +633,13 @@ public final class VRHandRenderer {
                         }
                         GLStateManager.glRotatef(gunAngle - 67.0F + offset.pitch, 1.0F, 0.0F, 0.0F);
 
-                        // BowItemPose uses a 1.4 model scale. The existing bow offset slider
-                        // is normalized around 0.28, so its user's setting still scales it.
-                        float bowScale = 1.4F * Math.max(0.0F, offset.scale / 0.28F);
+                        // Keep the Visor pose but scale the Minecraft 1.7.10 item model to a
+                        // hand-sized bow. Pull the rendered model slightly toward the player
+                        // as the physical string is drawn, rather than leaving a static vanilla bow.
+                        float bowTension = bowTask.isBowInMainHand() == isRight
+                                ? bowTask.getTension() : 0.0F;
+                        GLStateManager.glTranslatef(0.0F, 0.0F, 0.12F * bowTension);
+                        float bowScale = 0.68F * Math.max(0.0F, offset.scale / 0.28F);
                         GLStateManager.glScalef(bowScale, bowScale, bowScale);
                         break;
                     }
