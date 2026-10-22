@@ -4,6 +4,7 @@ import com.gtnhvr.OpenXRRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -16,6 +17,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GuiScreen.class)
 public abstract class MixinGuiScreen {
 
+    @Unique
+    private long gtnhvr$baseScreenDrawStartNanos;
+
+    @Inject(method = {"drawScreen", "func_73863_a"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$profileBaseScreenDrawStart(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+        gtnhvr$baseScreenDrawStartNanos = com.gtnhvr.gui.VRGuiProfiler.startCpu();
+    }
+
+    @Inject(method = {"drawScreen", "func_73863_a"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$profileBaseScreenDrawEnd(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endCpu(
+                "gui-screen-base-draw/" + ((GuiScreen) (Object) this).getClass().getName(),
+                gtnhvr$baseScreenDrawStartNanos);
+        gtnhvr$baseScreenDrawStartNanos = 0L;
+    }
 
     @Inject(method = {"setWorldAndResolution", "func_146280_a"}, at = @At("HEAD"), require = 0)
     private void gtnhvr$profileResolutionInit(Minecraft mc, int width, int height, CallbackInfo ci) {
