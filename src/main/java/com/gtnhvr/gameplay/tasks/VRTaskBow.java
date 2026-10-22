@@ -149,7 +149,11 @@ public class VRTaskBow {
             trajectoryPoints.add(new Vector3f(startRoom));
 
             net.minecraft.util.Vec3 curWorld = handler.roomToWorld(startRoom, 1.0F);
-            Vector3f worldAim = handler.roomDirectionToWorld(new Vector3f(aimRoomDir));
+            // Vanilla 1.7.10 creates the arrow from the player's look vector, not the
+            // controller's aim pose. Predict the same direction the actual projectile uses.
+            net.minecraft.util.Vec3 playerLook = mc.thePlayer.getLook(1.0F);
+            Vector3f worldAim = new Vector3f((float) playerLook.xCoord,
+                    (float) playerLook.yCoord, (float) playerLook.zCoord).normalize();
 
             double vx = worldAim.x * speed;
             double vy = worldAim.y * speed;
