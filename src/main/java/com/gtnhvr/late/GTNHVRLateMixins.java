@@ -22,6 +22,7 @@ public class GTNHVRLateMixins implements ILateMixinLoader {
         }
         List<String> mixins = new ArrayList<>();
         if (loadedMods.contains("angelica")) {
+            mixins.add("MixinBatchingFontRendererAlpha");
             mixins.add("MixinReeseSodiumVideoOptionsScreen");
             mixins.add("MixinIrisHandRenderer");
             mixins.add("MixinGLStateManagerAlpha");
