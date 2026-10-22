@@ -445,10 +445,20 @@ public final class VRPresetManager {
     }
 
     private static void applyCustom(Map<String, String> values) {
+        boolean overlaysChanged = false;
         for (Map.Entry<String, String> entry : values.entrySet()) {
             String k = entry.getKey();
             String v = entry.getValue();
             try {
+                if (k.startsWith("customOffset.")) {
+                    applyOffsetValue(k, v);
+                    continue;
+                }
+                if (k.startsWith("overlay.")) {
+                    applyOverlayValue(k, v);
+                    overlaysChanged = true;
+                    continue;
+                }
                 switch (k) {
                     case "vrPlayMode" -> VRClientSettings.vrPlayMode = VRPlayMode.valueOf(v);
                     case "worldScale" -> VRClientSettings.worldScale = Float.parseFloat(v);
@@ -468,8 +478,53 @@ public final class VRPresetManager {
                     case "treadmillEnabled" -> VRClientSettings.treadmillEnabled = Boolean.parseBoolean(v);
                     case "treadmillSpeedScale" -> VRClientSettings.treadmillSpeedScale = Float.parseFloat(v);
                     case "rotationFlyMode" -> VRClientSettings.rotationFlyMode = RotationMode.parse(v, RotationMode.OFFHAND);
+                    case "dhMirrorPasses" -> VRClientSettings.dhMirrorPasses = Boolean.parseBoolean(v);
+                    case "shaderPerEyePipelines" -> VRClientSettings.shaderPerEyePipelines = Boolean.parseBoolean(v);
+                    case "shaderSharedShadows" -> VRClientSettings.shaderSharedShadows = Boolean.parseBoolean(v);
+                    case "shaderSharedSsbo" -> VRClientSettings.shaderSharedSsbo = Boolean.parseBoolean(v);
+                    case "selfShadowEnabled" -> VRClientSettings.selfShadowEnabled = Boolean.parseBoolean(v);
+                    case "lowHealthIndicatorEnabled" -> VRClientSettings.lowHealthIndicatorEnabled = Boolean.parseBoolean(v);
+                    case "hitIndicatorEnabled" -> VRClientSettings.hitIndicatorEnabled = Boolean.parseBoolean(v);
+                    case "freezeEffectEnabled" -> VRClientSettings.freezeEffectEnabled = Boolean.parseBoolean(v);
+                    case "pumpkinEffectEnabled" -> VRClientSettings.pumpkinEffectEnabled = Boolean.parseBoolean(v);
+                    case "thirdPersonFov" -> VRClientSettings.thirdPersonFov = Float.parseFloat(v);
+                    case "thirdPersonCameraPosX" -> VRClientSettings.thirdPersonCameraPosX = Float.parseFloat(v);
+                    case "thirdPersonCameraPosY" -> VRClientSettings.thirdPersonCameraPosY = Float.parseFloat(v);
+                    case "thirdPersonCameraPosZ" -> VRClientSettings.thirdPersonCameraPosZ = Float.parseFloat(v);
+                    case "mixedRealityRenderHands" -> VRClientSettings.mixedRealityRenderHands = Boolean.parseBoolean(v);
+                    case "mixedRealityAsGrid2x2" -> VRClientSettings.mixedRealityAsGrid2x2 = Boolean.parseBoolean(v);
+                    case "mixedRealityWithFirstPerson" -> VRClientSettings.mixedRealityWithFirstPerson = Boolean.parseBoolean(v);
+                    case "mixedRealityAlphaMask" -> VRClientSettings.mixedRealityAlphaMask = Boolean.parseBoolean(v);
+                    case "mixedRealityFov" -> VRClientSettings.mixedRealityFov = Float.parseFloat(v);
+                    case "mixedRealityAspectRatio" -> VRClientSettings.mixedRealityAspectRatio = Float.parseFloat(v);
                     case "leftHanded" -> VRClientSettings.leftHanded = Boolean.parseBoolean(v);
                     case "hapticsEnabled" -> VRClientSettings.hapticsEnabled = Boolean.parseBoolean(v);
+                    case "controllerRightTriggerKeyCode" -> VRClientSettings.controllerRightTriggerKeyCode = Integer.parseInt(v);
+                    case "controllerLeftTriggerKeyCode" -> VRClientSettings.controllerLeftTriggerKeyCode = Integer.parseInt(v);
+                    case "controllerRightAKeyCode" -> VRClientSettings.controllerRightAKeyCode = Integer.parseInt(v);
+                    case "controllerRightBKeyCode" -> VRClientSettings.controllerRightBKeyCode = Integer.parseInt(v);
+                    case "controllerLeftXKeyCode" -> VRClientSettings.controllerLeftXKeyCode = Integer.parseInt(v);
+                    case "controllerLeftYKeyCode" -> VRClientSettings.controllerLeftYKeyCode = Integer.parseInt(v);
+                    case "controllerLeftMenuKeyCode" -> VRClientSettings.controllerLeftMenuKeyCode = Integer.parseInt(v);
+                    case "controllerRightStickClickKeyCode" -> VRClientSettings.controllerRightStickClickKeyCode = Integer.parseInt(v);
+                    case "controllerLeftStickClickKeyCode" -> VRClientSettings.controllerLeftStickClickKeyCode = Integer.parseInt(v);
+                    case "controllerRightGripKeyCode" -> VRClientSettings.controllerRightGripKeyCode = Integer.parseInt(v);
+                    case "controllerLeftGripKeyCode" -> VRClientSettings.controllerLeftGripKeyCode = Integer.parseInt(v);
+                    case "controllerLeftStickUpKeyCode" -> VRClientSettings.controllerLeftStickUpKeyCode = Integer.parseInt(v);
+                    case "controllerLeftStickDownKeyCode" -> VRClientSettings.controllerLeftStickDownKeyCode = Integer.parseInt(v);
+                    case "controllerLeftStickLeftKeyCode" -> VRClientSettings.controllerLeftStickLeftKeyCode = Integer.parseInt(v);
+                    case "controllerLeftStickRightKeyCode" -> VRClientSettings.controllerLeftStickRightKeyCode = Integer.parseInt(v);
+                    case "controllerRightStickUpKeyCode" -> VRClientSettings.controllerRightStickUpKeyCode = Integer.parseInt(v);
+                    case "controllerRightStickDownKeyCode" -> VRClientSettings.controllerRightStickDownKeyCode = Integer.parseInt(v);
+                    case "controllerRightStickLeftKeyCode" -> VRClientSettings.controllerRightStickLeftKeyCode = Integer.parseInt(v);
+                    case "controllerRightStickRightKeyCode" -> VRClientSettings.controllerRightStickRightKeyCode = Integer.parseInt(v);
+                    case "shoulderGesturesEnabled" -> VRClientSettings.shoulderGesturesEnabled = Boolean.parseBoolean(v);
+                    case "shoulderRightToLeftEnabled" -> VRClientSettings.shoulderRightToLeftEnabled = Boolean.parseBoolean(v);
+                    case "shoulderLeftToRightEnabled" -> VRClientSettings.shoulderLeftToRightEnabled = Boolean.parseBoolean(v);
+                    case "shoulderRightToLeftKeyCode" -> VRClientSettings.shoulderRightToLeftKeyCode = Integer.parseInt(v);
+                    case "shoulderLeftToRightKeyCode" -> VRClientSettings.shoulderLeftToRightKeyCode = Integer.parseInt(v);
+                    case "shoulderGestureDistance" -> VRClientSettings.shoulderGestureDistance = Float.parseFloat(v);
+                    case "shoulderGestureHoldSeconds" -> VRClientSettings.shoulderGestureHoldSeconds = Float.parseFloat(v);
                     case "physicalSneaking" -> VRClientSettings.physicalSneaking = Boolean.parseBoolean(v);
                     case "physicalClimbing" -> VRClientSettings.physicalClimbing = Boolean.parseBoolean(v);
                     case "physicalCrawling" -> VRClientSettings.physicalCrawling = Boolean.parseBoolean(v);
@@ -511,6 +566,7 @@ public final class VRPresetManager {
                     case "guiScale" -> VRClientSettings.guiScale = Float.parseFloat(v);
                     case "keyboardAutoLayout" -> VRClientSettings.keyboardAutoLayout = Boolean.parseBoolean(v);
                     case "keyboardLayouts" -> VRClientSettings.keyboardLayouts = v;
+                    case "activeKeyboardLayout" -> VRClientSettings.activeKeyboardLayout = v;
                     case "hudDisableHotbar" -> VRClientSettings.hudDisableHotbar = Boolean.parseBoolean(v);
                     case "hudDistance" -> VRClientSettings.hudDistance = Float.parseFloat(v);
                     case "hudScale" -> VRClientSettings.hudScale = Float.parseFloat(v);
@@ -520,6 +576,9 @@ public final class VRPresetManager {
                     case "hotbarSlotNumbers" -> VRClientSettings.hotbarSlotNumbers = Boolean.parseBoolean(v);
                 }
             } catch (Throwable ignored) {}
+        }
+        if (overlaysChanged) {
+            VROverlayConfig.save();
         }
     }
 }
