@@ -287,7 +287,7 @@ public final class VRWristInventory {
                 wristIsLeft ? (float) (Math.PI / 2.0) : -(float) (Math.PI / 2.0),
                 0.0F
         );
-        Quaternionf panelRot = new Quaternionf(wristRot).mul(rotOffset);
+        Quaternionf panelRot = VRCustomOverlayRenderer.getConfiguredRotation(cfg, hmdRot).mul(rotOffset).normalize();
 
         panelRot.transform(new Vector3f(1.0F, 0.0F, 0.0F), right);
         panelRot.transform(new Vector3f(0.0F, 1.0F, 0.0F), up);
