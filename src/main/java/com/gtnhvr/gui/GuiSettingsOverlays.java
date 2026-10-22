@@ -705,9 +705,13 @@ public class GuiSettingsOverlays extends GuiScreen {
                 break;
             case POSE:
                 current.anchor = defaults.anchor;
+                current.rotationAnchor = defaults.rotationAnchor;
                 current.distance = defaults.distance;
                 current.offsetX = defaults.offsetX;
                 current.offsetY = defaults.offsetY;
+                current.rotationX = defaults.rotationX;
+                current.rotationY = defaults.rotationY;
+                current.rotationZ = defaults.rotationZ;
                 break;
             case RESIZING:
                 current.scale = defaults.scale;
@@ -743,9 +747,13 @@ public class GuiSettingsOverlays extends GuiScreen {
             case VISIBILITY: target.visible = copiedGroup.visible; break;
             case POSE:
                 target.anchor = copiedGroup.anchor;
+                target.rotationAnchor = copiedGroup.rotationAnchor;
                 target.distance = copiedGroup.distance;
                 target.offsetX = copiedGroup.offsetX;
                 target.offsetY = copiedGroup.offsetY;
+                target.rotationX = copiedGroup.rotationX;
+                target.rotationY = copiedGroup.rotationY;
+                target.rotationZ = copiedGroup.rotationZ;
                 break;
             case RESIZING: target.scale = copiedGroup.scale; break;
             case MISC:
@@ -814,7 +822,7 @@ public class GuiSettingsOverlays extends GuiScreen {
      * cycle the selected option group so every group is reachable without a mouse.
      */
     public void handleStickScroll(float stickY, int mouseX, int mouseY) {
-        if (tab != Tab.OVERLAYS) return;
+        if (tab != Tab.OVERLAYS || poseEditor) return;
         if (Math.abs(stickY) < 0.15F) {
             stickScrollAccum = 0.0F;
             return;
