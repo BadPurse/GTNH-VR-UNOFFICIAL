@@ -364,8 +364,8 @@ public class GuiSettingsOverlays extends GuiScreen {
             overlays.add(overlay);
         }
         selectedIndex = overlays.isEmpty() ? -1 : Math.max(0, Math.min(selectedIndex, overlays.size() - 1));
-        overlayListScroll = Math.max(0, Math.min(overlayListScroll, getMaxListScroll()));
-        overlayDetailScroll = Math.max(0, Math.min(overlayDetailScroll, getMaxDetailScroll()));
+        overlayListScroll = Math.max(0, overlayListScroll);
+        overlayDetailScroll = Math.max(0, overlayDetailScroll);
     }
 
     private void applyOverlayData() {
@@ -706,7 +706,7 @@ public class GuiSettingsOverlays extends GuiScreen {
                         detailY + scaleHelper.scaledSize(26), 0xFFFFFFFF);
                 drawString(this.fontRendererObj, "\u00a77Type: \u00a7f" + (current.custom ? "Custom copy" : "Built-in"),
                         detailX, detailY + scaleHelper.scaledSize(42), 0xFFFFFFFF);
-                drawString(this.fontRendererObj, "\u00a77Template: \u00a7f" + nameOf(current.template),
+                drawString(this.fontRendererObj, "\u00a77Template: \u00a7f" + nameOf(current.custom ? current.template : current.id),
                         detailX, detailY + scaleHelper.scaledSize(58), 0xFFFFFFFF);
                 this.fontRendererObj.drawSplitString(current.description, detailX,
                         detailY + scaleHelper.scaledSize(78), detailW, 0xAAAAAA);
@@ -755,7 +755,8 @@ public class GuiSettingsOverlays extends GuiScreen {
                     curY += step;
                 }
 
-                // Copy, paste and reload controls live in the same side rail as Visor's icon buttons.
+                // Keep action icons outside the detail-panel scissor, like Visor's side rail.
+                VRSettingsScreen.disableScissor();
                 int actionX = bgX + scaleHelper.scaledSize(234);
                 int actionSize = scaleHelper.scaledSize(17);
                 String[] actions = {"C", "P", "R"};
@@ -1332,10 +1333,40 @@ public class GuiSettingsOverlays extends GuiScreen {
     }
 
     @Override
+    public void updateScreen() {
+        super.updateScreen();
+        if (overlaySearchField != null) overlaySearchField.updateCursorCounter();
+        if (customNameField != null) customNameField.updateCursorCounter();
+        if (customDescriptionField != null) customDescriptionField.updateCursorCounter();
+        if (templateSearchField != null) templateSearchField.updateCursorCounter();
+    }
+
+    @Override
     protected void keyTyped(char typedChar, int keyCode) {
-        if (keyCode == 1) { // ESC
+        if (keyCode == 1) {
             this.mc.displayGuiScreen(parentScreen);
+            return;
         }
+
+        if (currentTab == Tab.OVERLAYS && overlaySearchField != null && overlaySearchField.isFocused()) {
+            if (overlaySearchField.textboxKeyTyped(typedChar, keyCode)) overlayListScroll = 0;
+            return;
+        }
+        if (currentTab == Tab.CREATE_OVERLAY) {
+            if (customNameField != null && customNameField.isFocused()) {
+                customNameField.textboxKeyTyped(typedChar, keyCode);
+                return;
+            }
+            if (customDescriptionField != null && customDescriptionField.isFocused()) {
+                customDescriptionField.textboxKeyTyped(typedChar, keyCode);
+                return;
+            }
+            if (templateSearchField != null && templateSearchField.isFocused()) {
+                templateSearchField.textboxKeyTyped(typedChar, keyCode);
+                return;
+            }
+        }
+        super.keyTyped(typedChar, keyCode);
     }
 
     private boolean isHovered(int mouseX, int mouseY, int x, int y, int width, int height) {
