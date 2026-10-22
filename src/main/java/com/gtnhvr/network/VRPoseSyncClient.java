@@ -11,7 +11,7 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.lwjgl.openxr.XrPosef;
 
-/** Samples and uploads display-only poses at 20 Hz after a v2 server handshake. */
+/** Samples and uploads display-only poses at 20 Hz after a v2 server handshake, including while a GUI is open. */
 @Lwjgl3Aware
 @SideOnly(Side.CLIENT)
 public final class VRPoseSyncClient {
@@ -35,7 +35,7 @@ public final class VRPoseSyncClient {
         Minecraft mc = Minecraft.getMinecraft();
         VRControllerHandler controllers = VRControllerHandler.getInstance();
         if (!OpenXRRuntime.isSessionRunning() || mc == null || mc.theWorld == null
-                || mc.thePlayer == null || mc.currentScreen != null) {
+                || mc.thePlayer == null) {
             clearIfNeeded();
             return;
         }
