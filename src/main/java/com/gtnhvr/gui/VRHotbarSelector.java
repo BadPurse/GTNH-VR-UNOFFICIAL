@@ -90,9 +90,10 @@ public final class VRHotbarSelector {
             scale = cfg.scale;
             Vector3f forward = handRot.transform(new Vector3f(0.0F, 0.0F, -1.0F), new Vector3f());
             center.set(handPos).add(new Vector3f(forward).mul(dist));
-            hmdRot.transform(new Vector3f(1.0F, 0.0F, 0.0F), right);
-            hmdRot.transform(new Vector3f(0.0F, 1.0F, 0.0F), up);
-            hmdRot.transform(new Vector3f(0.0F, 0.0F, 1.0F), normal);
+            Quaternionf overlayRotation = VRCustomOverlayRenderer.getConfiguredRotation(cfg, hmdRot);
+            overlayRotation.transform(new Vector3f(1.0F, 0.0F, 0.0F), right);
+            overlayRotation.transform(new Vector3f(0.0F, 1.0F, 0.0F), up);
+            overlayRotation.transform(new Vector3f(0.0F, 0.0F, 1.0F), normal);
             center.add(new Vector3f(right).mul(cfg.offsetX)).add(new Vector3f(up).mul(cfg.offsetY));
             offsetFromHead.set(center).sub(hmdPos);
             active = true;
