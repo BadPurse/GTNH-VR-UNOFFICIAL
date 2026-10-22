@@ -597,7 +597,8 @@ public final class OpenXRRuntime {
                 VRControllerHandler.getInstance().renderLaser();
 
                 // Keep a live overlay pose/scale preview visible while editing settings in VR.
-                if (mc.currentScreen instanceof com.gtnhvr.gui.GuiSettingsOverlays) {
+                if (mc.currentScreen instanceof com.gtnhvr.gui.GuiSettingsOverlays
+                        && com.gtnhvr.gui.GuiSettingsOverlays.isLivePreviewEnabled()) {
                     com.gtnhvr.gui.VRCustomOverlayRenderer.renderSetupPreview(
                             com.gtnhvr.gui.GuiSettingsOverlays.getActivePreviewOverlayId(),
                             eyeIndex, hmdPos, hmdRot);
