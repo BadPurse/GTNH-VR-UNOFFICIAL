@@ -39,6 +39,9 @@ public final class VRPresetManager {
             } else {
                 applyCustom(values);
             }
+            // Presets set the persisted field names; synchronize the legacy widget aliases
+            // before save(), otherwise save() would copy stale alias values back over the preset.
+            VRClientSettings.syncCompatibilityAliasesFromCanonical();
             VRClientSettings.save();
         }
     }
