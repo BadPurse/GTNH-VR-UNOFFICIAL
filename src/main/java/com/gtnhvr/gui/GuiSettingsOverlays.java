@@ -105,8 +105,8 @@ public class GuiSettingsOverlays extends GuiScreen {
 
     private int getMaxListScroll() {
         int itemH = scaleHelper.scaledSize(26);
-        int totalH = overlays.size() * itemH;
-        int listH = scaleHelper.scaledSize(196);
+        int totalH = getVisibleOverlays().size() * itemH;
+        int listH = scaleHelper.scaledSize(176);
         return Math.max(0, totalH - listH);
     }
 
@@ -114,13 +114,131 @@ public class GuiSettingsOverlays extends GuiScreen {
         if (selectedIndex < 0 || selectedIndex >= overlays.size()) return 0;
         OverlayEntry cur = overlays.get(selectedIndex);
         int detailW = scaleHelper.scaledSize(106);
-        int descLines = this.fontRendererObj.listFormattedStringToWidth("\u00a77" + cur.description, detailW).size();
-        int descH = descLines * this.fontRendererObj.FONT_HEIGHT + scaleHelper.scaledSize(6);
-        int rowsCount = rowsFor(cur.id).length;
-        int step = scaleHelper.scaledSize(18);
-        int totalH = scaleHelper.scaledSize(13) + descH + rowsCount * step;
         int areaH = scaleHelper.scaledSize(176);
+        if (selectedGroup != null) {
+            int rowsCount = rowsForGroup(cur.id, selectedGroup).length;
+            int totalH = scaleHelper.scaledSize(25) + rowsCount * scaleHelper.scaledSize(18);
+            return Math.max(0, totalH - areaH);
+        }
+        int descLines = this.fontRendererObj.listFormattedStringToWidth("\u00a77" + cur.description, detailW).size();
+        int groupCount = groupsFor(cur.id).length;
+        int totalH = scaleHelper.scaledSize(38) + descLines * this.fontRendererObj.FONT_HEIGHT
+                + groupCount * scaleHelper.scaledSize(16);
         return Math.max(0, totalH - areaH);
+    }
+
+    private List<OverlayEntry> getVisibleOverlays() {
+        List<OverlayEntry> result = new ArrayList<>();
+        String query = overlaySearchField == null ? "" : overlaySearchField.getText().trim().toLowerCase(Locale.ROOT);
+        for (OverlayEntry entry : overlays) {
+            if (entry.custom ? !filterCustom : !filterBuiltIn) continue;
+            boolean hasOptions = rowsFor(entry.id).length > 0;
+            if (hasOptions ? !filterHasOptions : !filterNoOptions) continue;
+            if (!query.isEmpty()) {
+                String haystack = (entry.name + " " + entry.id + " " + entry.description + " " + entry.template)
+                        .toLowerCase(Locale.ROOT);
+                if (!haystack.contains(query)) continue;
+            }
+            result.add(entry);
+        }
+        return result;
+    }
+
+    private static boolean hasRow(String[] rows, String wanted) {
+        for (String row : rows) if (wanted.equals(row)) return true;
+        return false;
+    }
+
+    private static String[] groupsFor(String id) {
+        String[] rows = rowsFor(id);
+        List<String> groups = new ArrayList<>();
+        groups.add(GROUP_GENERAL);
+        if (hasRow(rows, "VIS")) groups.add(GROUP_VISIBILITY);
+        if (hasRow(rows, "ANCHOR") || hasRow(rows, "DIST")) groups.add(GROUP_POSE);
+        if (hasRow(rows, "SCALE")) groups.add(GROUP_RESIZING);
+        if (hasRow(rows, "OFFX") || hasRow(rows, "OFFY")) groups.add(GROUP_REGION);
+        if (hasRow(rows, "FLAG")) groups.add(GROUP_MISC);
+        return groups.toArray(new String[0]);
+    }
+
+    private static String[] rowsForGroup(String id, String group) {
+        String[] rows = rowsFor(id);
+        if (GROUP_VISIBILITY.equals(group)) return hasRow(rows, "VIS") ? new String[] {"VIS"} : new String[0];
+        if (GROUP_POSE.equals(group)) {
+            List<String> selected = new ArrayList<>();
+            if (hasRow(rows, "ANCHOR")) selected.add("ANCHOR");
+            if (hasRow(rows, "DIST")) selected.add("DIST");
+            return selected.toArray(new String[0]);
+        }
+        if (GROUP_RESIZING.equals(group)) return hasRow(rows, "SCALE") ? new String[] {"SCALE"} : new String[0];
+        if (GROUP_REGION.equals(group)) {
+            List<String> selected = new ArrayList<>();
+            if (hasRow(rows, "OFFX")) selected.add("OFFX");
+            if (hasRow(rows, "OFFY")) selected.add("OFFY");
+            return selected.toArray(new String[0]);
+        }
+        if (GROUP_MISC.equals(group)) return hasRow(rows, "FLAG") ? new String[] {"FLAG"} : new String[0];
+        return new String[0];
+    }
+
+    private static VROverlayConfig.Entry copyToConfig(OverlayEntry overlay) {
+        VROverlayConfig.Entry entry = new VROverlayConfig.Entry();
+        entry.visible = overlay.visible;
+        entry.anchor = overlay.anchor;
+        entry.scale = overlay.scale;
+        entry.distance = overlay.distance;
+        entry.offsetX = overlay.offsetX;
+        entry.offsetY = overlay.offsetY;
+        entry.flag = overlay.extraFlag;
+        entry.custom = overlay.custom;
+        entry.name = overlay.name;
+        entry.description = overlay.description;
+        entry.template = overlay.template;
+        return entry;
+    }
+
+    private void copyCurrentGroup() {
+        if (selectedIndex < 0 || selectedIndex >= overlays.size() || selectedGroup == null
+                || GROUP_GENERAL.equals(selectedGroup)) return;
+        copiedOptions = copyToConfig(overlays.get(selectedIndex));
+        copiedGroup = selectedGroup;
+        saveMessage = "Copied " + selectedGroup;
+        saveMessageTime = System.currentTimeMillis();
+    }
+
+    private void pasteCurrentGroup() {
+        if (selectedIndex < 0 || selectedIndex >= overlays.size() || selectedGroup == null
+                || copiedOptions == null || !selectedGroup.equals(copiedGroup)) return;
+        OverlayEntry cur = overlays.get(selectedIndex);
+        if (GROUP_VISIBILITY.equals(selectedGroup)) cur.visible = copiedOptions.visible;
+        else if (GROUP_POSE.equals(selectedGroup)) {
+            cur.anchor = copiedOptions.anchor;
+            cur.distance = copiedOptions.distance;
+        } else if (GROUP_RESIZING.equals(selectedGroup)) cur.scale = copiedOptions.scale;
+        else if (GROUP_REGION.equals(selectedGroup)) {
+            cur.offsetX = copiedOptions.offsetX;
+            cur.offsetY = copiedOptions.offsetY;
+        } else if (GROUP_MISC.equals(selectedGroup)) cur.extraFlag = copiedOptions.flag;
+        saveMessage = "Pasted " + selectedGroup;
+        saveMessageTime = System.currentTimeMillis();
+    }
+
+    private void reloadOverlayFromDisk() {
+        String selectedId = selectedIndex >= 0 && selectedIndex < overlays.size()
+                ? overlays.get(selectedIndex).id : null;
+        VROverlayConfig.load();
+        loadOverlayData();
+        selectedIndex = 0;
+        if (selectedId != null) {
+            for (int i = 0; i < overlays.size(); i++) {
+                if (selectedId.equals(overlays.get(i).id)) { selectedIndex = i; break; }
+            }
+        }
+        selectedGroup = null;
+        confirmRemove = false;
+        VRCustomOverlayRenderer.resetPoses();
+        saveMessage = "Reloaded saved overlay settings";
+        saveMessageTime = System.currentTimeMillis();
     }
 
     private String saveMessage = null;
