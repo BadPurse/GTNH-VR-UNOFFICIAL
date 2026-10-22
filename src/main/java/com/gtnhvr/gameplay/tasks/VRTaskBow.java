@@ -143,14 +143,16 @@ public class VRTaskBow {
             float charge = tension * FULL_CHARGE_TICKS;
             float f = (charge * charge + charge * 2.0F) / 3.0F / 20.0F;
             if (f > 1.0F) f = 1.0F;
-            float speed = f * 3.0F;
+            float speed = f * 2.0F;
 
-            Vector3f startRoom = new Vector3f(bowPos);
-            trajectoryPoints.add(new Vector3f(startRoom));
-
-            net.minecraft.util.Vec3 curWorld = handler.roomToWorld(startRoom, 1.0F);
-            // Vanilla 1.7.10 creates the arrow from the player's look vector, not the
-            // controller's aim pose. Predict the same direction the actual projectile uses.
+            // Vanilla 1.7.10 ItemBow creates EntityArrow at the player's eye position,
+            // offset slightly behind the look direction. Match that origin and speed so
+            // the preview predicts the projectile rather than starting at the controller.
+            float yawRad = (float) Math.toRadians(mc.thePlayer.rotationYaw);
+            net.minecraft.util.Vec3 curWorld = net.minecraft.util.Vec3.createVectorHelper(
+                    mc.thePlayer.posX - Math.cos(yawRad) * 0.16D,
+                    mc.thePlayer.posY + mc.thePlayer.getEyeHeight() - 0.1D,
+                    mc.thePlayer.posZ - Math.sin(yawRad) * 0.16D);
             net.minecraft.util.Vec3 playerLook = mc.thePlayer.getLook(1.0F);
             Vector3f worldAim = new Vector3f((float) playerLook.xCoord,
                     (float) playerLook.yCoord, (float) playerLook.zCoord).normalize();
