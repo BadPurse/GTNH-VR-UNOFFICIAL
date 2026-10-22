@@ -121,8 +121,7 @@ public final class VRVirtualScreen {
 
         // 3D World Container Overlay (Visor VROverlayContainer parity):
         // Automatically anchors containers (chests, furnaces, machines, etc.) above the interacted block/entity in 3D world space.
-        if (mc != null && mc.currentScreen instanceof net.minecraft.client.gui.inventory.GuiContainer
-                && !(mc.currentScreen instanceof net.minecraft.client.gui.inventory.GuiInventory)) {
+        if (mc != null && gtnhvr$isWorldAnchoredContainerScreen(mc.currentScreen)) {
             if (!orientationInitialized) {
                 long now = System.currentTimeMillis();
                 if (hasInteractedBlock && (now - lastInteractedBlockTime < 4000L)) {
@@ -210,6 +209,28 @@ public final class VRVirtualScreen {
             screenHeight = 1.25F * cfg.scale;
             orientationInitialized = true;
         }
+    }
+
+    /**
+     * Legacy GTNH containers are GuiContainer subclasses, while Cleanroom ModularUI2
+     * screens (including gregtech.api.modularui2.GTModularScreen) inherit ModularScreen.
+     * Use the runtime hierarchy by name so the VR mod does not acquire a hard dependency
+     * on an optional UI implementation. Placement still requires a recent block/entity
+     * interaction in updateScreenPlacement().
+     */
+    private static boolean gtnhvr$isWorldAnchoredContainerScreen(net.minecraft.client.gui.GuiScreen screen) {
+        if (screen == null || screen instanceof net.minecraft.client.gui.inventory.GuiInventory) {
+            return false;
+        }
+        if (screen instanceof net.minecraft.client.gui.inventory.GuiContainer) {
+            return true;
+        }
+        for (Class<?> type = screen.getClass(); type != null && type != Object.class; type = type.getSuperclass()) {
+            if ("com.cleanroommc.modularui.screen.ModularScreen".equals(type.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Anchor HMD / MAIN_HAND / OFFHAND: the screen follows that reference every frame. */
@@ -390,7 +411,10 @@ public final class VRVirtualScreen {
             GLStateManager.glDisable(GL11.GL_DEPTH_TEST);
             GLStateManager.glDepthMask(false);
             GLStateManager.glEnable(GL11.GL_BLEND);
-            GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            // The capture FBO accumulates premultiplied-alpha RGB. Do not multiply the
+            // sampled texture's RGB by its alpha a second time on the VR quad.
+            GLStateManager.glBlendFuncSeparate(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                    GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
             // Transform into virtual screen local space via full 6DoF rotation
             GLStateManager.glTranslatef(screenPos.x, screenPos.y, screenPos.z);

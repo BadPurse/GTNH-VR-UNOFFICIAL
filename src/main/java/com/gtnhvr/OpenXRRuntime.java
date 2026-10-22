@@ -387,12 +387,16 @@ public final class OpenXRRuntime {
             int screenW = (guiTex > 0) ? com.gtnhvr.gui.VRGuiRenderer.getWidth() : (mc.displayWidth > 0 ? mc.displayWidth : 854);
             int screenH = (guiTex > 0) ? com.gtnhvr.gui.VRGuiRenderer.getHeight() : (mc.displayHeight > 0 ? mc.displayHeight : 480);
 
-            // Refresh Angelica's culling graph so Left Eye calculates its own frustum occlusion
+            // Measure this candidate separately; its contribution to GUI FPS loss is not assumed.
+            long leftTerrainUpdateStart = com.gtnhvr.gui.VRGuiProfiler.startCpu();
             try {
                 if (mc != null && mc.renderGlobal instanceof com.gtnewhorizons.angelica.mixins.interfaces.IRenderGlobalExt) {
                     ((com.gtnewhorizons.angelica.mixins.interfaces.IRenderGlobalExt) mc.renderGlobal).angelica$scheduleTerrainUpdate();
                 }
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            } finally {
+                com.gtnhvr.gui.VRGuiProfiler.endCpu("terrain-update/left-eye", leftTerrainUpdateStart);
+            }
 
             // ---- PASS 0: LEFT EYE ----
             currentEyeIndex = 0;
@@ -402,6 +406,8 @@ public final class OpenXRRuntime {
             resetCeleritasEyeMatrices();
             EyeSwapchain leftEye = eyes[0];
             leftEye.beginRender();
+            long leftEyeCpuStart = com.gtnhvr.gui.VRGuiProfiler.startCpu();
+            int leftEyeGpuQuery = com.gtnhvr.gui.VRGuiProfiler.beginGpuTimer("left-eye");
             try {
                 GLStateManager.glViewport(0, 0, leftEye.width, leftEye.height);
                 GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
@@ -416,15 +422,21 @@ public final class OpenXRRuntime {
                     blitToDesktop(leftEye, desktopFbo, desktopW, desktopH);
                 }
             } finally {
+                com.gtnhvr.gui.VRGuiProfiler.endGpuTimer(leftEyeGpuQuery, "left-eye");
+                com.gtnhvr.gui.VRGuiProfiler.endCpu("eye-render/left", leftEyeCpuStart);
                 leftEye.endRender();
             }
 
-            // Refresh Angelica's culling graph so Right Eye calculates its own frustum occlusion
+            // Measure the terrain-update candidate separately for the right-eye frustum.
+            long rightTerrainUpdateStart = com.gtnhvr.gui.VRGuiProfiler.startCpu();
             try {
                 if (mc != null && mc.renderGlobal instanceof com.gtnewhorizons.angelica.mixins.interfaces.IRenderGlobalExt) {
                     ((com.gtnewhorizons.angelica.mixins.interfaces.IRenderGlobalExt) mc.renderGlobal).angelica$scheduleTerrainUpdate();
                 }
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            } finally {
+                com.gtnhvr.gui.VRGuiProfiler.endCpu("terrain-update/right-eye", rightTerrainUpdateStart);
+            }
 
             // ---- PASS 1: RIGHT EYE ----
             currentEyeIndex = 1;
@@ -434,6 +446,8 @@ public final class OpenXRRuntime {
             resetCeleritasEyeMatrices();
             EyeSwapchain rightEye = eyes[1];
             rightEye.beginRender();
+            long rightEyeCpuStart = com.gtnhvr.gui.VRGuiProfiler.startCpu();
+            int rightEyeGpuQuery = com.gtnhvr.gui.VRGuiProfiler.beginGpuTimer("right-eye");
             try {
                 GLStateManager.glViewport(0, 0, rightEye.width, rightEye.height);
                 GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
@@ -448,6 +462,8 @@ public final class OpenXRRuntime {
                     blitToDesktop(rightEye, desktopFbo, desktopW, desktopH);
                 }
             } finally {
+                com.gtnhvr.gui.VRGuiProfiler.endGpuTimer(rightEyeGpuQuery, "right-eye");
+                com.gtnhvr.gui.VRGuiProfiler.endCpu("eye-render/right", rightEyeCpuStart);
                 rightEye.endRender();
             }
         } catch (Throwable t) {

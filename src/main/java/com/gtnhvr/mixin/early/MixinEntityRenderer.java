@@ -101,7 +101,12 @@ public abstract class MixinEntityRenderer {
             mouseX = VRGuiRenderer.mapMouseXToLogicalScreen(mouseX, screen.width);
             mouseY = VRGuiRenderer.mapMouseYToLogicalScreen(mouseY, screen.height);
         }
-        screen.drawScreen(mouseX, mouseY, partialTicks);
+        long drawStartNanos = com.gtnhvr.gui.VRGuiProfiler.startCpu();
+        try {
+            screen.drawScreen(mouseX, mouseY, partialTicks);
+        } finally {
+            com.gtnhvr.gui.VRGuiProfiler.endCpu("drawScreen/" + screen.getClass().getName(), drawStartNanos);
+        }
     }
 
     // Keep the capture open until updateCameraAndRender TAIL: NEI and other Forge GUI listeners

@@ -16,6 +16,31 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GuiScreen.class)
 public abstract class MixinGuiScreen {
 
+
+    @Inject(method = {"setWorldAndResolution", "func_146280_a"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$profileResolutionInit(Minecraft mc, int width, int height, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.beginScreenResolution((GuiScreen) (Object) this);
+    }
+
+    @Inject(method = {"setWorldAndResolution", "func_146280_a"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$finishResolutionInit(Minecraft mc, int width, int height, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endScreenResolution((GuiScreen) (Object) this);
+    }
+
+    @Inject(method = {"setWorldAndResolution", "func_146280_a"},
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;initGui()V",
+                    shift = At.Shift.BEFORE), require = 0)
+    private void gtnhvr$profileInitGuiStart(Minecraft mc, int width, int height, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.beginInitGui((GuiScreen) (Object) this);
+    }
+
+    @Inject(method = {"setWorldAndResolution", "func_146280_a"},
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;initGui()V",
+                    shift = At.Shift.AFTER), require = 0)
+    private void gtnhvr$profileInitGuiEnd(Minecraft mc, int width, int height, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endInitGui((GuiScreen) (Object) this);
+    }
+
     @Inject(method = {"initGui", "func_73866_w_"}, at = @At("HEAD"))
     private void gtnhvr$closeKeyboardForUnrelatedScreen(CallbackInfo ci) {
         com.gtnhvr.gui.VRVirtualKeyboard.getInstance().onGuiOpen((GuiScreen) (Object) this);
