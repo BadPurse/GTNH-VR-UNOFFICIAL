@@ -38,34 +38,21 @@ public final class VRRemotePoseRenderer {
 
             if ((pose.flags & VRPoseData.LEFT_HAND_TRACKED) != 0) {
                 Vector3f room = controllers.worldToRoom(pose.leftX, pose.leftY, pose.leftZ, partialTicks);
-                Quaternionf rotation = worldDirectionToRoomRotation(pose.leftYaw, pose.leftPitch);
+                Quaternionf rotation = worldRotationToRoom(pose.leftQx, pose.leftQy, pose.leftQz, pose.leftQw);
                 VRHandRenderer.renderRemoteArm(room, rotation, skin, false, mc, slim);
             }
             if ((pose.flags & VRPoseData.RIGHT_HAND_TRACKED) != 0) {
                 Vector3f room = controllers.worldToRoom(pose.rightX, pose.rightY, pose.rightZ, partialTicks);
-                Quaternionf rotation = worldDirectionToRoomRotation(pose.rightYaw, pose.rightPitch);
+                Quaternionf rotation = worldRotationToRoom(pose.rightQx, pose.rightQy, pose.rightQz, pose.rightQw);
                 VRHandRenderer.renderRemoteArm(room, rotation, skin, true, mc, slim);
             }
         }
     }
 
-    private static Quaternionf worldDirectionToRoomRotation(float worldYaw, float worldPitch) {
-        float yaw = (float) Math.toRadians(worldYaw);
-        float pitch = (float) Math.toRadians(worldPitch);
-        Vector3f worldDir = new Vector3f(
-                -(float) Math.sin(yaw) * (float) Math.cos(pitch),
-                -(float) Math.sin(pitch),
-                (float) Math.cos(yaw) * (float) Math.cos(pitch));
-        float baseYaw = (float) Math.toRadians(HeadPoseController.getBaseYaw());
-        float cos = (float) Math.cos(baseYaw);
-        float sin = (float) Math.sin(baseYaw);
-        Vector3f roomDir = new Vector3f(
-                -worldDir.x * cos - worldDir.z * sin,
-                worldDir.y,
-                worldDir.x * sin - worldDir.z * cos);
-        if (roomDir.lengthSquared() < 1.0E-6F) roomDir.set(0.0F, 0.0F, -1.0F);
-        else roomDir.normalize();
-        return new Quaternionf().rotationTo(new Vector3f(0.0F, 0.0F, -1.0F), roomDir);
+    /** Converts an absolute Minecraft-world orientation back into this client's room frame. */
+    private static Quaternionf worldRotationToRoom(float qx, float qy, float qz, float qw) {
+        float angle = (float) Math.toRadians(180.0F + HeadPoseController.getBaseYaw());
+        return new Quaternionf().rotationY(angle).mul(new Quaternionf(qx, qy, qz, qw)).normalize();
     }
 
     private static boolean isSlimSkin(AbstractClientPlayer player) {

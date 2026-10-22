@@ -40,10 +40,10 @@ public final class VRNetwork {
         if (current != null && player != null) current.sendTo(new VRBowNetworkHandshake(), player);
     }
 
-    /** Protocol v1 supports legacy bow packets; v2 adds opt-in remote pose relay. */
+    /** The versioned handshake keeps legacy bow support separate from the newer quaternion pose protocol. */
     public static void markServerSupportsBowAim(int handshakeVersion) {
         serverSupportsBowAim = true;
-        serverSupportsPoseSync = handshakeVersion >= 2;
+        serverSupportsPoseSync = handshakeVersion >= 3;
         if (serverSupportsPoseSync && !clientCapabilitiesSent) {
             SimpleNetworkWrapper current = channel;
             if (current != null) {

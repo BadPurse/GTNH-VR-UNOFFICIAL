@@ -9,7 +9,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 
 /** Opt-in acknowledgement that this client understands GTNHVR's versioned pose relay. */
 public final class VRClientCapabilitiesMessage implements IMessage {
-    public static final int POSE_PROTOCOL_VERSION = 1;
+    public static final int POSE_PROTOCOL_VERSION = 2;
     private int poseProtocolVersion = POSE_PROTOCOL_VERSION;
 
     public VRClientCapabilitiesMessage() {}
