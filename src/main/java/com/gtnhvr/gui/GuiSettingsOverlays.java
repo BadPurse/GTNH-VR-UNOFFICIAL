@@ -575,154 +575,224 @@ public class GuiSettingsOverlays extends GuiScreen {
 
     private void drawOverlaysTab(int mouseX, int mouseY, int bgX, int bgY) {
         int listX = bgX + scaleHelper.scaledSize(12);
-        int listY = bgY + scaleHelper.scaledSize(36);
+        int searchY = bgY + scaleHelper.scaledSize(35);
+        int listY = bgY + scaleHelper.scaledSize(54);
         int listW = scaleHelper.scaledSize(96);
-        int listH = scaleHelper.scaledSize(196);
+        int listH = scaleHelper.scaledSize(176);
         int itemH = scaleHelper.scaledSize(26);
 
-        // Left Panel: Overlays List Header
         drawString(this.fontRendererObj, "\u00a77" + I18n.format("visor.overlay.options.overlays"),
-                listX, listY - scaleHelper.scaledSize(8), 0xAAAAAA);
+                listX, listY - scaleHelper.scaledSize(7), 0xAAAAAA);
 
-        // Clamp list scroll
+        // Search and filter entry point mirror Visor's searchable overlay list.
+        if (overlaySearchField != null) overlaySearchField.drawTextBox();
+        int filterX = listX + scaleHelper.scaledSize(77);
+        int filterW = scaleHelper.scaledSize(19);
+        int filterH = scaleHelper.scaledSize(15);
+        boolean filterHover = isHovered(mouseX, mouseY, filterX, searchY, filterW, filterH);
+        drawRect(filterX, searchY, filterX + filterW, searchY + filterH,
+                showFilterPanel ? 0xFF305080 : (filterHover ? 0xFF454545 : 0xFF222222));
+        drawCenteredString(this.fontRendererObj, "F", filterX + filterW / 2,
+                searchY + (filterH - 8) / 2, filterHover || showFilterPanel ? 0xFFFFFF : 0xAAAAAA);
+
         overlayListScroll = Math.max(0, Math.min(getMaxListScroll(), overlayListScroll));
-
-        // Enable scissor for left list
         VRSettingsScreen.enableScissor(this.mc, listX, listY, listW, listH, this.width, this.height);
-
-        // List Entries
-        for (int i = 0; i < overlays.size(); i++) {
-            OverlayEntry entry = overlays.get(i);
+        List<OverlayEntry> visible = getVisibleOverlays();
+        for (int i = 0; i < visible.size(); i++) {
+            OverlayEntry entry = visible.get(i);
             int curY = listY + i * itemH - overlayListScroll;
-            if (curY + itemH < listY || curY > listY + listH) {
-                continue;
-            }
+            if (curY + itemH < listY || curY > listY + listH) continue;
             boolean hovered = isHovered(mouseX, mouseY, listX, curY, listW, itemH - scaleHelper.scaledSize(2))
                     && isHovered(mouseX, mouseY, listX, listY, listW, listH);
-            boolean selected = (i == selectedIndex);
-
-            // Entry Background
-            int bgColor = selected ? 0xFF305080 : (hovered ? 0xFF404040 : 0xFF202020);
-            drawRect(listX, curY, listX + listW, curY + itemH - scaleHelper.scaledSize(2), bgColor);
-
-            // Left accent bar on selected item
-            if (selected) {
-                drawRect(listX, curY, listX + scaleHelper.scaledSize(2), curY + itemH - scaleHelper.scaledSize(2), 0xFF26D9FF);
-            }
-
-            // Name
-            int textColor = selected ? 0xFFFFFF : (hovered ? 0xDDDDDD : 0x999999);
-            drawString(this.fontRendererObj, entry.name, listX + scaleHelper.scaledSize(6),
-                    curY + scaleHelper.scaledSize(3), textColor);
-
-            // Subtitle / Anchor badge
-            String sub = entry.anchor + " | " + (entry.visible ? "\u00a7aON" : "\u00a7cOFF");
+            boolean selected = selectedIndex >= 0 && selectedIndex < overlays.size()
+                    && overlays.get(selectedIndex).id.equals(entry.id);
+            int rowBottom = curY + itemH - scaleHelper.scaledSize(2);
+            drawRect(listX, curY, listX + listW, rowBottom,
+                    selected ? 0xFF305080 : (hovered ? 0xFF404040 : 0xFF202020));
+            if (selected) drawRect(listX, curY, listX + scaleHelper.scaledSize(2), rowBottom, 0xFF26D9FF);
+            if (entry.custom) drawRect(listX + scaleHelper.scaledSize(4), curY + scaleHelper.scaledSize(5),
+                    listX + scaleHelper.scaledSize(6), curY + scaleHelper.scaledSize(18), 0xFF26D9FF);
+            drawString(this.fontRendererObj, entry.name, listX + scaleHelper.scaledSize(entry.custom ? 9 : 6),
+                    curY + scaleHelper.scaledSize(3), selected ? 0xFFFFFF : (hovered ? 0xDDDDDD : 0x999999));
+            String sub = entry.anchor + " / " + (entry.visible ? "ON" : "OFF");
             drawString(this.fontRendererObj, "\u00a78" + sub, listX + scaleHelper.scaledSize(6),
                     curY + scaleHelper.scaledSize(14), 0x777777);
         }
-
         VRSettingsScreen.disableScissor();
 
-        // Draw scrollbar for left list if content overflows
         int maxListScroll = getMaxListScroll();
         if (maxListScroll > 0) {
-            drawScrollbar(listX + listW + scaleHelper.scaledSize(2), listY, scaleHelper.scaledSize(2), listH,
-                    overlayListScroll, maxListScroll);
+            drawScrollbar(listX + listW + scaleHelper.scaledSize(2), listY,
+                    scaleHelper.scaledSize(2), listH, overlayListScroll, maxListScroll);
         }
 
-        // Right Panel: Selected Overlay Detail Configuration
-        if (selectedIndex >= 0 && selectedIndex < overlays.size()) {
-            OverlayEntry cur = overlays.get(selectedIndex);
-            int detailX = bgX + scaleHelper.scaledSize(118);
-            int detailY = bgY + scaleHelper.scaledSize(36);
-            int detailW = scaleHelper.scaledSize(106);
-            int detailH = scaleHelper.scaledSize(176);
+        // Compact in-canvas filter panel so the VR ray remains on the actual GUI plane.
+        if (showFilterPanel) {
+            int fx = listX + scaleHelper.scaledSize(1);
+            int fy = listY + scaleHelper.scaledSize(2);
+            int fw = listW - scaleHelper.scaledSize(2);
+            int fh = scaleHelper.scaledSize(76);
+            drawRect(fx, fy, fx + fw, fy + fh, 0xFF111820);
+            drawRect(fx, fy, fx + fw, fy + scaleHelper.scaledSize(12), 0xFF26374A);
+            drawString(this.fontRendererObj, "FILTERS", fx + scaleHelper.scaledSize(4),
+                    fy + scaleHelper.scaledSize(2), 0xFFFFFFFF);
+            String[] labels = {"Built-in overlays", "Custom overlays", "Have options", "No options"};
+            boolean[] values = {filterBuiltIn, filterCustom, filterHasOptions, filterNoOptions};
+            for (int i = 0; i < labels.length; i++) {
+                int ry = fy + scaleHelper.scaledSize(14 + i * 15);
+                drawRect(fx + scaleHelper.scaledSize(3), ry, fx + scaleHelper.scaledSize(12),
+                        ry + scaleHelper.scaledSize(9), values[i] ? 0xFF26895B : 0xFF303030);
+                drawString(this.fontRendererObj, values[i] ? "\u00a7a\u2713" : "\u00a77\u25a1",
+                        fx + scaleHelper.scaledSize(4), ry, 0xFFFFFFFF);
+                drawString(this.fontRendererObj, labels[i], fx + scaleHelper.scaledSize(15),
+                        ry, values[i] ? 0xFFEEEEEE : 0xFF999999);
+            }
+        }
 
-            overlayDetailScroll = Math.max(0, Math.min(getMaxDetailScroll(), overlayDetailScroll));
+        if (selectedIndex < 0 || selectedIndex >= overlays.size()) return;
+        OverlayEntry current = overlays.get(selectedIndex);
+        int detailX = bgX + scaleHelper.scaledSize(118);
+        int detailY = bgY + scaleHelper.scaledSize(36);
+        int detailW = scaleHelper.scaledSize(106);
+        int detailH = scaleHelper.scaledSize(176);
+        overlayDetailScroll = Math.max(0, Math.min(getMaxDetailScroll(), overlayDetailScroll));
 
-            // Enable scissor for detail area
-            VRSettingsScreen.enableScissor(this.mc, detailX, detailY, detailW + scaleHelper.scaledSize(6), detailH, this.width, this.height);
+        VRSettingsScreen.enableScissor(this.mc, detailX, detailY, detailW + scaleHelper.scaledSize(6),
+                detailH, this.width, this.height);
+        if (selectedGroup == null) {
+            drawString(this.fontRendererObj, "\u00a7f\u00a7l" + current.name, detailX,
+                    detailY + scaleHelper.scaledSize(1) - overlayDetailScroll, 0xFFFFFF);
+            String kind = current.custom ? "CUSTOM / " + nameOf(current.template).toUpperCase(Locale.ROOT)
+                    : "BUILT-IN OVERLAY";
+            drawString(this.fontRendererObj, "\u00a78" + kind, detailX,
+                    detailY + scaleHelper.scaledSize(12) - overlayDetailScroll, 0x888888);
 
-            // 1. Overlay Title
-            int curY = detailY - overlayDetailScroll;
-            drawString(this.fontRendererObj, "\u00a7f\u00a7l" + cur.name, detailX, curY, 0xFFFFFF);
-            curY += scaleHelper.scaledSize(13);
+            int descY = detailY + scaleHelper.scaledSize(23) - overlayDetailScroll;
+            int descLines = this.fontRendererObj.listFormattedStringToWidth("\u00a77" + current.description, detailW).size();
+            this.fontRendererObj.drawSplitString("\u00a77" + current.description, detailX, descY, detailW, 0x888888);
 
-            // 2. Description (wrapped)
-            int descLines = this.fontRendererObj.listFormattedStringToWidth("\u00a77" + cur.description, detailW).size();
-            this.fontRendererObj.drawSplitString("\u00a77" + cur.description, detailX, curY, detailW, 0x888888);
-            curY += descLines * this.fontRendererObj.FONT_HEIGHT + scaleHelper.scaledSize(6);
-
-            // 3. Controls
-            int ctrlH = scaleHelper.scaledSize(14);
-            int step = scaleHelper.scaledSize(18);
-
-            for (String row : rowsFor(cur.id)) {
-                boolean hover = isHovered(mouseX, mouseY, detailX, curY, detailW, ctrlH)
-                        && isHovered(mouseX, mouseY, detailX, detailY, detailW, detailH);
-                switch (row) {
-                    case "VIS":
-                        drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
-                        drawCenteredString(this.fontRendererObj,
-                                I18n.format("visor.overlay.options.visibility") + ": "
-                                        + (cur.visible ? "\u00a7aON" : "\u00a7cOFF"),
-                                detailX + detailW / 2, curY + (ctrlH - 8) / 2, 0xFFFFFF);
-                        break;
-                    case "ANCHOR":
-                        drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
-                        drawCenteredString(this.fontRendererObj, "Anchor: \u00a7b" + cur.anchor,
-                                detailX + detailW / 2, curY + (ctrlH - 8) / 2, 0xFFFFFF);
-                        break;
-                    case "SCALE":
-                        drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Scale", cur.scale, 0.2F, 3.0F, "%.2fx", 0);
-                        break;
-                    case "DIST":
-                        drawSlider(mouseX, detailX, curY, detailW, ctrlH,
-                                cur.id.equals(VROverlayConfig.CROSSHAIR) ? "Reach" : "Distance",
-                                cur.distance, 0.2F, 6.0F, "%.2fm", 1);
-                        break;
-                    case "OFFX":
-                        drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Offset X", cur.offsetX, -0.5F, 0.5F, "%.2fm", 2);
-                        break;
-                    case "OFFY":
-                        drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Offset Y", cur.offsetY, -0.5F, 0.5F, "%.2fm", 3);
-                        break;
-                    default: // FLAG
-                        drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
-                        drawCenteredString(this.fontRendererObj,
-                                flagLabelOf(cur.id) + ": " + (cur.extraFlag ? "\u00a7aON" : "\u00a77OFF"),
-                                detailX + detailW / 2, curY + (ctrlH - 8) / 2, 0xFFFFFF);
-                        break;
+            int optionsLabelY = descY + descLines * this.fontRendererObj.FONT_HEIGHT + scaleHelper.scaledSize(5);
+            drawString(this.fontRendererObj, "\u00a77OPTION GROUPS", detailX, optionsLabelY, 0xAAAAAA);
+            int groupY = optionsLabelY + scaleHelper.scaledSize(11);
+            int groupStep = scaleHelper.scaledSize(16);
+            String[] groups = groupsFor(current.id);
+            for (int i = 0; i < groups.length; i++) {
+                int gy = groupY + i * groupStep;
+                boolean hover = isHovered(mouseX, mouseY, detailX, gy, detailW, scaleHelper.scaledSize(14));
+                drawRect(detailX, gy, detailX + detailW, gy + scaleHelper.scaledSize(14),
+                        hover ? 0xFF3C3C3C : 0xFF242424);
+                drawString(this.fontRendererObj, groups[i], detailX + scaleHelper.scaledSize(4),
+                        gy + scaleHelper.scaledSize(3), hover ? 0xFFFFFFFF : 0xFFCCCCCC);
+                drawString(this.fontRendererObj, "\u00a7b>", detailX + detailW - scaleHelper.scaledSize(8),
+                        gy + scaleHelper.scaledSize(3), 0xFF26D9FF);
+            }
+        } else {
+            drawString(this.fontRendererObj, "\u00a7b< " + selectedGroup, detailX,
+                    detailY + scaleHelper.scaledSize(2), 0xFFFFFFFF);
+            if (GROUP_GENERAL.equals(selectedGroup)) {
+                drawString(this.fontRendererObj, "\u00a77ID: \u00a7f" + current.id, detailX,
+                        detailY + scaleHelper.scaledSize(26), 0xFFFFFFFF);
+                drawString(this.fontRendererObj, "\u00a77Type: \u00a7f" + (current.custom ? "Custom copy" : "Built-in"),
+                        detailX, detailY + scaleHelper.scaledSize(42), 0xFFFFFFFF);
+                drawString(this.fontRendererObj, "\u00a77Template: \u00a7f" + nameOf(current.template),
+                        detailX, detailY + scaleHelper.scaledSize(58), 0xFFFFFFFF);
+                this.fontRendererObj.drawSplitString(current.description, detailX,
+                        detailY + scaleHelper.scaledSize(78), detailW, 0xAAAAAA);
+            } else {
+                String[] rows = rowsForGroup(current.id, selectedGroup);
+                int curY = detailY + scaleHelper.scaledSize(25) - overlayDetailScroll;
+                int ctrlH = scaleHelper.scaledSize(14);
+                int step = scaleHelper.scaledSize(18);
+                for (String row : rows) {
+                    boolean hover = isHovered(mouseX, mouseY, detailX, curY, detailW, ctrlH)
+                            && isHovered(mouseX, mouseY, detailX, detailY, detailW, detailH);
+                    switch (row) {
+                        case "VIS":
+                            drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
+                            drawCenteredString(this.fontRendererObj,
+                                    I18n.format("visor.overlay.options.visibility") + ": "
+                                            + (current.visible ? "\u00a7aON" : "\u00a7cOFF"),
+                                    detailX + detailW / 2, curY + (ctrlH - 8) / 2, 0xFFFFFF);
+                            break;
+                        case "ANCHOR":
+                            drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
+                            drawCenteredString(this.fontRendererObj, "Anchor: \u00a7b" + current.anchor,
+                                    detailX + detailW / 2, curY + (ctrlH - 8) / 2, 0xFFFFFF);
+                            break;
+                        case "SCALE":
+                            drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Scale", current.scale, 0.2F, 3.0F, "%.2fx", 0);
+                            break;
+                        case "DIST":
+                            drawSlider(mouseX, detailX, curY, detailW, ctrlH,
+                                    VROverlayConfig.CROSSHAIR.equals(current.id) ? "Reach" : "Distance",
+                                    current.distance, 0.2F, 6.0F, "%.2fm", 1);
+                            break;
+                        case "OFFX":
+                            drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Offset X", current.offsetX, -0.5F, 0.5F, "%.2fm", 2);
+                            break;
+                        case "OFFY":
+                            drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Offset Y", current.offsetY, -0.5F, 0.5F, "%.2fm", 3);
+                            break;
+                        default:
+                            drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
+                            drawCenteredString(this.fontRendererObj,
+                                    flagLabelOf(current.id) + ": " + (current.extraFlag ? "\u00a7aON" : "\u00a77OFF"),
+                                    detailX + detailW / 2, curY + (ctrlH - 8) / 2, 0xFFFFFF);
+                            break;
+                    }
+                    curY += step;
                 }
-                curY += step;
+
+                // Copy, paste and reload controls live in the same side rail as Visor's icon buttons.
+                int actionX = bgX + scaleHelper.scaledSize(234);
+                int actionSize = scaleHelper.scaledSize(17);
+                String[] actions = {"C", "P", "R"};
+                int[] actionYs = {99, 122, 145};
+                boolean[] enabled = {true, copiedOptions != null && selectedGroup.equals(copiedGroup), true};
+                for (int i = 0; i < actions.length; i++) {
+                    int ay = bgY + scaleHelper.scaledSize(actionYs[i]);
+                    boolean hover = isHovered(mouseX, mouseY, actionX, ay, actionSize, actionSize);
+                    int color = enabled[i] ? (hover ? 0xFF36536B : 0xFF202D38) : 0xFF202020;
+                    drawRect(actionX, ay, actionX + actionSize, ay + actionSize, color);
+                    drawCenteredString(this.fontRendererObj, actions[i], actionX + actionSize / 2,
+                            ay + (actionSize - 8) / 2, enabled[i] ? 0xFF26D9FF : 0xFF666666);
+                }
             }
+        }
+        VRSettingsScreen.disableScissor();
 
-            VRSettingsScreen.disableScissor();
-
-            // Draw scrollbar for detail panel if content overflows
-            int maxDetailScroll = getMaxDetailScroll();
-            if (maxDetailScroll > 0) {
-                drawScrollbar(detailX + detailW + scaleHelper.scaledSize(2), detailY, scaleHelper.scaledSize(2), detailH,
-                        overlayDetailScroll, maxDetailScroll);
-            }
-
-            // Action Buttons at bottom (Fixed)
-            int btnY = bgY + scaleHelper.scaledSize(218);
-            int halfW = (detailW - scaleHelper.scaledSize(4)) / 2;
-
-            // "Load defaults" Button
-            int defX = detailX;
-            boolean defHover = isHovered(mouseX, mouseY, defX, btnY, halfW, scaleHelper.scaledSize(15));
-            drawRect(defX, btnY, defX + halfW, btnY + scaleHelper.scaledSize(15), defHover ? 0xFF604040 : 0xFF402828);
+        // Fixed footer buttons: reset/save, or an explicit two-step removal confirmation.
+        int btnY = bgY + scaleHelper.scaledSize(218);
+        int halfW = (detailW - scaleHelper.scaledSize(4)) / 2;
+        int btnH = scaleHelper.scaledSize(15);
+        int saveX = detailX + halfW + scaleHelper.scaledSize(4);
+        if (confirmRemove && current.custom) {
+            drawRect(detailX, btnY, detailX + halfW, btnY + btnH, 0xFF702B2B);
+            drawCenteredString(this.fontRendererObj, "Confirm Remove", detailX + halfW / 2,
+                    btnY + (btnH - 8) / 2, 0xFFFFFFFF);
+            drawRect(saveX, btnY, saveX + halfW, btnY + btnH, 0xFF383838);
+            drawCenteredString(this.fontRendererObj, "Cancel", saveX + halfW / 2,
+                    btnY + (btnH - 8) / 2, 0xFFFFFFFF);
+        } else {
+            boolean defaultsHover = isHovered(mouseX, mouseY, detailX, btnY, halfW, btnH);
+            drawRect(detailX, btnY, detailX + halfW, btnY + btnH, defaultsHover ? 0xFF604040 : 0xFF402828);
             drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays.load_defaults"),
-                    defX + halfW / 2, btnY + (scaleHelper.scaledSize(15) - 8) / 2, defHover ? 0xFFFFA0 : 0xDDDDDD);
-
-            // "Save" Button
-            int saveX = detailX + halfW + scaleHelper.scaledSize(4);
-            boolean saveHover = isHovered(mouseX, mouseY, saveX, btnY, halfW, scaleHelper.scaledSize(15));
-            drawRect(saveX, btnY, saveX + halfW, btnY + scaleHelper.scaledSize(15), saveHover ? 0xFF306030 : 0xFF204020);
+                    detailX + halfW / 2, btnY + (btnH - 8) / 2, defaultsHover ? 0xFFFFA0 : 0xFFDDDDDD);
+            boolean saveHover = isHovered(mouseX, mouseY, saveX, btnY, halfW, btnH);
+            drawRect(saveX, btnY, saveX + halfW, btnY + btnH, saveHover ? 0xFF306030 : 0xFF204020);
             drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays.save"),
-                    saveX + halfW / 2, btnY + (scaleHelper.scaledSize(15) - 8) / 2, saveHover ? 0xA0FFA0 : 0x88EE88);
+                    saveX + halfW / 2, btnY + (btnH - 8) / 2, saveHover ? 0xFFA0FFA0 : 0xFF88EE88);
+        }
+
+        if (current.custom) {
+            int removeX = bgX + scaleHelper.scaledSize(234);
+            int removeY = bgY + scaleHelper.scaledSize(193);
+            int removeSize = scaleHelper.scaledSize(17);
+            boolean removeHover = isHovered(mouseX, mouseY, removeX, removeY, removeSize, removeSize);
+            drawRect(removeX, removeY, removeX + removeSize, removeY + removeSize,
+                    removeHover || confirmRemove ? 0xFF702B2B : 0xFF382020);
+            drawCenteredString(this.fontRendererObj, "\u00a7cX", removeX + removeSize / 2,
+                    removeY + (removeSize - 8) / 2, 0xFFFFFFFF);
         }
     }
 
