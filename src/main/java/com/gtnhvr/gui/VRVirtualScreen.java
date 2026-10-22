@@ -435,6 +435,11 @@ public final class VRVirtualScreen {
             GLStateManager.glTexCoord2f(0.0F, 1.0F); GLStateManager.glVertex3f(-halfW,  halfH, 0.0F);
             GLStateManager.glEnd();
 
+            // The screen texture is premultiplied-alpha; the following handle quads use
+            // ordinary unassociated vertex colors and therefore return to source-alpha blending.
+            GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                    GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
             // 2. Visor 1:1 Drag Bar & Resize Handle (disabled in Main Menu)
             Minecraft mc = Minecraft.getMinecraft();
             boolean allowHandles = (mc != null && mc.theWorld != null && !inMenuRoom);
