@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Prevents duplicate vanilla arms when matching remote hands are drawn at their networked VR poses. */
 @Mixin(ModelBiped.class)
 public abstract class MixinModelBipedRemoteVRArms {
+    @Shadow public ModelRenderer bipedHead;
     @Shadow public ModelRenderer bipedLeftArm;
     @Shadow public ModelRenderer bipedRightArm;
 
@@ -25,6 +26,25 @@ public abstract class MixinModelBipedRemoteVRArms {
     @Unique private boolean gtnhvr$hideRightArm;
     @Unique private boolean gtnhvr$oldLeftShowModel;
     @Unique private boolean gtnhvr$oldRightShowModel;
+
+    @Inject(method = {"setRotationAngles", "func_78087_a"}, at = @At("TAIL"), require = 0)
+    private void gtnhvr$applyRemoteHeadPose(float limbSwing, float limbSwingAmount, float ageInTicks,
+                                             float netHeadYaw, float headPitch, float scale, Entity entity,
+                                             CallbackInfo ci) {
+        if (!(entity instanceof AbstractClientPlayer)) return;
+        Minecraft mc = Minecraft.getMinecraft();
+        AbstractClientPlayer player = (AbstractClientPlayer) entity;
+        if (mc == null || player == mc.thePlayer) return;
+
+        VRPoseData pose = VRRemotePoseClientState.getInterpolated(player.getUniqueID());
+        if (pose == null || (pose.flags & VRPoseData.HEAD_TRACKED) == 0) return;
+
+        float relativeYaw = pose.headYaw - player.renderYawOffset;
+        while (relativeYaw > 180.0F) relativeYaw -= 360.0F;
+        while (relativeYaw < -180.0F) relativeYaw += 360.0F;
+        bipedHead.rotateAngleY = (float) Math.toRadians(relativeYaw);
+        bipedHead.rotateAngleX = (float) Math.toRadians(pose.headPitch);
+    }
 
     @Inject(method = {"render", "func_78088_a"}, at = @At("HEAD"), require = 0)
     private void gtnhvr$hideTrackedRemoteArms(Entity entity, float limbSwing, float limbSwingAmount,
