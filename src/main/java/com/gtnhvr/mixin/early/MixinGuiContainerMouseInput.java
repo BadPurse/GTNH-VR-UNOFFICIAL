@@ -3,6 +3,7 @@ package com.gtnhvr.mixin.early;
 import com.gtnhvr.gui.VRGuiRenderer;
 import com.gtnhvr.gui.VRGuiProfiler;
 import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.inventory.Slot;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,6 +17,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(GuiContainer.class)
 public abstract class MixinGuiContainerMouseInput {
+
+    @Unique
+    private long gtnhvr$slotDrawStartNanos;
+
+    @Inject(method = {"drawSlot", "func_146977_a"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$profileSlotDrawStart(Slot slot, CallbackInfo ci) {
+        gtnhvr$slotDrawStartNanos = VRGuiProfiler.startCpu();
+    }
+
+    @Inject(method = {"drawSlot", "func_146977_a"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$profileSlotDrawEnd(Slot slot, CallbackInfo ci) {
+        VRGuiProfiler.endCpu("container-slot-draw", gtnhvr$slotDrawStartNanos);
+        gtnhvr$slotDrawStartNanos = 0L;
+    }
+
 
     @Unique
     private long gtnhvr$containerDrawStartNanos;
