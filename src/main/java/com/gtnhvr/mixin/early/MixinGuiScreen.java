@@ -27,23 +27,15 @@ public abstract class MixinGuiScreen {
         com.gtnhvr.gui.VRGuiProfiler.endScreenResolution((GuiScreen) (Object) this);
     }
 
-    @Inject(method = {"setWorldAndResolution", "func_146280_a"},
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;initGui()V",
-                    shift = At.Shift.BEFORE), require = 0)
-    private void gtnhvr$profileInitGuiStart(Minecraft mc, int width, int height, CallbackInfo ci) {
-        com.gtnhvr.gui.VRGuiProfiler.beginInitGui((GuiScreen) (Object) this);
-    }
-
-    @Inject(method = {"setWorldAndResolution", "func_146280_a"},
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;initGui()V",
-                    shift = At.Shift.AFTER), require = 0)
-    private void gtnhvr$profileInitGuiEnd(Minecraft mc, int width, int height, CallbackInfo ci) {
-        com.gtnhvr.gui.VRGuiProfiler.endInitGui((GuiScreen) (Object) this);
-    }
-
     @Inject(method = {"initGui", "func_73866_w_"}, at = @At("HEAD"))
     private void gtnhvr$closeKeyboardForUnrelatedScreen(CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.beginInitGui((GuiScreen) (Object) this);
         com.gtnhvr.gui.VRVirtualKeyboard.getInstance().onGuiOpen((GuiScreen) (Object) this);
+    }
+
+    @Inject(method = {"initGui", "func_73866_w_"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$profileInitGuiEnd(CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endInitGui((GuiScreen) (Object) this);
     }
 
     @Inject(method = {"handleMouseInput", "func_146274_d"}, at = @At("HEAD"))
