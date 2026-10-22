@@ -372,7 +372,17 @@ public final class VRClientSettings {
             hudDisableHotbar = config.getBoolean("hudDisableHotbar", "gui", hudDisableHotbar, "Disable vanilla bottom hotbar render");
 
             // VR Body & Height
+            // Keep the body type and the player-skin arm model as separate settings.
+            // Older builds stored the skin selector in defaultVrBody; migrate those values once.
+            boolean hasConfiguredSkinModel = config.hasKey("body", "vrBodyModel");
             defaultVrBody = config.getString("defaultVrBody", "body", defaultVrBody, "Active VR body model (hands_only, steamvr_hands, player_model)");
+            if (hasConfiguredSkinModel) {
+                vrBodyModel = config.getString("vrBodyModel", "body", vrBodyModel,
+                        "Hand/arm appearance (Steve (Classic), Alex (Slim), Hands Only, Hidden)");
+            } else if (isPlayerSkinModel(defaultVrBody)) {
+                vrBodyModel = defaultVrBody;
+                defaultVrBody = "hands_only";
+            }
             fbtEnabled = config.getBoolean("fbtEnabled", "body", fbtEnabled, "Full Body Tracking via Vive/Slime trackers");
             handTrackingEnabled = config.getBoolean("handTrackingEnabled", "body", handTrackingEnabled, "Optical hand tracking without controllers");
             bodyHapticsEnabled = config.getBoolean("bodyHapticsEnabled", "body", bodyHapticsEnabled, "Haptic vest / bHaptics support");
@@ -435,23 +445,7 @@ public final class VRClientSettings {
             loadOffset("item_right", itemRight, DEFAULT_ITEM_RIGHT);
             loadOffset("item_left", itemLeft, DEFAULT_ITEM_LEFT);
 
-            // Sync compatibility aliases
-            autoHeight = heightAuto;
-            vrBodyModel = defaultVrBody;
-            fullBodyTracking = fbtEnabled;
-            handTracking = handTrackingEnabled;
-            bodyHaptics = bodyHapticsEnabled;
-            roomSneak = physicalSneaking;
-            roomCrawl = physicalCrawling;
-            roomClimb = physicalClimbing;
-            roomJump = realisticJump;
-            roomSwim = roomSwimEnabled;
-            roomDismountVehicle = roomDismountVehicleEnabled;
-            roomBoatRowing = roomBoatRowingEnabled;
-            roomConsume = roomConsumeEnabled;
-            hudDisabledHotbar = hudDisableHotbar;
-            interactionReach = interactionDistance;
-            crosshairLaser = vrCrosshair;
+            syncCompatibilityAliasesFromCanonical();
 
 
             // Controller bindings: a zero key code retains that control's default in-world action.
@@ -493,6 +487,41 @@ public final class VRClientSettings {
         }
     }
 
+    /**
+     * Synchronizes legacy Visor-named UI aliases from the settings persisted by this port.
+     * Preset application uses the persisted field names; the in-game widgets still use the
+     * compatibility aliases, so both representations must be updated before the next save.
+     *
+     * vrBodyModel is intentionally not included: it chooses the player skin arm style, while
+     * defaultVrBody is a different body-type setting.
+     */
+    public static void syncCompatibilityAliasesFromCanonical() {
+        autoHeight = heightAuto;
+        fullBodyTracking = fbtEnabled;
+        handTracking = handTrackingEnabled;
+        bodyHaptics = bodyHapticsEnabled;
+        roomSneak = physicalSneaking;
+        roomCrawl = physicalCrawling;
+        roomClimb = physicalClimbing;
+        roomJump = realisticJump;
+        roomSwim = roomSwimEnabled;
+        roomDismountVehicle = roomDismountVehicleEnabled;
+        roomBoatRowing = roomBoatRowingEnabled;
+        roomConsume = roomConsumeEnabled;
+        hudDisabledHotbar = hudDisableHotbar;
+        interactionReach = interactionDistance;
+        crosshairLaser = vrCrosshair;
+    }
+
+    private static boolean isPlayerSkinModel(String value) {
+        return value != null && (
+                value.equalsIgnoreCase("Steve (Classic)")
+                || value.equalsIgnoreCase("Alex (Slim)")
+                || value.equalsIgnoreCase("Hands Only")
+                || value.equalsIgnoreCase("Hidden")
+        );
+    }
+
     private static void loadOffset(String prefix, ItemHandOffset target, ItemHandOffset def) {
         target.scale = (float) config.get("custom_hands", prefix + "_scale", (double) def.scale).getDouble();
         target.posX = (float) config.get("custom_hands", prefix + "_pos_x", (double) def.posX).getDouble();
@@ -516,9 +545,8 @@ public final class VRClientSettings {
     public static void save() {
         if (config == null) return;
         try {
-            // Sync compatibility aliases
+            // Legacy UI controls still write to alias fields; mirror those values into persisted settings.
             heightAuto = autoHeight;
-            defaultVrBody = vrBodyModel;
             fbtEnabled = fullBodyTracking;
             handTrackingEnabled = handTracking;
             bodyHapticsEnabled = bodyHaptics;
@@ -598,6 +626,7 @@ public final class VRClientSettings {
 
             // VR Body & Height
             config.get("body", "defaultVrBody", "hands_only").set(defaultVrBody);
+            config.get("body", "vrBodyModel", "Steve (Classic)").set(vrBodyModel);
             config.get("body", "fbtEnabled", false).set(fbtEnabled);
             config.get("body", "handTrackingEnabled", false).set(handTrackingEnabled);
             config.get("body", "bodyHapticsEnabled", false).set(bodyHapticsEnabled);
