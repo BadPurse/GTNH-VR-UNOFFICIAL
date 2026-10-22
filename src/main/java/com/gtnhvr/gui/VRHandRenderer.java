@@ -517,7 +517,7 @@ public final class VRHandRenderer {
     private static void gtnhvr$findBowUseFields() {
         if (gtnhvr$bowUseFieldsSearched) return;
         gtnhvr$bowUseFieldsSearched = true;
-        Class<?> type = net.minecraft.entity.EntityLivingBase.class;
+        Class<?> type = net.minecraft.entity.player.EntityPlayer.class;
         while (type != null) {
             if (gtnhvr$bowItemInUseField == null) {
                 for (String name : new String[] {"itemInUse", "field_71074_e"}) {
