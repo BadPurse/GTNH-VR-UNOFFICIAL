@@ -37,6 +37,11 @@ public final class VROverlayConfig {
     public static final class Entry {
         public boolean visible = true;
         public String anchor = "HMD";
+        /** Independent Visor-style orientation anchor and local Euler rotation offsets (degrees). */
+        public String rotationAnchor = "HMD";
+        public float rotationX = 0.0F;
+        public float rotationY = 0.0F;
+        public float rotationZ = 0.0F;
         public float scale = 1.0F;
         public float distance = 1.0F;
         public float opacity = 1.0F;
@@ -52,6 +57,10 @@ public final class VROverlayConfig {
         public void set(Entry other) {
             visible = other.visible;
             anchor = other.anchor;
+            rotationAnchor = other.rotationAnchor;
+            rotationX = other.rotationX;
+            rotationY = other.rotationY;
+            rotationZ = other.rotationZ;
             scale = other.scale;
             distance = other.distance;
             opacity = other.opacity;
@@ -214,6 +223,7 @@ public final class VROverlayConfig {
             default:
                 break;
         }
+        e.rotationAnchor = e.anchor;
         return e;
     }
 
@@ -258,6 +268,10 @@ public final class VROverlayConfig {
                 String cat = "overlay_" + id;
                 e.visible = config.get(cat, "visible", d.visible).getBoolean();
                 e.anchor = normalizeAnchor(config.get(cat, "anchor", d.anchor).getString(), d.anchor);
+                e.rotationAnchor = normalizeAnchor(config.get(cat, "rotationAnchor", d.rotationAnchor).getString(), d.rotationAnchor);
+                e.rotationX = clamp((float) config.get(cat, "rotationX", (double) d.rotationX).getDouble(), -180.0F, 180.0F);
+                e.rotationY = clamp((float) config.get(cat, "rotationY", (double) d.rotationY).getDouble(), -180.0F, 180.0F);
+                e.rotationZ = clamp((float) config.get(cat, "rotationZ", (double) d.rotationZ).getDouble(), -180.0F, 180.0F);
                 e.scale = clamp((float) config.get(cat, "scale", (double) d.scale).getDouble(), 0.2F, 3.0F);
                 e.distance = clamp((float) config.get(cat, "distance", (double) d.distance).getDouble(), 0.1F, 6.0F);
                 e.opacity = clamp((float) config.get(cat, "opacity", (double) d.opacity).getDouble(), 0.05F, 1.0F);
@@ -272,6 +286,10 @@ public final class VROverlayConfig {
                 String cat = "overlay_" + id;
                 e.visible = config.get(cat, "visible", d.visible).getBoolean();
                 e.anchor = normalizeAnchor(config.get(cat, "anchor", d.anchor).getString(), d.anchor);
+                e.rotationAnchor = normalizeAnchor(config.get(cat, "rotationAnchor", d.rotationAnchor).getString(), d.rotationAnchor);
+                e.rotationX = clamp((float) config.get(cat, "rotationX", (double) d.rotationX).getDouble(), -180.0F, 180.0F);
+                e.rotationY = clamp((float) config.get(cat, "rotationY", (double) d.rotationY).getDouble(), -180.0F, 180.0F);
+                e.rotationZ = clamp((float) config.get(cat, "rotationZ", (double) d.rotationZ).getDouble(), -180.0F, 180.0F);
                 e.scale = clamp((float) config.get(cat, "scale", (double) d.scale).getDouble(), 0.2F, 3.0F);
                 e.distance = clamp((float) config.get(cat, "distance", (double) d.distance).getDouble(), 0.1F, 6.0F);
                 e.opacity = clamp((float) config.get(cat, "opacity", (double) d.opacity).getDouble(), 0.05F, 1.0F);
@@ -305,6 +323,10 @@ public final class VROverlayConfig {
         String category = "overlay_" + id;
         config.get(category, "visible", defaults.visible).set(entry.visible);
         config.get(category, "anchor", defaults.anchor).set(entry.anchor);
+        config.get(category, "rotationAnchor", defaults.rotationAnchor).set(entry.rotationAnchor);
+        config.get(category, "rotationX", (double) defaults.rotationX).set((double) entry.rotationX);
+        config.get(category, "rotationY", (double) defaults.rotationY).set((double) entry.rotationY);
+        config.get(category, "rotationZ", (double) defaults.rotationZ).set((double) entry.rotationZ);
         config.get(category, "scale", (double) defaults.scale).set((double) entry.scale);
         config.get(category, "distance", (double) defaults.distance).set((double) entry.distance);
         config.get(category, "opacity", (double) defaults.opacity).set((double) entry.opacity);
