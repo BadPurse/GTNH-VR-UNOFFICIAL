@@ -327,17 +327,29 @@ public final class VRPresetManager {
         }
     }
 
+    private static void resetOverlayDefaults() {
+        for (String overlayId : VROverlayConfig.IDS) {
+            VROverlayConfig.get(overlayId).set(VROverlayConfig.defaults(overlayId));
+        }
+        VROverlayConfig.save();
+    }
+
     private static void applyBuiltIn(String id) {
         switch (id) {
-            case "defaults" -> VRClientSettings.loadDefaults();
+            case "defaults" -> {
+                VRClientSettings.loadDefaults();
+                resetOverlayDefaults();
+            }
             case "defaults_hand_hud" -> {
                 VRClientSettings.loadDefaults();
+                resetOverlayDefaults();
                 VRClientSettings.hotbarMode = 0; // Hand/Wrist
                 VRClientSettings.hudDistance = 1.8f;
                 VRClientSettings.curvedHud = true;
             }
             case "performance" -> {
                 VRClientSettings.loadDefaults();
+                resetOverlayDefaults();
                 VRClientSettings.renderScaleFactor = 0.8f;
                 VRClientSettings.mirrorMode = MirrorMode.OFF;
                 VRClientSettings.shaderPerEyePipelines = false;
@@ -345,6 +357,7 @@ public final class VRPresetManager {
             }
             case "immersion" -> {
                 VRClientSettings.loadDefaults();
+                resetOverlayDefaults();
                 VRClientSettings.physicalSneaking = true;
                 VRClientSettings.physicalClimbing = true;
                 VRClientSettings.physicalCrawling = true;
