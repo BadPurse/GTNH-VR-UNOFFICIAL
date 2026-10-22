@@ -510,6 +510,86 @@ public final class VRHandRenderer {
      * - Full support for Tinkers' Construct (ToolCore) and modded Forge IItemRenderer items
      * - Multi-pass color tinting for GTNH / TConstruct tools and potions
      */
+    private static java.lang.reflect.Field gtnhvr$bowItemInUseField;
+    private static java.lang.reflect.Field gtnhvr$bowItemInUseCountField;
+    private static boolean gtnhvr$bowUseFieldsSearched;
+
+    private static void gtnhvr$findBowUseFields() {
+        if (gtnhvr$bowUseFieldsSearched) return;
+        gtnhvr$bowUseFieldsSearched = true;
+        Class<?> type = net.minecraft.entity.EntityLivingBase.class;
+        while (type != null) {
+            if (gtnhvr$bowItemInUseField == null) {
+                for (String name : new String[] {"itemInUse", "field_71074_e"}) {
+                    try {
+                        gtnhvr$bowItemInUseField = type.getDeclaredField(name);
+                        gtnhvr$bowItemInUseField.setAccessible(true);
+                        break;
+                    } catch (Throwable ignored) {}
+                }
+            }
+            if (gtnhvr$bowItemInUseCountField == null) {
+                for (String name : new String[] {"itemInUseCount", "field_71072_f"}) {
+                    try {
+                        gtnhvr$bowItemInUseCountField = type.getDeclaredField(name);
+                        gtnhvr$bowItemInUseCountField.setAccessible(true);
+                        break;
+                    } catch (Throwable ignored) {}
+                }
+            }
+            type = type.getSuperclass();
+        }
+    }
+
+    /**
+     * Draw the vanilla bow texture in the same pull stage as its physical VR string.
+     * This is render-only: the player's actual item-use state is restored immediately.
+     */
+    private static void gtnhvr$renderHeldStackWithBowTension(Minecraft mc, ItemStack stack, int pass) {
+        if (mc == null || mc.thePlayer == null || stack == null
+                || !(stack.getItem() instanceof ItemBow)) {
+            RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
+            return;
+        }
+
+        com.gtnhvr.gameplay.tasks.VRTaskBow bow = com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance();
+        if (!bow.isDrawing() || !bow.isBowHeld(mc)
+                || (bow.isBowInMainHand() ? mc.thePlayer.getHeldItem() : VRHotbarSelector.getInstance().getOffhandItemStack(mc)) != stack) {
+            RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
+            return;
+        }
+
+        gtnhvr$findBowUseFields();
+        if (gtnhvr$bowItemInUseField == null || gtnhvr$bowItemInUseCountField == null) {
+            RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
+            return;
+        }
+
+        Object oldStack = null;
+        int oldCount = 0;
+        boolean saved = false;
+        try {
+            oldStack = gtnhvr$bowItemInUseField.get(mc.thePlayer);
+            oldCount = gtnhvr$bowItemInUseCountField.getInt(mc.thePlayer);
+            saved = true;
+
+            int maxUse = stack.getMaxItemUseDuration();
+            int drawTicks = Math.max(0, Math.min(20, Math.round(bow.getTension() * 20.0F)));
+            gtnhvr$bowItemInUseField.set(mc.thePlayer, stack);
+            gtnhvr$bowItemInUseCountField.setInt(mc.thePlayer, Math.max(0, maxUse - drawTicks));
+            RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
+        } catch (Throwable ignored) {
+            RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
+        } finally {
+            if (saved) {
+                try {
+                    gtnhvr$bowItemInUseField.set(mc.thePlayer, oldStack);
+                    gtnhvr$bowItemInUseCountField.setInt(mc.thePlayer, oldCount);
+                } catch (Throwable ignored) {}
+            }
+        }
+    }
+
     private static void renderHeldItem(Vector3f pos, Quaternionf rot, boolean isRight, Minecraft mc) {
         if (mc == null) return;
         ItemStack preview = com.gtnhvr.gui.settings.categories.controls.VRSettingsItemOffsets.getActivePreviewItem();
@@ -638,8 +718,8 @@ public final class VRHandRenderer {
                         // as the physical string is drawn, rather than leaving a static vanilla bow.
                         float bowTension = bowTask.isBowInMainHand() == isRight
                                 ? bowTask.getTension() : 0.0F;
-                        GLStateManager.glTranslatef(0.0F, 0.0F, 0.12F * bowTension);
-                        float bowScale = 0.30F * Math.max(0.0F, offset.scale / 0.28F);
+                        GLStateManager.glTranslatef(0.0F, 0.0F, 0.06F * bowTension);
+                        float bowScale = 0.18F * Math.max(0.0F, offset.scale / 0.28F);
                         GLStateManager.glScalef(bowScale, bowScale, bowScale);
                         break;
                     }
@@ -711,7 +791,7 @@ public final class VRHandRenderer {
                         float cg = (float) (color >> 8 & 255) / 255.0F;
                         float cb = (float) (color & 255) / 255.0F;
                         GLStateManager.glColor4f(cr, cg, cb, 1.0F);
-                        RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, heldItem, pass);
+                        gtnhvr$renderHeldStackWithBowTension(mc, heldItem, pass);
                     }
                 }
             }
