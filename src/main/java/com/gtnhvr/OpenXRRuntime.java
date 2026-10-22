@@ -493,8 +493,9 @@ public final class OpenXRRuntime {
 
             boolean inGameGui = (mc.currentScreen != null);
             if (!inGameGui) {
-                // 1. Hands (solid player skin arms + held items)
+                // 1. Local hands and remote tracked-arm poses from compatible GTNHVR peers.
                 com.gtnhvr.gui.VRHandRenderer.render(eyeIndex, hmdPos, hmdRot);
+                com.gtnhvr.gui.VRRemotePoseRenderer.render(mc, partialTicks);
 
                 // 2. 3D Crosshair ('+' from Visor) in World Camera Space (zero offset)
                 com.gtnhvr.gui.VRHandRenderer.renderCrosshair(mc, eyeIndex, partialTicks);
