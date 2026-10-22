@@ -358,6 +358,7 @@ public final class VRVirtualScreen {
     public void render(int eyeIndex, int fboTextureId, int texW, int texH) {
         if (fboTextureId <= 0 || texW <= 0 || texH <= 0) return;
 
+        VROverlayConfig.Entry overlayConfig = VROverlayConfig.get(VROverlayConfig.GAME_SCREEN);
         float aspect = (float) texH / (float) texW;
         screenHeight = screenWidth * aspect;
         float halfW = screenWidth * 0.5F;
@@ -402,7 +403,7 @@ public final class VRVirtualScreen {
             // 1. Textured virtual screen surface
             GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, fboTextureId);
-            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, overlayConfig.visible ? overlayConfig.opacity : 0.0F);
 
             GLStateManager.glBegin(GL11.GL_QUADS);
             GLStateManager.glTexCoord2f(0.0F, 0.0F); GLStateManager.glVertex3f(-halfW, -halfH, 0.0F);
@@ -413,7 +414,7 @@ public final class VRVirtualScreen {
 
             // 2. Visor 1:1 Drag Bar & Resize Handle (disabled in Main Menu)
             Minecraft mc = Minecraft.getMinecraft();
-            boolean allowHandles = (mc != null && mc.theWorld != null && !inMenuRoom);
+            boolean allowHandles = (overlayConfig.visible && mc != null && mc.theWorld != null && !inMenuRoom);
             if (allowHandles && (isDragging || isResizing || hoveredHandle != ScreenHandle.NONE)) {
                 GLStateManager.glDisable(GL11.GL_TEXTURE_2D);
 
@@ -488,6 +489,10 @@ public final class VRVirtualScreen {
     }
 
     public boolean raycastCheck(Vector3f rayOrigin, Vector3f rayDir, org.joml.Vector2f outUV, Vector3f outHitPoint) {
+        if (!VROverlayConfig.get(VROverlayConfig.GAME_SCREEN).visible) {
+            hoveredHandle = ScreenHandle.NONE;
+            return false;
+        }
         Vector3f planeNorm = screenRot.transform(new Vector3f(0.0F, 0.0F, 1.0F));
         float denom = planeNorm.dot(rayDir);
         if (Math.abs(denom) < 1e-5F) {
