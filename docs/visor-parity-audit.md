@@ -8,9 +8,9 @@ Audit baseline:
 
 ## Java compatibility clarification
 
-The port is **not built for a Java 8 runtime**. The repository's runtime documentation states Java 17, 21, or 25, and the reported in-game testing includes Java 25. The current `gradle.properties` setting is `enableModernJavaSyntax = modern`, which means native modern Java bytecode is selected. The values `downgradeTargetVersion = 8` and `jvmDowngraderMultiReleaseVersions = 21,25` are settings for the JVM Downgrader path; that path is not selected while `enableModernJavaSyntax = modern`. They must not be read as the project's runtime requirement.
+The port is **not built for a Java 8 runtime**. The repository advertises a Java 17–25 runtime range, while the documented GTNH installation and the user's in-game testing use **Java 25**. The current `gradle.properties` setting is `enableModernJavaSyntax = modern`, which selects native modern Java bytecode. The values `downgradeTargetVersion = 8` and `jvmDowngraderMultiReleaseVersions = 21,25` are settings for the JVM Downgrader path; that path is not selected while `enableModernJavaSyntax = modern`. They must not be read as the project's runtime requirement. Java 25 is the verified runtime for this port; this audit does not claim that Java 17 or 21 were tested.
 
-The upstream Visor build matrix also varies by Minecraft version (Java 17 for early 1.20.x targets, Java 21 for 1.20.5–1.21.x, and Java 25 for 26.x). That upstream matrix does not override the target runtime of this 1.7.10/lwjgl3ify port. Keep Java 25 as a tested runtime; do not change the build to Java 8 based on a misreading of the inactive downgrade settings.
+The upstream Visor build matrix varies by Minecraft version (Java 17 for early 1.20.x targets, Java 21 for 1.20.5–1.21.x, and Java 25 for 26.x). That upstream matrix does not override this port's target runtime. Also, `compatibilityLevel: "JAVA_8"` in `mixins.gtnhvr.early.json` is a Mixin configuration compatibility setting, not the project's Java compiler target or minimum runtime. Keep Java 25 as the verified runtime; do not change the build to Java 8 based on either the inactive downgrade settings or the Mixin compatibility level.
 
 ## Confirmed defects fixed on the parity branch
 
