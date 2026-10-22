@@ -595,6 +595,13 @@ public final class OpenXRRuntime {
                 // Render sleek pointer tool and 3D laser beam
                 com.gtnhvr.gui.VRHandRenderer.render(eyeIndex, hmdPos, hmdRot);
                 VRControllerHandler.getInstance().renderLaser();
+
+                // Keep a live overlay pose/scale preview visible while editing settings in VR.
+                if (mc.currentScreen instanceof com.gtnhvr.gui.GuiSettingsOverlays) {
+                    com.gtnhvr.gui.VRCustomOverlayRenderer.renderSetupPreview(
+                            com.gtnhvr.gui.GuiSettingsOverlays.getActivePreviewOverlayId(),
+                            eyeIndex, hmdPos, hmdRot);
+                }
             }
             com.gtnhvr.api.VRAddonRegistry.dispatchWorldRender(mc, eyeIndex, partialTicks, inGameGui);
         } catch (Throwable t) {
