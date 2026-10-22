@@ -159,7 +159,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         if (hasRow(rows, "ANCHOR") || hasRow(rows, "DIST")) groups.add(GROUP_POSE);
         if (hasRow(rows, "SCALE")) groups.add(GROUP_RESIZING);
         if (hasRow(rows, "OFFX") || hasRow(rows, "OFFY")) groups.add(GROUP_REGION);
-        if (hasRow(rows, "FLAG")) groups.add(GROUP_MISC);
+        if (hasRow(rows, "FLAG") || hasRow(rows, "ALPHA")) groups.add(GROUP_MISC);
         return groups.toArray(new String[0]);
     }
 
@@ -179,7 +179,12 @@ public class GuiSettingsOverlays extends GuiScreen {
             if (hasRow(rows, "OFFY")) selected.add("OFFY");
             return selected.toArray(new String[0]);
         }
-        if (GROUP_MISC.equals(group)) return hasRow(rows, "FLAG") ? new String[] {"FLAG"} : new String[0];
+        if (GROUP_MISC.equals(group)) {
+            List<String> selected = new ArrayList<>();
+            if (hasRow(rows, "FLAG")) selected.add("FLAG");
+            if (hasRow(rows, "ALPHA")) selected.add("ALPHA");
+            return selected.toArray(new String[0]);
+        }
         return new String[0];
     }
 
@@ -189,6 +194,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         entry.anchor = overlay.anchor;
         entry.scale = overlay.scale;
         entry.distance = overlay.distance;
+        entry.opacity = overlay.opacity;
         entry.offsetX = overlay.offsetX;
         entry.offsetY = overlay.offsetY;
         entry.flag = overlay.extraFlag;
@@ -220,7 +226,10 @@ public class GuiSettingsOverlays extends GuiScreen {
         else if (GROUP_REGION.equals(selectedGroup)) {
             cur.offsetX = copiedOptions.offsetX;
             cur.offsetY = copiedOptions.offsetY;
-        } else if (GROUP_MISC.equals(selectedGroup)) cur.extraFlag = copiedOptions.flag;
+        } else if (GROUP_MISC.equals(selectedGroup)) {
+            cur.extraFlag = copiedOptions.flag;
+            cur.opacity = copiedOptions.opacity;
+        }
         changesNotSaved = true;
         saveMessage = "Pasted " + selectedGroup;
         saveMessageTime = System.currentTimeMillis();
@@ -305,20 +314,20 @@ public class GuiSettingsOverlays extends GuiScreen {
             case VROverlayConfig.HUD:
             case VROverlayConfig.HOTBAR_MAIN:
             case VROverlayConfig.HOTBAR_OFFHAND:
-                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY", "FLAG"};
+                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY", "FLAG", "ALPHA"};
             case VROverlayConfig.GAME_SCREEN:
-                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY"};
+                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY", "ALPHA"};
             case VROverlayConfig.KEYBOARD:
-                return new String[] {"VIS", "SCALE", "DIST"};
+                return new String[] {"VIS", "SCALE", "DIST", "ALPHA"};
             case VROverlayConfig.CROSSHAIR:
-                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "FLAG"};
+                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "FLAG", "ALPHA"};
             case VROverlayConfig.STATUS:
             case VROverlayConfig.MAP:
             case VROverlayConfig.INFO:
             case VROverlayConfig.POTIONS:
-                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY"};
+                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY", "ALPHA"};
             default:
-                return new String[] {"VIS", "SCALE", "OFFX", "OFFY"};
+                return new String[] {"VIS", "SCALE", "OFFX", "OFFY", "ALPHA"};
         }
     }
 
@@ -337,7 +346,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         for (String id : VROverlayConfig.getAllIds()) {
             VROverlayConfig.Entry config = VROverlayConfig.get(id);
             OverlayEntry overlay = new OverlayEntry(id, nameOf(id), descriptionOf(id), config.anchor,
-                    config.visible, config.scale, config.distance, 1.0F, config.flag);
+                    config.visible, config.scale, config.distance, config.opacity, config.flag);
             overlay.offsetX = config.offsetX;
             overlay.offsetY = config.offsetY;
             overlay.custom = config.custom;
@@ -380,6 +389,7 @@ public class GuiSettingsOverlays extends GuiScreen {
             config.anchor = overlay.anchor;
             config.scale = overlay.scale;
             config.distance = overlay.distance;
+            config.opacity = overlay.opacity;
             config.offsetX = overlay.offsetX;
             config.offsetY = overlay.offsetY;
             config.flag = overlay.extraFlag;
@@ -431,6 +441,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         overlay.visible = defaults.visible;
         overlay.scale = defaults.scale;
         overlay.distance = defaults.distance;
+        overlay.opacity = defaults.opacity;
         overlay.offsetX = defaults.offsetX;
         overlay.offsetY = defaults.offsetY;
         overlay.extraFlag = defaults.flag;
@@ -758,6 +769,9 @@ public class GuiSettingsOverlays extends GuiScreen {
                             break;
                         case "OFFY":
                             drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Offset Y", current.offsetY, -0.5F, 0.5F, "%.2fm", 3);
+                            break;
+                        case "ALPHA":
+                            drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Opacity", current.opacity * 100.0F, 5.0F, 100.0F, "%.0f%%", 4);
                             break;
                         default:
                             drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
@@ -1117,6 +1131,11 @@ public class GuiSettingsOverlays extends GuiScreen {
                                 updateSliderFromMouse(mouseX, detailX, detailW, current, 3);
                                 changesNotSaved = true;
                                 break;
+                            case "ALPHA":
+                                activeSlider = 4;
+                                updateSliderFromMouse(mouseX, detailX, detailW, current, 4);
+                                changesNotSaved = true;
+                                break;
                             default:
                                 current.extraFlag = !current.extraFlag;
                                 changesNotSaved = true;
@@ -1380,6 +1399,8 @@ public class GuiSettingsOverlays extends GuiScreen {
             cur.offsetX = -0.5F + pct;               // -0.5 m .. 0.5 m
         } else if (slider == 3) {
             cur.offsetY = -0.5F + pct;
+        } else if (slider == 4) {
+            cur.opacity = 0.05F + pct * 0.95F;
         }
     }
 
