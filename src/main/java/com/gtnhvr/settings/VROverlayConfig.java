@@ -261,7 +261,6 @@ public final class VROverlayConfig {
                 e.scale = clamp((float) config.get(cat, "scale", (double) d.scale).getDouble(), 0.2F, 3.0F);
                 e.distance = clamp((float) config.get(cat, "distance", (double) d.distance).getDouble(), 0.1F, 6.0F);
                 e.opacity = clamp((float) config.get(cat, "opacity", (double) d.opacity).getDouble(), 0.05F, 1.0F);
-                e.opacity = clamp((float) config.get(cat, "opacity", (double) d.opacity).getDouble(), 0.05F, 1.0F);
                 e.offsetX = clamp((float) config.get(cat, "offsetX", (double) d.offsetX).getDouble(), -1.0F, 1.0F);
                 e.offsetY = clamp((float) config.get(cat, "offsetY", (double) d.offsetY).getDouble(), -1.0F, 1.0F);
                 e.flag = config.get(cat, "flag", d.flag).getBoolean();
@@ -275,6 +274,7 @@ public final class VROverlayConfig {
                 e.anchor = normalizeAnchor(config.get(cat, "anchor", d.anchor).getString(), d.anchor);
                 e.scale = clamp((float) config.get(cat, "scale", (double) d.scale).getDouble(), 0.2F, 3.0F);
                 e.distance = clamp((float) config.get(cat, "distance", (double) d.distance).getDouble(), 0.1F, 6.0F);
+                e.opacity = clamp((float) config.get(cat, "opacity", (double) d.opacity).getDouble(), 0.05F, 1.0F);
                 e.offsetX = clamp((float) config.get(cat, "offsetX", (double) d.offsetX).getDouble(), -1.0F, 1.0F);
                 e.offsetY = clamp((float) config.get(cat, "offsetY", (double) d.offsetY).getDouble(), -1.0F, 1.0F);
                 e.flag = config.get(cat, "flag", d.flag).getBoolean();
