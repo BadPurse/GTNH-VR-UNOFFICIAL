@@ -117,9 +117,9 @@ public final class VRCustomOverlayRenderer {
                         float angle = (t - 0.5F) * arc;
                         float x = radius * (float) Math.sin(angle);
                         float z = radius * (1.0F - (float) Math.cos(angle));
-                        GLStateManager.glTexCoord2f(t, flipV ? 1.0F : 0.0F);
+                        GLStateManager.glTexCoord2f(t, flipV ? 1.0F - vMax : 0.0F);
                         GLStateManager.glVertex3f(x, -halfHeight, z);
-                        GLStateManager.glTexCoord2f(t, flipV ? 1.0F - vMax : vMax);
+                        GLStateManager.glTexCoord2f(t, flipV ? 1.0F : vMax);
                         GLStateManager.glVertex3f(x, halfHeight, z);
                     }
                     GLStateManager.glEnd();
