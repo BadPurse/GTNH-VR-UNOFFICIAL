@@ -1,7 +1,6 @@
 package com.gtnhvr.gui;
 
 import com.gtnewhorizons.angelica.glsm.GLStateManager;
-
 import com.gtnhvr.settings.VRClientSettings;
 import com.gtnhvr.settings.VROverlayConfig;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
@@ -10,1551 +9,966 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ResourceLocation;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
- * 1:1 Visor Overlays Configuration Screen (VROverlaySettings).
- * Replicates the authentic Visor 0.6.0 overlay settings interface:
- * - Tabs: "Overlays" and "Create Overlay"
- * - Backgrounds: bg_main_1.png (256x256), bg_main_extra_1.png (27x245)
- * - Navigation: Close (X) button, Drag button
- * - Overlays List (Left panel): HUD, Hotbar Main, Hotbar Offhand, Game Screen, Keyboard, Crosshair
- * - Overlay Setup (Right panel): Visibility, Anchor (HMD / MAIN_HAND / OFFHAND / WORLD),
- *   interactive Scale slider, Position/Distance sliders, Opacity/Laser toggles,
- *   Load Defaults, and Save.
+ * Visor-style overlay setup for the legacy GTNH 1.7.10 client.
+ *
+ * This screen is deliberately independent of the previous large, hand-drawn
+ * overlay editor.  Its interaction model follows Visor's SetupOverlayWidgetSet:
+ * select an overlay, select an option group, edit that group's properties,
+ * preview changes live, then explicitly save or discard them.
+ *
+ * Minecraft 1.7.10 does not have Visor's generic addon/overlay registry or its
+ * modern widget framework, so the groups below are backed by the settings the
+ * GTNH-VR renderers actually consume.
  */
 @Lwjgl3Aware
 public class GuiSettingsOverlays extends GuiScreen {
+    private static final int UI_WIDTH = 257;
+    private static final int UI_HEIGHT = 256;
 
-    private static final ResourceLocation BG_MAIN_1 = new ResourceLocation("gtnhvr", "textures/gui/overlays/settings/bg_main_1.png");
-    private static final ResourceLocation BG_MAIN_2 = new ResourceLocation("gtnhvr", "textures/gui/overlays/settings/bg_main_2.png");
-    private static final ResourceLocation BG_MAIN_EXTRA = new ResourceLocation("gtnhvr", "textures/gui/overlays/settings/bg_main_extra_1.png");
-    private static final ResourceLocation GENERAL_1 = new ResourceLocation("gtnhvr", "textures/gui/overlays/settings/general_1.png");
+    private static final ResourceLocation BACKGROUND_OVERLAYS =
+            new ResourceLocation("gtnhvr", "visor/textures/gui/overlays/settings/bg_main_1.png");
+    private static final ResourceLocation BACKGROUND_CREATE =
+            new ResourceLocation("gtnhvr", "visor/textures/gui/overlays/settings/bg_main_2.png");
+    private static final ResourceLocation BACKGROUND_GROUP =
+            new ResourceLocation("gtnhvr", "visor/textures/gui/overlays/settings/bg_general_128x256.png");
+    private static final ResourceLocation BACKGROUND_EXTRA =
+            new ResourceLocation("gtnhvr", "visor/textures/gui/overlays/settings/bg_main_extra_1.png");
+
+    private static final String[] TEMPLATE_IDS = {
+            VROverlayConfig.HUD, VROverlayConfig.GAME_SCREEN, VROverlayConfig.KEYBOARD
+    };
+    private static final String[] TEMPLATE_NAMES = { "HUD", "Game Screen", "Virtual Keyboard" };
+
+    private static GuiSettingsOverlays activeInstance;
+
+    private enum Tab { OVERLAYS, CREATE }
+    private enum Group { GENERAL, VISIBILITY, POSE, RESIZING, MISC }
 
     private final GuiScreen parentScreen;
-    private final GuiScaleHelper scaleHelper = new GuiScaleHelper(257, 256);
+    private final GuiScaleHelper scaleHelper = new GuiScaleHelper(UI_WIDTH, UI_HEIGHT);
+    private final Map<String, VROverlayConfig.Entry> originalValues = new LinkedHashMap<>();
+    private final List<String> originalIds = new ArrayList<>();
 
-    public enum Tab {
-        OVERLAYS,
-        CREATE_OVERLAY
-    }
-
-    private Tab currentTab = Tab.OVERLAYS;
-
-    public static class OverlayEntry {
-        public final String id;
-        public String name;
-        public String description;
-        public boolean custom;
-        public String template = VROverlayConfig.HUD;
-        public String anchor;
-        public boolean visible;
-        public float scale;
-        public float distance;
-        public float opacity;
-        public boolean extraFlag; // e.g. laser for crosshair, curved for HUD
-        public float offsetX = 0.0F;
-        public float offsetY = 0.0F;
-
-        public OverlayEntry(String id, String name, String description, String anchor, boolean visible,
-                            float scale, float distance, float opacity, boolean extraFlag) {
-            this.id = id;
-            this.name = name;
-            this.description = description;
-            this.anchor = anchor;
-            this.visible = visible;
-            this.scale = scale;
-            this.distance = distance;
-            this.opacity = opacity;
-            this.extraFlag = extraFlag;
-        }
-    }
-
-    private final List<OverlayEntry> overlays = new ArrayList<>();
-    private int selectedIndex = 0;
-    private int activeSlider = -1; // 0: scale, 1: distance, 2: opacity
-    private int overlayListScroll = 0;
-    private int overlayDetailScroll = 0;
-
-    private GuiTextField overlaySearchField;
-    private GuiTextField customNameField;
-    private GuiTextField customDescriptionField;
-    private GuiTextField templateSearchField;
-    private GuiTextField identityNameField;
-    private GuiTextField identityDescriptionField;
-    private boolean showFilterPanel;
+    private Tab tab = Tab.OVERLAYS;
+    private Group group = Group.POSE;
+    private String selectedId = VROverlayConfig.HUD;
+    private int listScroll;
+    private int templateIndex;
+    private boolean showFilters;
     private boolean filterBuiltIn = true;
     private boolean filterCustom = true;
-    private boolean filterHasOptions = true;
-    private boolean filterNoOptions = true;
-    private String selectedGroup;
     private boolean confirmRemove;
-    private boolean changesNotSaved;
-    private VROverlayConfig.Entry copiedOptions;
-    private String copiedGroup;
+    private boolean confirmDiscard;
+    private boolean dirty;
+    private int activeSlider = -1;
+    private String statusText;
+    private long statusUntil;
+    private VROverlayConfig.Entry copiedGroup;
+    private Group copiedGroupType;
 
-    private static final String GROUP_GENERAL = "General";
-    private static final String GROUP_VISIBILITY = "Visibility";
-    private static final String GROUP_POSE = "Pose";
-    private static final String GROUP_RESIZING = "Resizing";
-    private static final String GROUP_REGION = "Screen Region";
-    private static final String GROUP_MISC = "Misc";
+    private GuiTextField searchField;
+    private GuiTextField createNameField;
+    private GuiTextField createDescriptionField;
+    private GuiTextField customNameField;
+    private GuiTextField customDescriptionField;
 
-    private static final String[] TEMPLATES = {"HUD", "Game Screen", "Virtual Keyboard"};
-    private static final String[] TEMPLATE_IDS = {VROverlayConfig.HUD, VROverlayConfig.GAME_SCREEN, VROverlayConfig.KEYBOARD};
-
-    private int getMaxListScroll() {
-        int itemH = scaleHelper.scaledSize(26);
-        int totalH = getVisibleOverlays().size() * itemH;
-        int listH = scaleHelper.scaledSize(176);
-        return Math.max(0, totalH - listH);
-    }
-
-    private int getMaxDetailScroll() {
-        if (selectedIndex < 0 || selectedIndex >= overlays.size()) return 0;
-        OverlayEntry cur = overlays.get(selectedIndex);
-        int detailW = scaleHelper.scaledSize(106);
-        int areaH = scaleHelper.scaledSize(176);
-        if (selectedGroup != null) {
-            int rowsCount = rowsForGroup(cur.id, selectedGroup).length;
-            int totalH = scaleHelper.scaledSize(25) + rowsCount * scaleHelper.scaledSize(18);
-            return Math.max(0, totalH - areaH);
-        }
-        int descLines = this.fontRendererObj.listFormattedStringToWidth("\u00a77" + cur.description, detailW).size();
-        int groupCount = groupsFor(cur.id).length;
-        int totalH = scaleHelper.scaledSize(38) + descLines * this.fontRendererObj.FONT_HEIGHT
-                + groupCount * scaleHelper.scaledSize(16);
-        return Math.max(0, totalH - areaH);
-    }
-
-    private List<OverlayEntry> getVisibleOverlays() {
-        List<OverlayEntry> result = new ArrayList<>();
-        String query = overlaySearchField == null ? "" : overlaySearchField.getText().trim().toLowerCase(Locale.ROOT);
-        for (OverlayEntry entry : overlays) {
-            if (entry.custom ? !filterCustom : !filterBuiltIn) continue;
-            boolean hasOptions = rowsFor(entry.id).length > 0;
-            if (hasOptions ? !filterHasOptions : !filterNoOptions) continue;
-            if (!query.isEmpty()) {
-                String haystack = (entry.name + " " + entry.id + " " + entry.description + " " + entry.template)
-                        .toLowerCase(Locale.ROOT);
-                if (!haystack.contains(query)) continue;
-            }
-            result.add(entry);
-        }
-        return result;
-    }
-
-    private static boolean hasRow(String[] rows, String wanted) {
-        for (String row : rows) if (wanted.equals(row)) return true;
-        return false;
-    }
-
-    private static String[] groupsFor(String id) {
-        String[] rows = rowsFor(id);
-        List<String> groups = new ArrayList<>();
-        groups.add(GROUP_GENERAL);
-        if (hasRow(rows, "VIS")) groups.add(GROUP_VISIBILITY);
-        if (hasRow(rows, "ANCHOR") || hasRow(rows, "DIST")) groups.add(GROUP_POSE);
-        if (hasRow(rows, "SCALE")) groups.add(GROUP_RESIZING);
-        if (hasRow(rows, "OFFX") || hasRow(rows, "OFFY")) groups.add(GROUP_REGION);
-        if (hasRow(rows, "FLAG") || hasRow(rows, "ALPHA")) groups.add(GROUP_MISC);
-        return groups.toArray(new String[0]);
-    }
-
-    private static String[] rowsForGroup(String id, String group) {
-        String[] rows = rowsFor(id);
-        if (GROUP_VISIBILITY.equals(group)) return hasRow(rows, "VIS") ? new String[] {"VIS"} : new String[0];
-        if (GROUP_POSE.equals(group)) {
-            List<String> selected = new ArrayList<>();
-            if (hasRow(rows, "ANCHOR")) selected.add("ANCHOR");
-            if (hasRow(rows, "DIST")) selected.add("DIST");
-            return selected.toArray(new String[0]);
-        }
-        if (GROUP_RESIZING.equals(group)) return hasRow(rows, "SCALE") ? new String[] {"SCALE"} : new String[0];
-        if (GROUP_REGION.equals(group)) {
-            List<String> selected = new ArrayList<>();
-            if (hasRow(rows, "OFFX")) selected.add("OFFX");
-            if (hasRow(rows, "OFFY")) selected.add("OFFY");
-            return selected.toArray(new String[0]);
-        }
-        if (GROUP_MISC.equals(group)) {
-            List<String> selected = new ArrayList<>();
-            if (hasRow(rows, "FLAG")) selected.add("FLAG");
-            if (hasRow(rows, "ALPHA")) selected.add("ALPHA");
-            return selected.toArray(new String[0]);
-        }
-        return new String[0];
-    }
-
-    private static VROverlayConfig.Entry copyToConfig(OverlayEntry overlay) {
-        VROverlayConfig.Entry entry = new VROverlayConfig.Entry();
-        entry.visible = overlay.visible;
-        entry.anchor = overlay.anchor;
-        entry.scale = overlay.scale;
-        entry.distance = overlay.distance;
-        entry.opacity = overlay.opacity;
-        entry.offsetX = overlay.offsetX;
-        entry.offsetY = overlay.offsetY;
-        entry.flag = overlay.extraFlag;
-        entry.custom = overlay.custom;
-        entry.name = overlay.name;
-        entry.description = overlay.description;
-        entry.template = overlay.template;
-        return entry;
-    }
-
-    private void copyCurrentGroup() {
-        if (selectedIndex < 0 || selectedIndex >= overlays.size() || selectedGroup == null
-                || GROUP_GENERAL.equals(selectedGroup)) return;
-        copiedOptions = copyToConfig(overlays.get(selectedIndex));
-        copiedGroup = selectedGroup;
-        saveMessage = "Copied " + selectedGroup;
-        saveMessageTime = System.currentTimeMillis();
-    }
-
-    private void pasteCurrentGroup() {
-        if (selectedIndex < 0 || selectedIndex >= overlays.size() || selectedGroup == null
-                || copiedOptions == null || !selectedGroup.equals(copiedGroup)) return;
-        OverlayEntry cur = overlays.get(selectedIndex);
-        if (GROUP_VISIBILITY.equals(selectedGroup)) cur.visible = copiedOptions.visible;
-        else if (GROUP_POSE.equals(selectedGroup)) {
-            cur.anchor = copiedOptions.anchor;
-            cur.distance = copiedOptions.distance;
-        } else if (GROUP_RESIZING.equals(selectedGroup)) cur.scale = copiedOptions.scale;
-        else if (GROUP_REGION.equals(selectedGroup)) {
-            cur.offsetX = copiedOptions.offsetX;
-            cur.offsetY = copiedOptions.offsetY;
-        } else if (GROUP_MISC.equals(selectedGroup)) {
-            cur.extraFlag = copiedOptions.flag;
-            cur.opacity = copiedOptions.opacity;
-        }
-        changesNotSaved = true;
-        saveMessage = "Pasted " + selectedGroup;
-        saveMessageTime = System.currentTimeMillis();
-    }
-
-    private void reloadOverlayFromDisk() {
-        String selectedId = selectedIndex >= 0 && selectedIndex < overlays.size()
-                ? overlays.get(selectedIndex).id : null;
-        VROverlayConfig.load();
-        VRClientSettings.load();
-        loadOverlayData();
-        selectedIndex = 0;
-        if (selectedId != null) {
-            for (int i = 0; i < overlays.size(); i++) {
-                if (selectedId.equals(overlays.get(i).id)) { selectedIndex = i; break; }
-            }
-        }
-        selectedGroup = null;
-        confirmRemove = false;
-        changesNotSaved = false;
-        VRCustomOverlayRenderer.resetPoses();
-        saveMessage = "Reloaded saved overlay settings";
-        saveMessageTime = System.currentTimeMillis();
-    }
-
-    private String saveMessage = null;
-    private long saveMessageTime = 0L;
-
-    // Create tab state
-    private int selectedTemplate = 0;
+    private int mouseLogicalX;
+    private int mouseLogicalY;
 
     public GuiSettingsOverlays(GuiScreen parent) {
         this.parentScreen = parent;
-        loadOverlayData();
+        activeInstance = this;
+        takeSnapshot();
+        refreshSelectedFields();
     }
 
-    private static String nameOf(String id) {
-        VROverlayConfig.Entry entry = VROverlayConfig.get(id);
-        if (entry.custom && entry.name != null && !entry.name.trim().isEmpty()) return entry.name;
-        switch (id) {
-            case VROverlayConfig.HUD: return "HUD";
-            case VROverlayConfig.HOTBAR_MAIN: return "Hotbar Main";
-            case VROverlayConfig.HOTBAR_OFFHAND: return "Hotbar Offhand";
-            case VROverlayConfig.GAME_SCREEN: return "Game Screen";
-            case VROverlayConfig.KEYBOARD: return "Keyboard";
-            case VROverlayConfig.CROSSHAIR: return "Crosshair";
-            case VROverlayConfig.WRIST: return "Wrist Inventory";
-            case VROverlayConfig.STATUS: return "Wrist Status (HP/Food)";
-            case VROverlayConfig.MAP: return "Wrist Map (JourneyMap)";
-            case VROverlayConfig.INFO: return "Wrist Info (Top-Left)";
-            case VROverlayConfig.POTIONS: return "Wrist Potions (Bottom-Right)";
-            default: return id;
-        }
+    /** Used by OpenXRRuntime to keep the selected target visible while this editor is open. */
+    public static String getActivePreviewOverlayId() {
+        return activeInstance == null ? null : activeInstance.selectedId;
     }
 
-    private static String descriptionOf(String id) {
-        VROverlayConfig.Entry entry = VROverlayConfig.get(id);
-        if (entry.custom) {
-            if (entry.description != null && !entry.description.trim().isEmpty()) return entry.description;
-            return "Custom copy of the " + nameOf(entry.template) + " overlay template.";
-        }
-        switch (id) {
-            case VROverlayConfig.HUD: return "Vanilla HUD with chat, effects and notifications floating in front of you.";
-            case VROverlayConfig.HOTBAR_MAIN: return "Radial 3x3 hotbar opened with the main hand grip.";
-            case VROverlayConfig.HOTBAR_OFFHAND: return "Radial 3x3 hotbar opened with the off hand grip.";
-            case VROverlayConfig.GAME_SCREEN: return "Floating screen for inventories, chests, crafting and menus.";
-            case VROverlayConfig.KEYBOARD: return "Virtual keyboard for chat, signs and search fields.";
-            case VROverlayConfig.CROSSHAIR: return "3D '+' crosshair and laser. Anchor: MAIN_HAND or OFFHAND shows one hand, others show both.";
-            case VROverlayConfig.STATUS: return "Health, hunger, armor, air and experience status HUD attached to the left wrist / forearm.";
-            case VROverlayConfig.MAP: return "Real-time JourneyMap minimap attached to the right wrist / forearm.";
-            case VROverlayConfig.INFO: return "Coordinates, biome, time, light level and FPS from top-left HUD attached to your arm.";
-            case VROverlayConfig.POTIONS: return "Active potion effects, icons and duration countdowns from bottom-right HUD attached to your arm.";
-            default: return "Inventory on the back of the off hand: turn the wrist towards your face. Trigger = click, A = right click, off hand trigger = shift click.";
-        }
-    }
-
-    /** Controls shown for an overlay, in order. */
-    private static String[] rowsFor(String id) {
-        VROverlayConfig.Entry entry = VROverlayConfig.get(id);
-        if (entry.custom) id = entry.template;
-        switch (id) {
-            case VROverlayConfig.HUD:
-            case VROverlayConfig.HOTBAR_MAIN:
-            case VROverlayConfig.HOTBAR_OFFHAND:
-                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY", "FLAG", "ALPHA"};
-            case VROverlayConfig.GAME_SCREEN:
-                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY", "ALPHA"};
-            case VROverlayConfig.KEYBOARD:
-                return new String[] {"VIS", "SCALE", "DIST", "ALPHA"};
-            case VROverlayConfig.CROSSHAIR:
-                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "FLAG", "ALPHA"};
-            case VROverlayConfig.STATUS:
-            case VROverlayConfig.MAP:
-            case VROverlayConfig.INFO:
-            case VROverlayConfig.POTIONS:
-                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY", "ALPHA"};
-            default:
-                return new String[] {"VIS", "SCALE", "OFFX", "OFFY", "ALPHA"};
-        }
-    }
-
-    private static String flagLabelOf(String id) {
-        VROverlayConfig.Entry entry = VROverlayConfig.get(id);
-        if (entry.custom) id = entry.template;
-        switch (id) {
-            case VROverlayConfig.HUD: return "Curved HUD";
-            case VROverlayConfig.CROSSHAIR: return "Laser Beam";
-            default: return "Slot Numbers";
-        }
-    }
-
-    private void loadOverlayData() {
-        overlays.clear();
-        for (String id : VROverlayConfig.getAllIds()) {
-            VROverlayConfig.Entry config = VROverlayConfig.get(id);
-            OverlayEntry overlay = new OverlayEntry(id, nameOf(id), descriptionOf(id), config.anchor,
-                    config.visible, config.scale, config.distance, config.opacity, config.flag);
-            overlay.offsetX = config.offsetX;
-            overlay.offsetY = config.offsetY;
-            overlay.custom = config.custom;
-            overlay.template = config.template;
-
-            // Keep legacy settings screens and overlay setup in sync for built-in overlays.
-            // User-created copies must never overwrite the source overlay's global settings.
-            if (!config.custom) {
-                switch (id) {
-                    case VROverlayConfig.HUD:
-                        overlay.scale = VRClientSettings.hudScale;
-                        overlay.distance = VRClientSettings.hudDistance;
-                        overlay.extraFlag = VRClientSettings.curvedHud;
-                        break;
-                    case VROverlayConfig.HOTBAR_MAIN:
-                    case VROverlayConfig.HOTBAR_OFFHAND:
-                        overlay.extraFlag = VRClientSettings.hotbarSlotNumbers;
-                        break;
-                    case VROverlayConfig.CROSSHAIR:
-                        overlay.visible = VRClientSettings.vrCrosshair;
-                        overlay.distance = VRClientSettings.interactionReach;
-                        overlay.extraFlag = VRClientSettings.crosshairLaser;
-                        break;
-                    default:
-                        break;
-                }
-            }
-            overlays.add(overlay);
-        }
-        selectedIndex = overlays.isEmpty() ? -1 : Math.max(0, Math.min(selectedIndex, overlays.size() - 1));
-        overlayListScroll = Math.max(0, overlayListScroll);
-        overlayDetailScroll = Math.max(0, overlayDetailScroll);
-        changesNotSaved = false;
-        syncIdentityFields();
-    }
-
-    private void syncIdentityFields() {
-        if (identityNameField == null || identityDescriptionField == null
-                || selectedIndex < 0 || selectedIndex >= overlays.size()) return;
-        OverlayEntry selected = overlays.get(selectedIndex);
-        identityNameField.setText(selected.custom ? selected.name : "");
-        identityDescriptionField.setText(selected.custom ? selected.description : "");
-    }
-
-    private void applyIdentityFieldInput(boolean nameField) {
-        if (selectedIndex < 0 || selectedIndex >= overlays.size()) return;
-        OverlayEntry selected = overlays.get(selectedIndex);
-        if (!selected.custom) return;
-        if (nameField && identityNameField != null) selected.name = identityNameField.getText();
-        if (!nameField && identityDescriptionField != null) selected.description = identityDescriptionField.getText();
-        changesNotSaved = true;
-    }
-
-    private void applyOverlayData() {
-        for (OverlayEntry overlay : overlays) {
-            VROverlayConfig.Entry config = VROverlayConfig.get(overlay.id);
-            config.visible = overlay.visible;
-            config.anchor = overlay.anchor;
-            config.scale = overlay.scale;
-            config.distance = overlay.distance;
-            config.opacity = overlay.opacity;
-            config.offsetX = overlay.offsetX;
-            config.offsetY = overlay.offsetY;
-            config.flag = overlay.extraFlag;
-            if (overlay.custom) {
-                config.custom = true;
-                config.name = overlay.name;
-                config.description = overlay.description;
-                config.template = overlay.template;
-            } else {
-                switch (overlay.id) {
-                    case VROverlayConfig.HUD:
-                        VRClientSettings.hudScale = overlay.scale;
-                        VRClientSettings.hudDistance = overlay.distance;
-                        VRClientSettings.curvedHud = overlay.extraFlag;
-                        break;
-                    case VROverlayConfig.HOTBAR_MAIN:
-                    case VROverlayConfig.HOTBAR_OFFHAND:
-                        VRClientSettings.hotbarSlotNumbers = overlay.extraFlag;
-                        break;
-                    case VROverlayConfig.CROSSHAIR:
-                        VRClientSettings.vrCrosshair = overlay.visible;
-                        VRClientSettings.interactionReach = overlay.distance;
-                        VRClientSettings.crosshairLaser = overlay.extraFlag;
-                        break;
-                    default:
-                        break;
-                }
-            }
-        }
-        VROverlayConfig.save();
-        VRClientSettings.save();
-        changesNotSaved = false;
-
-        // Pose caches are reset only after Save, just like Visor applies saved option groups.
-        VRHudRenderer.resetSmoothing();
-        VRVirtualScreen.getInstance().resetOrientation();
-        VRVirtualKeyboard.getInstance().resetDefaultPose();
-        VRCustomOverlayRenderer.resetPoses();
-
-        saveMessage = I18n.format("visor.overlay.options.overlays.save") + " OK!";
-        saveMessageTime = System.currentTimeMillis();
-    }
-
-    private void resetOverlayDefaults() {
-        if (selectedIndex < 0 || selectedIndex >= overlays.size()) return;
-        OverlayEntry overlay = overlays.get(selectedIndex);
-        VROverlayConfig.Entry defaults = VROverlayConfig.defaults(overlay.custom ? overlay.template : overlay.id);
-        overlay.anchor = defaults.anchor;
-        overlay.visible = defaults.visible;
-        overlay.scale = defaults.scale;
-        overlay.distance = defaults.distance;
-        overlay.opacity = defaults.opacity;
-        overlay.offsetX = defaults.offsetX;
-        overlay.offsetY = defaults.offsetY;
-        overlay.extraFlag = defaults.flag;
-        changesNotSaved = true;
-        if (VROverlayConfig.HOTBAR_MAIN.equals(overlay.id)
-                || VROverlayConfig.HOTBAR_OFFHAND.equals(overlay.id)) {
-            overlay.extraFlag = false;
-        }
-        if (overlay.custom) overlay.offsetX = 0.32F;
-        overlayDetailScroll = 0;
-        confirmRemove = false;
+    public static boolean isSetupScreenOpen() {
+        return activeInstance != null;
     }
 
     @Override
     public void initGui() {
-        scaleHelper.computeScale(this.width, this.height);
-        if (overlaySearchField == null) {
-            overlaySearchField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
-            overlaySearchField.setMaxStringLength(64);
-        }
-        if (customNameField == null) {
-            customNameField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
-            customNameField.setMaxStringLength(48);
-        }
-        if (customDescriptionField == null) {
-            customDescriptionField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
-            customDescriptionField.setMaxStringLength(120);
-        }
-        if (templateSearchField == null) {
-            templateSearchField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
-            templateSearchField.setMaxStringLength(64);
-        }
-        if (identityNameField == null) {
-            identityNameField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
-            identityNameField.setMaxStringLength(48);
-        }
-        if (identityDescriptionField == null) {
-            identityDescriptionField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
-            identityDescriptionField.setMaxStringLength(120);
-        }
-        layoutTextFields();
-    }
-
-    private void layoutTextFields() {
-        if (overlaySearchField != null) {
-            overlaySearchField.xPosition = scaleHelper.scaledX(12);
-            overlaySearchField.yPosition = scaleHelper.scaledY(35);
-            overlaySearchField.width = scaleHelper.scaledSize(74);
-            overlaySearchField.height = scaleHelper.scaledSize(15);
-        }
-        if (customNameField != null) {
-            customNameField.xPosition = scaleHelper.scaledX(119);
-            customNameField.yPosition = scaleHelper.scaledY(72);
-            customNameField.width = scaleHelper.scaledSize(108);
-            customNameField.height = scaleHelper.scaledSize(15);
-        }
-        if (customDescriptionField != null) {
-            customDescriptionField.xPosition = scaleHelper.scaledX(119);
-            customDescriptionField.yPosition = scaleHelper.scaledY(100);
-            customDescriptionField.width = scaleHelper.scaledSize(108);
-            customDescriptionField.height = scaleHelper.scaledSize(15);
-        }
-        if (templateSearchField != null) {
-            templateSearchField.xPosition = scaleHelper.scaledX(14);
-            templateSearchField.yPosition = scaleHelper.scaledY(35);
-            templateSearchField.width = scaleHelper.scaledSize(96);
-            templateSearchField.height = scaleHelper.scaledSize(15);
-        }
-        if (identityNameField != null) {
-            identityNameField.xPosition = scaleHelper.scaledX(118);
-            identityNameField.yPosition = scaleHelper.scaledY(72);
-            identityNameField.width = scaleHelper.scaledSize(106);
-            identityNameField.height = scaleHelper.scaledSize(15);
-        }
-        if (identityDescriptionField != null) {
-            identityDescriptionField.xPosition = scaleHelper.scaledX(118);
-            identityDescriptionField.yPosition = scaleHelper.scaledY(101);
-            identityDescriptionField.width = scaleHelper.scaledSize(106);
-            identityDescriptionField.height = scaleHelper.scaledSize(15);
-        }
+        scaleHelper.computeScale(width, height);
+        searchField = new GuiTextField(fontRendererObj, 8, 35, 94, 12);
+        searchField.setMaxStringLength(80);
+        searchField.setEnableBackgroundDrawing(true);
+        searchField.setTextColor(0xFFFFFFFF);
+        searchField.setDisabledTextColour(0xFF777777);
+        createNameField = new GuiTextField(fontRendererObj, 76, 75, 164, 14);
+        createNameField.setMaxStringLength(40);
+        createDescriptionField = new GuiTextField(fontRendererObj, 76, 98, 164, 14);
+        createDescriptionField.setMaxStringLength(120);
+        customNameField = new GuiTextField(fontRendererObj, 118, 146, 126, 13);
+        customNameField.setMaxStringLength(40);
+        customDescriptionField = new GuiTextField(fontRendererObj, 118, 165, 126, 13);
+        customDescriptionField.setMaxStringLength(120);
+        refreshSelectedFields();
     }
 
     @Override
-    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        scaleHelper.computeScale(this.width, this.height);
-        layoutTextFields();
-
-        // Dark translucent background tint
-        drawDefaultBackground();
-
-        int bgX = scaleHelper.getStartX();
-        int bgY = scaleHelper.getStartY();
-        int bgW = scaleHelper.scaledSize(256);
-        int bgH = scaleHelper.scaledSize(256);
-        int extraX = bgX + scaleHelper.scaledSize(230);
-        int extraW = scaleHelper.scaledSize(27);
-        int extraH = scaleHelper.scaledSize(245);
-
-        // Solid opaque backing rect matching Visor to prevent any VR alpha see-through
-        drawRect(bgX, bgY, extraX + extraW, bgY + bgH, 0xFF18181A);
-
-        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-
-        // 1. Draw Main Background (bg_main_1 for Overlays, bg_main_2 for Create)
-        ResourceLocation mainBg = (currentTab == Tab.OVERLAYS) ? BG_MAIN_1 : BG_MAIN_2;
-        this.mc.getTextureManager().bindTexture(mainBg);
-        drawTexturedQuad(bgX, bgY, bgW, bgH, 0, 0, 256, 256, 256, 256);
-
-        // 2. Draw Extra Background (bg_main_extra_1) on right side (Visor 1:1 at x=230)
-        this.mc.getTextureManager().bindTexture(BG_MAIN_EXTRA);
-        drawTexturedQuad(extraX, bgY + scaleHelper.scaledSize(6), extraW, extraH, 0, 0, 27, 245, 27, 245);
-
-        // 3. Draw Tab Buttons at top (115 x 23 scaled)
-        int tabW = scaleHelper.scaledSize(115);
-        int tabH = scaleHelper.scaledSize(23);
-        int tabY = bgY + scaleHelper.scaledSize(6);
-
-        this.mc.getTextureManager().bindTexture(GENERAL_1);
-
-        if (currentTab == Tab.OVERLAYS) {
-            // "Overlays" tab active on left
-            drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays"),
-                    bgX + tabW / 2, tabY + (tabH - 8) / 2, 0xFFFFFF);
-
-            // "Create Overlay" tab button on right (u: 64, v: 0, w: 115, h: 23)
-            int tabRightX = bgX + tabW;
-            boolean tabHover = isHovered(mouseX, mouseY, tabRightX, tabY, tabW, tabH);
-            GLStateManager.glColor4f(tabHover ? 1.0F : 0.85F, tabHover ? 1.0F : 0.85F, 1.0F, 1.0F);
-            drawTexturedQuad(tabRightX, tabY, tabW, tabH, 64, 0, 115, 23, 179, 188);
-            drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays.create_overlay"),
-                    tabRightX + tabW / 2, tabY + (tabH - 8) / 2, tabHover ? 0xFFFFA0 : 0xCCCCCC);
-        } else {
-            // "Overlays" tab button on left (u: 64, v: 24, w: 115, h: 23)
-            int tabLeftX = bgX;
-            boolean tabHover = isHovered(mouseX, mouseY, tabLeftX, tabY, tabW, tabH);
-            GLStateManager.glColor4f(tabHover ? 1.0F : 0.85F, tabHover ? 1.0F : 0.85F, 1.0F, 1.0F);
-            drawTexturedQuad(tabLeftX, tabY, tabW, tabH, 64, 24, 115, 23, 179, 188);
-            drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays"),
-                    tabLeftX + tabW / 2, tabY + (tabH - 8) / 2, tabHover ? 0xFFFFA0 : 0xCCCCCC);
-
-            // "Create Overlay" tab active on right
-            drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays.create_overlay"),
-                    bgX + tabW + tabW / 2, tabY + (tabH - 8) / 2, 0xFFFFFF);
-        }
-
-        // 4. Close (X) button at extraX + 4, bgY + 12 (size 19x19)
-        int closeBtnX = extraX + scaleHelper.scaledSize(4);
-        int closeBtnY = bgY + scaleHelper.scaledSize(12);
-        int btnSz = scaleHelper.scaledSize(19);
-        boolean closeHover = isHovered(mouseX, mouseY, closeBtnX, closeBtnY, btnSz, btnSz);
-        int closeU = closeHover ? 145 : 110;
-        GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        this.mc.getTextureManager().bindTexture(GENERAL_1);
-        drawTexturedQuad(closeBtnX, closeBtnY, btnSz, btnSz, closeU, 112, 34, 34, 179, 188);
-
-        // 5. Drag button at extraX + 4, bgY + 35 (size 19x19)
-        int dragBtnY = bgY + scaleHelper.scaledSize(35);
-        boolean dragHover = isHovered(mouseX, mouseY, closeBtnX, dragBtnY, btnSz, btnSz);
-        int dragU = dragHover ? 110 : 75;
-        drawTexturedQuad(closeBtnX, dragBtnY, btnSz, btnSz, dragU, 152, 34, 34, 179, 188);
-
-        // Render Tab Contents
-        if (currentTab == Tab.OVERLAYS) {
-            drawOverlaysTab(mouseX, mouseY, bgX, bgY);
-        } else {
-            drawCreateTab(mouseX, mouseY, bgX, bgY);
-        }
-
-        // Save confirmation toast
-        if (saveMessage != null) {
-            long elapsed = System.currentTimeMillis() - saveMessageTime;
-            if (elapsed < 3000L) {
-                int toastY = bgY + scaleHelper.scaledSize(238);
-                drawCenteredString(this.fontRendererObj, "\u00a7a" + saveMessage, bgX + bgW / 2, toastY, 0x55FF55);
-            } else {
-                saveMessage = null;
-            }
-        }
-
-        super.drawScreen(mouseX, mouseY, partialTicks);
-    }
-
-    private void drawOverlaysTab(int mouseX, int mouseY, int bgX, int bgY) {
-        int listX = bgX + scaleHelper.scaledSize(12);
-        int searchY = bgY + scaleHelper.scaledSize(35);
-        int listY = bgY + scaleHelper.scaledSize(54);
-        int listW = scaleHelper.scaledSize(96);
-        int listH = scaleHelper.scaledSize(176);
-        int itemH = scaleHelper.scaledSize(26);
-
-        drawString(this.fontRendererObj, "\u00a77" + I18n.format("visor.overlay.options.overlays"),
-                listX, listY - scaleHelper.scaledSize(7), 0xAAAAAA);
-
-        // Search and filter entry point mirror Visor's searchable overlay list.
-        if (overlaySearchField != null) {
-            overlaySearchField.drawTextBox();
-            if (overlaySearchField.getText().isEmpty() && !overlaySearchField.isFocused()) {
-                drawString(this.fontRendererObj, "Find overlays", overlaySearchField.xPosition + scaleHelper.scaledSize(3),
-                        overlaySearchField.yPosition + scaleHelper.scaledSize(4), 0xFF777777);
-            }
-        }
-        int filterX = listX + scaleHelper.scaledSize(77);
-        int filterW = scaleHelper.scaledSize(19);
-        int filterH = scaleHelper.scaledSize(15);
-        boolean filterHover = isHovered(mouseX, mouseY, filterX, searchY, filterW, filterH);
-        drawRect(filterX, searchY, filterX + filterW, searchY + filterH,
-                showFilterPanel ? 0xFF305080 : (filterHover ? 0xFF454545 : 0xFF222222));
-        drawCenteredString(this.fontRendererObj, "F", filterX + filterW / 2,
-                searchY + (filterH - 8) / 2, filterHover || showFilterPanel ? 0xFFFFFF : 0xAAAAAA);
-
-        overlayListScroll = Math.max(0, Math.min(getMaxListScroll(), overlayListScroll));
-        VRSettingsScreen.enableScissor(this.mc, listX, listY, listW, listH, this.width, this.height);
-        List<OverlayEntry> visible = getVisibleOverlays();
-        for (int i = 0; i < visible.size(); i++) {
-            OverlayEntry entry = visible.get(i);
-            int curY = listY + i * itemH - overlayListScroll;
-            if (curY + itemH < listY || curY > listY + listH) continue;
-            boolean hovered = isHovered(mouseX, mouseY, listX, curY, listW, itemH - scaleHelper.scaledSize(2))
-                    && isHovered(mouseX, mouseY, listX, listY, listW, listH);
-            boolean selected = selectedIndex >= 0 && selectedIndex < overlays.size()
-                    && overlays.get(selectedIndex).id.equals(entry.id);
-            int rowBottom = curY + itemH - scaleHelper.scaledSize(2);
-            drawRect(listX, curY, listX + listW, rowBottom,
-                    selected ? 0xFF305080 : (hovered ? 0xFF404040 : 0xFF202020));
-            if (selected) drawRect(listX, curY, listX + scaleHelper.scaledSize(2), rowBottom, 0xFF26D9FF);
-            if (entry.custom) drawRect(listX + scaleHelper.scaledSize(4), curY + scaleHelper.scaledSize(5),
-                    listX + scaleHelper.scaledSize(6), curY + scaleHelper.scaledSize(18), 0xFF26D9FF);
-            drawString(this.fontRendererObj, entry.name, listX + scaleHelper.scaledSize(entry.custom ? 9 : 6),
-                    curY + scaleHelper.scaledSize(3), selected ? 0xFFFFFF : (hovered ? 0xDDDDDD : 0x999999));
-            String sub = entry.anchor + " / " + (entry.visible ? "ON" : "OFF");
-            drawString(this.fontRendererObj, "\u00a78" + sub, listX + scaleHelper.scaledSize(6),
-                    curY + scaleHelper.scaledSize(14), 0x777777);
-        }
-        VRSettingsScreen.disableScissor();
-
-        int maxListScroll = getMaxListScroll();
-        if (maxListScroll > 0) {
-            drawScrollbar(listX + listW + scaleHelper.scaledSize(2), listY,
-                    scaleHelper.scaledSize(2), listH, overlayListScroll, maxListScroll);
-        }
-
-        // Compact in-canvas filter panel so the VR ray remains on the actual GUI plane.
-        if (showFilterPanel) {
-            int fx = listX + scaleHelper.scaledSize(1);
-            int fy = listY + scaleHelper.scaledSize(2);
-            int fw = listW - scaleHelper.scaledSize(2);
-            int fh = scaleHelper.scaledSize(76);
-            drawRect(fx, fy, fx + fw, fy + fh, 0xFF111820);
-            drawRect(fx, fy, fx + fw, fy + scaleHelper.scaledSize(12), 0xFF26374A);
-            drawString(this.fontRendererObj, "FILTERS", fx + scaleHelper.scaledSize(4),
-                    fy + scaleHelper.scaledSize(2), 0xFFFFFFFF);
-            String[] labels = {"Built-in overlays", "Custom overlays", "Have options", "No options"};
-            boolean[] values = {filterBuiltIn, filterCustom, filterHasOptions, filterNoOptions};
-            for (int i = 0; i < labels.length; i++) {
-                int ry = fy + scaleHelper.scaledSize(14 + i * 15);
-                drawRect(fx + scaleHelper.scaledSize(3), ry, fx + scaleHelper.scaledSize(12),
-                        ry + scaleHelper.scaledSize(9), values[i] ? 0xFF26895B : 0xFF303030);
-                drawString(this.fontRendererObj, values[i] ? "\u00a7a\u2713" : "\u00a77\u25a1",
-                        fx + scaleHelper.scaledSize(4), ry, 0xFFFFFFFF);
-                drawString(this.fontRendererObj, labels[i], fx + scaleHelper.scaledSize(15),
-                        ry, values[i] ? 0xFFEEEEEE : 0xFF999999);
-            }
-        }
-
-        if (selectedIndex < 0 || selectedIndex >= overlays.size()) return;
-        OverlayEntry current = overlays.get(selectedIndex);
-        int detailX = bgX + scaleHelper.scaledSize(118);
-        int detailY = bgY + scaleHelper.scaledSize(36);
-        int detailW = scaleHelper.scaledSize(106);
-        int detailH = scaleHelper.scaledSize(176);
-        overlayDetailScroll = Math.max(0, Math.min(getMaxDetailScroll(), overlayDetailScroll));
-
-        VRSettingsScreen.enableScissor(this.mc, detailX, detailY, detailW + scaleHelper.scaledSize(6),
-                detailH, this.width, this.height);
-        if (selectedGroup == null) {
-            drawString(this.fontRendererObj, "\u00a7f\u00a7l" + current.name, detailX,
-                    detailY + scaleHelper.scaledSize(1) - overlayDetailScroll, 0xFFFFFF);
-            String kind = current.custom ? "CUSTOM / " + nameOf(current.template).toUpperCase(Locale.ROOT)
-                    : "BUILT-IN OVERLAY";
-            drawString(this.fontRendererObj, "\u00a78" + kind, detailX,
-                    detailY + scaleHelper.scaledSize(12) - overlayDetailScroll, 0x888888);
-
-            int descY = detailY + scaleHelper.scaledSize(23) - overlayDetailScroll;
-            int descLines = this.fontRendererObj.listFormattedStringToWidth("\u00a77" + current.description, detailW).size();
-            this.fontRendererObj.drawSplitString("\u00a77" + current.description, detailX, descY, detailW, 0x888888);
-
-            int optionsLabelY = descY + descLines * this.fontRendererObj.FONT_HEIGHT + scaleHelper.scaledSize(5);
-            drawString(this.fontRendererObj, "\u00a77OPTION GROUPS", detailX, optionsLabelY, 0xAAAAAA);
-            int groupY = optionsLabelY + scaleHelper.scaledSize(11);
-            int groupStep = scaleHelper.scaledSize(16);
-            String[] groups = groupsFor(current.id);
-            for (int i = 0; i < groups.length; i++) {
-                int gy = groupY + i * groupStep;
-                boolean hover = isHovered(mouseX, mouseY, detailX, gy, detailW, scaleHelper.scaledSize(14));
-                drawRect(detailX, gy, detailX + detailW, gy + scaleHelper.scaledSize(14),
-                        hover ? 0xFF3C3C3C : 0xFF242424);
-                drawString(this.fontRendererObj, groups[i], detailX + scaleHelper.scaledSize(4),
-                        gy + scaleHelper.scaledSize(3), hover ? 0xFFFFFFFF : 0xFFCCCCCC);
-                drawString(this.fontRendererObj, "\u00a7b>", detailX + detailW - scaleHelper.scaledSize(8),
-                        gy + scaleHelper.scaledSize(3), 0xFF26D9FF);
-            }
-        } else {
-            drawString(this.fontRendererObj, "\u00a7b< " + selectedGroup, detailX,
-                    detailY + scaleHelper.scaledSize(2), 0xFFFFFFFF);
-            if (GROUP_GENERAL.equals(selectedGroup)) {
-                if (current.custom) {
-                    drawString(this.fontRendererObj, "\u00a77Display name", detailX,
-                            detailY + scaleHelper.scaledSize(23), 0xFFAAAAAA);
-                    if (identityNameField != null) identityNameField.drawTextBox();
-                    drawString(this.fontRendererObj, "\u00a77Description", detailX,
-                            detailY + scaleHelper.scaledSize(52), 0xFFAAAAAA);
-                    if (identityDescriptionField != null) identityDescriptionField.drawTextBox();
-                    drawString(this.fontRendererObj, "\u00a77ID: \u00a7f" + current.id, detailX,
-                            detailY + scaleHelper.scaledSize(83), 0xFFFFFFFF);
-                    drawString(this.fontRendererObj, "\u00a77Template: \u00a7f" + nameOf(current.template), detailX,
-                            detailY + scaleHelper.scaledSize(98), 0xFFFFFFFF);
-                    drawString(this.fontRendererObj, "\u00a78Applied when you press Save.", detailX,
-                            detailY + scaleHelper.scaledSize(119), 0xFF888888);
-                } else {
-                    drawString(this.fontRendererObj, "\u00a77ID: \u00a7f" + current.id, detailX,
-                            detailY + scaleHelper.scaledSize(26), 0xFFFFFFFF);
-                    drawString(this.fontRendererObj, "\u00a77Type: \u00a7fBuilt-in", detailX,
-                            detailY + scaleHelper.scaledSize(42), 0xFFFFFFFF);
-                    drawString(this.fontRendererObj, "\u00a77Template: \u00a7f" + nameOf(current.id), detailX,
-                            detailY + scaleHelper.scaledSize(58), 0xFFFFFFFF);
-                    this.fontRendererObj.drawSplitString(current.description, detailX,
-                            detailY + scaleHelper.scaledSize(78), detailW, 0xAAAAAA);
-                }
-            } else {
-                String[] rows = rowsForGroup(current.id, selectedGroup);
-                int curY = detailY + scaleHelper.scaledSize(25) - overlayDetailScroll;
-                int ctrlH = scaleHelper.scaledSize(14);
-                int step = scaleHelper.scaledSize(18);
-                for (String row : rows) {
-                    boolean hover = isHovered(mouseX, mouseY, detailX, curY, detailW, ctrlH)
-                            && isHovered(mouseX, mouseY, detailX, detailY, detailW, detailH);
-                    switch (row) {
-                        case "VIS":
-                            drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
-                            drawCenteredString(this.fontRendererObj,
-                                    I18n.format("visor.overlay.options.visibility") + ": "
-                                            + (current.visible ? "\u00a7aON" : "\u00a7cOFF"),
-                                    detailX + detailW / 2, curY + (ctrlH - 8) / 2, 0xFFFFFF);
-                            break;
-                        case "ANCHOR":
-                            drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
-                            drawCenteredString(this.fontRendererObj, anchorLabel(current),
-                                    detailX + detailW / 2, curY + (ctrlH - 8) / 2, 0xFFFFFF);
-                            break;
-                        case "SCALE":
-                            drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Scale", current.scale, 0.2F, 3.0F, "%.2fx", 0);
-                            break;
-                        case "DIST":
-                            drawSlider(mouseX, detailX, curY, detailW, ctrlH,
-                                    VROverlayConfig.CROSSHAIR.equals(current.id) ? "Reach" : "Distance",
-                                    current.distance, 0.2F, 6.0F, "%.2fm", 1);
-                            break;
-                        case "OFFX":
-                            drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Offset X", current.offsetX, -0.5F, 0.5F, "%.2fm", 2);
-                            break;
-                        case "OFFY":
-                            drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Offset Y", current.offsetY, -0.5F, 0.5F, "%.2fm", 3);
-                            break;
-                        case "ALPHA":
-                            drawSlider(mouseX, detailX, curY, detailW, ctrlH, "Opacity", current.opacity * 100.0F, 5.0F, 100.0F, "%.0f%%", 4);
-                            break;
-                        default:
-                            drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
-                            drawCenteredString(this.fontRendererObj,
-                                    flagLabelOf(current.id) + ": " + (current.extraFlag ? "\u00a7aON" : "\u00a77OFF"),
-                                    detailX + detailW / 2, curY + (ctrlH - 8) / 2, 0xFFFFFF);
-                            break;
-                    }
-                    curY += step;
-                }
-
-                // Keep action icons outside the detail-panel scissor, like Visor's side rail.
-                VRSettingsScreen.disableScissor();
-                int actionX = bgX + scaleHelper.scaledSize(234);
-                int actionSize = scaleHelper.scaledSize(17);
-                String[] actions = {"C", "P", "R"};
-                int[] actionYs = {99, 122, 145};
-                boolean[] enabled = {true, copiedOptions != null && selectedGroup.equals(copiedGroup), true};
-                for (int i = 0; i < actions.length; i++) {
-                    int ay = bgY + scaleHelper.scaledSize(actionYs[i]);
-                    boolean hover = isHovered(mouseX, mouseY, actionX, ay, actionSize, actionSize);
-                    int color = enabled[i] ? (hover ? 0xFF36536B : 0xFF202D38) : 0xFF202020;
-                    drawRect(actionX, ay, actionX + actionSize, ay + actionSize, color);
-                    drawCenteredString(this.fontRendererObj, actions[i], actionX + actionSize / 2,
-                            ay + (actionSize - 8) / 2, enabled[i] ? 0xFF26D9FF : 0xFF666666);
-                }
-            }
-        }
-        VRSettingsScreen.disableScissor();
-
-        // Fixed footer buttons: reset/save, or an explicit two-step removal confirmation.
-        int btnY = bgY + scaleHelper.scaledSize(218);
-        int halfW = (detailW - scaleHelper.scaledSize(4)) / 2;
-        int btnH = scaleHelper.scaledSize(15);
-        int saveX = detailX + halfW + scaleHelper.scaledSize(4);
-        if (confirmRemove && current.custom) {
-            drawRect(detailX, btnY, detailX + halfW, btnY + btnH, 0xFF702B2B);
-            drawCenteredString(this.fontRendererObj, "Confirm Remove", detailX + halfW / 2,
-                    btnY + (btnH - 8) / 2, 0xFFFFFFFF);
-            drawRect(saveX, btnY, saveX + halfW, btnY + btnH, 0xFF383838);
-            drawCenteredString(this.fontRendererObj, "Cancel", saveX + halfW / 2,
-                    btnY + (btnH - 8) / 2, 0xFFFFFFFF);
-        } else {
-            boolean defaultsHover = isHovered(mouseX, mouseY, detailX, btnY, halfW, btnH);
-            drawRect(detailX, btnY, detailX + halfW, btnY + btnH, defaultsHover ? 0xFF604040 : 0xFF402828);
-            drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays.load_defaults"),
-                    detailX + halfW / 2, btnY + (btnH - 8) / 2, defaultsHover ? 0xFFFFA0 : 0xFFDDDDDD);
-            boolean saveHover = isHovered(mouseX, mouseY, saveX, btnY, halfW, btnH);
-            int saveColor = changesNotSaved ? (saveHover ? 0xFF8A651A : 0xFF624711)
-                    : (saveHover ? 0xFF306030 : 0xFF204020);
-            drawRect(saveX, btnY, saveX + halfW, btnY + btnH, saveColor);
-            String saveLabel = changesNotSaved ? "* Save" : I18n.format("visor.overlay.options.overlays.save");
-            drawCenteredString(this.fontRendererObj, saveLabel,
-                    saveX + halfW / 2, btnY + (btnH - 8) / 2,
-                    changesNotSaved ? 0xFFFFD780 : (saveHover ? 0xFFA0FFA0 : 0xFF88EE88));
-        }
-
-        if (current.custom) {
-            int removeX = bgX + scaleHelper.scaledSize(234);
-            int removeY = bgY + scaleHelper.scaledSize(193);
-            int removeSize = scaleHelper.scaledSize(17);
-            boolean removeHover = isHovered(mouseX, mouseY, removeX, removeY, removeSize, removeSize);
-            drawRect(removeX, removeY, removeX + removeSize, removeY + removeSize,
-                    removeHover || confirmRemove ? 0xFF702B2B : 0xFF382020);
-            drawCenteredString(this.fontRendererObj, "\u00a7cX", removeX + removeSize / 2,
-                    removeY + (removeSize - 8) / 2, 0xFFFFFFFF);
-        }
-    }
-
-    private void drawSlider(int mouseX, int x, int y, int w, int h, String name, float val, float min, float max, String fmt, int sliderIndex) {
-        drawRect(x, y, x + w, y + h, 0xFF202020);
-        float pct = Math.max(0.0F, Math.min(1.0F, (val - min) / (max - min)));
-        int fillW = Math.round(w * pct);
-        drawRect(x, y, x + fillW, y + h, 0xFF306080);
-        drawRect(x + fillW - scaleHelper.scaledSize(2), y, x + fillW, y + h, 0xFF26D9FF);
-
-        String text = name + ": " + String.format(fmt, val);
-        drawCenteredString(this.fontRendererObj, text, x + w / 2, y + (h - 8) / 2, 0xFFFFFF);
-    }
-
-    private void drawCreateTab(int mouseX, int mouseY, int bgX, int bgY) {
-        int listX = bgX + scaleHelper.scaledSize(14);
-        int searchY = bgY + scaleHelper.scaledSize(35);
-        int listY = bgY + scaleHelper.scaledSize(54);
-        int listW = scaleHelper.scaledSize(96);
-        int itemH = scaleHelper.scaledSize(24);
-
-        drawString(this.fontRendererObj, "\u00a77SELECT TEMPLATE", listX,
-                listY - scaleHelper.scaledSize(7), 0xAAAAAA);
-        if (templateSearchField != null) {
-            templateSearchField.drawTextBox();
-            if (templateSearchField.getText().isEmpty() && !templateSearchField.isFocused()) {
-                drawString(this.fontRendererObj, "Find templates", templateSearchField.xPosition + scaleHelper.scaledSize(3),
-                        templateSearchField.yPosition + scaleHelper.scaledSize(4), 0xFF777777);
-            }
-        }
-
-        String query = templateSearchField == null ? "" : templateSearchField.getText().trim().toLowerCase(Locale.ROOT);
-        for (int i = 0; i < TEMPLATES.length; i++) {
-            String searchable = (TEMPLATES[i] + " " + templateDescription(TEMPLATE_IDS[i])).toLowerCase(Locale.ROOT);
-            if (!query.isEmpty() && !searchable.contains(query)) continue;
-            int visibleIndex = visibleTemplateIndexBefore(i, query);
-            int rowY = listY + visibleIndex * itemH;
-            boolean hovered = isHovered(mouseX, mouseY, listX, rowY, listW, itemH - scaleHelper.scaledSize(2));
-            boolean selected = i == selectedTemplate;
-            drawRect(listX, rowY, listX + listW, rowY + itemH - scaleHelper.scaledSize(2),
-                    selected ? 0xFF305080 : (hovered ? 0xFF404040 : 0xFF202020));
-            if (selected) drawRect(listX, rowY, listX + scaleHelper.scaledSize(2),
-                    rowY + itemH - scaleHelper.scaledSize(2), 0xFF26D9FF);
-            drawString(this.fontRendererObj, TEMPLATES[i], listX + scaleHelper.scaledSize(6),
-                    rowY + scaleHelper.scaledSize(7), selected ? 0xFFFFFFFF : 0xFFCCCCCC);
-        }
-
-        int detailX = bgX + scaleHelper.scaledSize(118);
-        int detailY = bgY + scaleHelper.scaledSize(40);
-        int detailW = scaleHelper.scaledSize(128);
-        drawString(this.fontRendererObj, "\u00a7f\u00a7lCreate Overlay", detailX, detailY, 0xFFFFFFFF);
-        drawString(this.fontRendererObj, "\u00a77Display name", detailX, bgY + scaleHelper.scaledSize(61), 0xFFAAAAAA);
-        if (customNameField != null) customNameField.drawTextBox();
-        drawString(this.fontRendererObj, "\u00a77Description (optional)", detailX,
-                bgY + scaleHelper.scaledSize(89), 0xFFAAAAAA);
-        if (customDescriptionField != null) customDescriptionField.drawTextBox();
-
-        int infoY = bgY + scaleHelper.scaledSize(122);
-        drawString(this.fontRendererObj, "\u00a77Template behaviour", detailX, infoY, 0xFFAAAAAA);
-        this.fontRendererObj.drawSplitString(templateDescription(TEMPLATE_IDS[selectedTemplate]), detailX,
-                infoY + scaleHelper.scaledSize(11), detailW, 0x999999);
-
-        int createY = bgY + scaleHelper.scaledSize(218);
-        int createH = scaleHelper.scaledSize(16);
-        boolean createHover = isHovered(mouseX, mouseY, detailX, createY, detailW, createH);
-        boolean valid = customNameField != null && !customNameField.getText().trim().isEmpty();
-        drawRect(detailX, createY, detailX + detailW, createY + createH,
-                !valid ? 0xFF252525 : (createHover ? 0xFF306030 : 0xFF204020));
-        drawCenteredString(this.fontRendererObj, "\u00a7a+ Create Overlay", detailX + detailW / 2,
-                createY + (createH - 8) / 2, valid ? 0xFFFFFFFF : 0xFF777777);
-    }
-
-    private static String templateDescription(String template) {
-        if (VROverlayConfig.GAME_SCREEN.equals(template)) {
-            return "Independent copy of the live GUI texture for inventory, crafting, AE2 and machine screens.";
-        }
-        if (VROverlayConfig.KEYBOARD.equals(template)) {
-            return "Independent copy of the virtual keyboard texture, with its own placement and scale.";
-        }
-        return "Independent copy of the captured HUD texture. Its position, anchor, scale and curvature are saved separately.";
-    }
-
-    private int visibleTemplateIndexBefore(int templateIndex, String query) {
-        int count = 0;
-        for (int i = 0; i < templateIndex; i++) {
-            String searchable = (TEMPLATES[i] + " " + templateDescription(TEMPLATE_IDS[i])).toLowerCase(Locale.ROOT);
-            if (query.isEmpty() || searchable.contains(query)) count++;
-        }
-        return count;
-    }
-
-    @Override
-    protected void mouseClicked(int mouseX, int mouseY, int button) {
-        if (button != 0) return;
-        int bgX = scaleHelper.getStartX();
-        int bgY = scaleHelper.getStartY();
-        int tabW = scaleHelper.scaledSize(115);
-        int tabH = scaleHelper.scaledSize(23);
-        int tabY = bgY + scaleHelper.scaledSize(6);
-
-        if (currentTab == Tab.OVERLAYS) {
-            if (isHovered(mouseX, mouseY, bgX + tabW, tabY, tabW, tabH)) {
-                playClickSound();
-                currentTab = Tab.CREATE_OVERLAY;
-                showFilterPanel = false;
-                overlaySearchField.setFocused(false);
-                customNameField.setFocused(false);
-                customDescriptionField.setFocused(false);
-                templateSearchField.setFocused(false);
-                return;
-            }
-        } else if (isHovered(mouseX, mouseY, bgX, tabY, tabW, tabH)) {
-            playClickSound();
-            currentTab = Tab.OVERLAYS;
-            customNameField.setFocused(false);
-            customDescriptionField.setFocused(false);
-            templateSearchField.setFocused(false);
-            return;
-        }
-
-        int extraX = bgX + scaleHelper.scaledSize(230);
-        int closeBtnX = extraX + scaleHelper.scaledSize(4);
-        int closeBtnY = bgY + scaleHelper.scaledSize(12);
-        int btnSz = scaleHelper.scaledSize(19);
-        if (isHovered(mouseX, mouseY, closeBtnX, closeBtnY, btnSz, btnSz)) {
-            playClickSound();
-            this.mc.displayGuiScreen(parentScreen);
-            return;
-        }
-
-        if (currentTab == Tab.OVERLAYS) {
-            if (overlaySearchField != null) overlaySearchField.mouseClicked(mouseX, mouseY, button);
-            if (selectedGroup != null && GROUP_GENERAL.equals(selectedGroup)
-                    && selectedIndex >= 0 && selectedIndex < overlays.size()
-                    && overlays.get(selectedIndex).custom) {
-                boolean hitName = isHovered(mouseX, mouseY, identityNameField.xPosition, identityNameField.yPosition,
-                        identityNameField.width, identityNameField.height);
-                boolean hitDescription = isHovered(mouseX, mouseY, identityDescriptionField.xPosition, identityDescriptionField.yPosition,
-                        identityDescriptionField.width, identityDescriptionField.height);
-                identityNameField.mouseClicked(mouseX, mouseY, button);
-                identityDescriptionField.mouseClicked(mouseX, mouseY, button);
-                if (hitName || hitDescription) {
-                    customNameField.setFocused(false);
-                    customDescriptionField.setFocused(false);
-                    templateSearchField.setFocused(false);
-                    return;
-                }
-            } else {
-                identityNameField.setFocused(false);
-                identityDescriptionField.setFocused(false);
-            }
-            customNameField.setFocused(false);
-            customDescriptionField.setFocused(false);
-            templateSearchField.setFocused(false);
-            handleOverlaysClick(mouseX, mouseY, bgX, bgY);
-        } else {
-            if (templateSearchField != null) templateSearchField.mouseClicked(mouseX, mouseY, button);
-            if (customNameField != null) customNameField.mouseClicked(mouseX, mouseY, button);
-            if (customDescriptionField != null) customDescriptionField.mouseClicked(mouseX, mouseY, button);
-            if (overlaySearchField != null) overlaySearchField.setFocused(false);
-            handleCreateClick(mouseX, mouseY, bgX, bgY);
-        }
-    }
-
-    private void handleOverlaysClick(int mouseX, int mouseY, int bgX, int bgY) {
-        int listX = bgX + scaleHelper.scaledSize(12);
-        int searchY = bgY + scaleHelper.scaledSize(35);
-        int listY = bgY + scaleHelper.scaledSize(54);
-        int listW = scaleHelper.scaledSize(96);
-        int listH = scaleHelper.scaledSize(176);
-        int itemH = scaleHelper.scaledSize(26);
-        int filterX = listX + scaleHelper.scaledSize(77);
-        int filterW = scaleHelper.scaledSize(19);
-        int filterH = scaleHelper.scaledSize(15);
-
-        if (isHovered(mouseX, mouseY, filterX, searchY, filterW, filterH)) {
-            showFilterPanel = !showFilterPanel;
-            playClickSound();
-            return;
-        }
-
-        if (showFilterPanel) {
-            int fx = listX + scaleHelper.scaledSize(1);
-            int fy = listY + scaleHelper.scaledSize(2);
-            int fw = listW - scaleHelper.scaledSize(2);
-            int fh = scaleHelper.scaledSize(76);
-            if (isHovered(mouseX, mouseY, fx, fy, fw, fh)) {
-                for (int i = 0; i < 4; i++) {
-                    int rowY = fy + scaleHelper.scaledSize(14 + i * 15);
-                    if (!isHovered(mouseX, mouseY, fx, rowY, fw, scaleHelper.scaledSize(13))) continue;
-                    if (i == 0) filterBuiltIn = !filterBuiltIn;
-                    else if (i == 1) filterCustom = !filterCustom;
-                    else if (i == 2) filterHasOptions = !filterHasOptions;
-                    else filterNoOptions = !filterNoOptions;
-                    overlayListScroll = 0;
-                    playClickSound();
-                    return;
-                }
-                return;
-            }
-            showFilterPanel = false;
-        }
-
-        // Select from the *filtered* list, mapping the displayed row back to its real entry.
-        if (isHovered(mouseX, mouseY, listX, listY, listW, listH)) {
-            List<OverlayEntry> visible = getVisibleOverlays();
-            for (int i = 0; i < visible.size(); i++) {
-                int rowY = listY + i * itemH - overlayListScroll;
-                if (isHovered(mouseX, mouseY, listX, rowY, listW, itemH - scaleHelper.scaledSize(2))) {
-                    selectedIndex = overlays.indexOf(visible.get(i));
-                    selectedGroup = null;
-                    syncIdentityFields();
-                    overlayDetailScroll = 0;
-                    confirmRemove = false;
-                    playClickSound();
-                    return;
-                }
-            }
-            return;
-        }
-
-        if (selectedIndex < 0 || selectedIndex >= overlays.size()) return;
-        OverlayEntry current = overlays.get(selectedIndex);
-        int detailX = bgX + scaleHelper.scaledSize(118);
-        int detailY = bgY + scaleHelper.scaledSize(36);
-        int detailW = scaleHelper.scaledSize(106);
-        int detailH = scaleHelper.scaledSize(176);
-        int btnY = bgY + scaleHelper.scaledSize(218);
-        int btnH = scaleHelper.scaledSize(15);
-        int halfW = (detailW - scaleHelper.scaledSize(4)) / 2;
-        int saveX = detailX + halfW + scaleHelper.scaledSize(4);
-
-        // In the group overview, selecting an entry opens the dedicated options group.
-        if (selectedGroup == null && isHovered(mouseX, mouseY, detailX, detailY, detailW, detailH)) {
-            int descLines = this.fontRendererObj.listFormattedStringToWidth("\u00a77" + current.description, detailW).size();
-            int optionsLabelY = detailY + scaleHelper.scaledSize(23)
-                    + descLines * this.fontRendererObj.FONT_HEIGHT + scaleHelper.scaledSize(5);
-            int groupY = optionsLabelY + scaleHelper.scaledSize(11) - overlayDetailScroll;
-            int groupStep = scaleHelper.scaledSize(16);
-            String[] groups = groupsFor(current.id);
-            for (int i = 0; i < groups.length; i++) {
-                int rowY = groupY + i * groupStep;
-                if (isHovered(mouseX, mouseY, detailX, rowY, detailW, scaleHelper.scaledSize(14))) {
-                    selectedGroup = groups[i];
-                    if (GROUP_GENERAL.equals(selectedGroup)) syncIdentityFields();
-                    identityNameField.setFocused(false);
-                    identityDescriptionField.setFocused(false);
-                    overlayDetailScroll = 0;
-                    confirmRemove = false;
-                    playClickSound();
-                    return;
-                }
-            }
-        } else if (selectedGroup != null) {
-            // Clicking the group header returns to the overlay identity/setup card.
-            if (isHovered(mouseX, mouseY, detailX, detailY, detailW, scaleHelper.scaledSize(20))) {
-                selectedGroup = null;
-                overlayDetailScroll = 0;
-                playClickSound();
-                return;
-            }
-
-            // Copy / paste / reload controls use the right-side texture rail.
-            if (!GROUP_GENERAL.equals(selectedGroup)) {
-                int actionX = bgX + scaleHelper.scaledSize(234);
-                int actionSize = scaleHelper.scaledSize(17);
-                int[] actionYs = {99, 122, 145};
-                for (int i = 0; i < actionYs.length; i++) {
-                    int actionY = bgY + scaleHelper.scaledSize(actionYs[i]);
-                    if (!isHovered(mouseX, mouseY, actionX, actionY, actionSize, actionSize)) continue;
-                    if (i == 0) copyCurrentGroup();
-                    else if (i == 1) pasteCurrentGroup();
-                    else reloadOverlayFromDisk();
-                    playClickSound();
-                    return;
-                }
-            }
-
-            if (!GROUP_GENERAL.equals(selectedGroup)
-                    && isHovered(mouseX, mouseY, detailX, detailY, detailW, detailH)) {
-                int rowY = detailY + scaleHelper.scaledSize(25) - overlayDetailScroll;
-                int ctrlH = scaleHelper.scaledSize(14);
-                int step = scaleHelper.scaledSize(18);
-                for (String row : rowsForGroup(current.id, selectedGroup)) {
-                    if (isHovered(mouseX, mouseY, detailX, rowY, detailW, ctrlH)) {
-                        switch (row) {
-                            case "VIS":
-                                current.visible = !current.visible;
-                                changesNotSaved = true;
-                                playClickSound();
-                                break;
-                            case "ANCHOR":
-                                cycleAnchor(current);
-                                changesNotSaved = true;
-                                playClickSound();
-                                break;
-                            case "SCALE":
-                                activeSlider = 0;
-                                updateSliderFromMouse(mouseX, detailX, detailW, current, 0);
-                                changesNotSaved = true;
-                                break;
-                            case "DIST":
-                                activeSlider = 1;
-                                updateSliderFromMouse(mouseX, detailX, detailW, current, 1);
-                                changesNotSaved = true;
-                                break;
-                            case "OFFX":
-                                activeSlider = 2;
-                                updateSliderFromMouse(mouseX, detailX, detailW, current, 2);
-                                changesNotSaved = true;
-                                break;
-                            case "OFFY":
-                                activeSlider = 3;
-                                updateSliderFromMouse(mouseX, detailX, detailW, current, 3);
-                                changesNotSaved = true;
-                                break;
-                            case "ALPHA":
-                                activeSlider = 4;
-                                updateSliderFromMouse(mouseX, detailX, detailW, current, 4);
-                                changesNotSaved = true;
-                                break;
-                            default:
-                                current.extraFlag = !current.extraFlag;
-                                changesNotSaved = true;
-                                playClickSound();
-                                break;
-                        }
-                        return;
-                    }
-                    rowY += step;
-                }
-            }
-        }
-
-        // Remove custom overlays only after a second, explicit confirmation.
-        if (current.custom) {
-            int removeX = bgX + scaleHelper.scaledSize(234);
-            int removeY = bgY + scaleHelper.scaledSize(193);
-            int removeSize = scaleHelper.scaledSize(17);
-            if (isHovered(mouseX, mouseY, removeX, removeY, removeSize, removeSize)) {
-                confirmRemove = !confirmRemove;
-                playClickSound();
-                return;
-            }
-        }
-
-        if (isHovered(mouseX, mouseY, detailX, btnY, halfW, btnH)) {
-            if (confirmRemove && current.custom) {
-                String removedId = current.id;
-                VROverlayConfig.removeCustom(removedId);
-                overlays.remove(selectedIndex);
-                selectedIndex = overlays.isEmpty() ? -1 : Math.max(0, Math.min(selectedIndex, overlays.size() - 1));
-                selectedGroup = null;
-                confirmRemove = false;
-                VRCustomOverlayRenderer.resetPoses();
-                playClickSound();
-            } else {
-                resetOverlayDefaults();
-                playClickSound();
-            }
-            return;
-        }
-        if (isHovered(mouseX, mouseY, saveX, btnY, halfW, btnH)) {
-            if (!confirmRemove && current.custom && GROUP_GENERAL.equals(selectedGroup)
-                    && (current.name == null || current.name.trim().isEmpty())) {
-                saveMessage = "Display name cannot be empty";
-                saveMessageTime = System.currentTimeMillis();
-                return;
-            }
-            if (confirmRemove && current.custom) {
-                confirmRemove = false;
-            } else {
-                applyOverlayData();
-                playClickSound();
-            }
-        }
-    }
-
-    private void handleCreateClick(int mouseX, int mouseY, int bgX, int bgY) {
-        int listX = bgX + scaleHelper.scaledSize(14);
-        int listY = bgY + scaleHelper.scaledSize(54);
-        int listW = scaleHelper.scaledSize(96);
-        int itemH = scaleHelper.scaledSize(24);
-        String query = templateSearchField == null ? "" : templateSearchField.getText().trim().toLowerCase(Locale.ROOT);
-
-        for (int i = 0; i < TEMPLATES.length; i++) {
-            String searchable = (TEMPLATES[i] + " " + templateDescription(TEMPLATE_IDS[i])).toLowerCase(Locale.ROOT);
-            if (!query.isEmpty() && !searchable.contains(query)) continue;
-            int row = visibleTemplateIndexBefore(i, query);
-            int rowY = listY + row * itemH;
-            if (isHovered(mouseX, mouseY, listX, rowY, listW, itemH - scaleHelper.scaledSize(2))) {
-                selectedTemplate = i;
-                playClickSound();
-                return;
-            }
-        }
-
-        int detailX = bgX + scaleHelper.scaledSize(118);
-        int createY = bgY + scaleHelper.scaledSize(218);
-        int detailW = scaleHelper.scaledSize(128);
-        int createH = scaleHelper.scaledSize(16);
-        if (isHovered(mouseX, mouseY, detailX, createY, detailW, createH)) {
-            String name = customNameField == null ? "" : customNameField.getText().trim();
-            if (name.isEmpty()) {
-                saveMessage = "Enter a display name first";
-                saveMessageTime = System.currentTimeMillis();
-                return;
-            }
-            String description = customDescriptionField == null ? "" : customDescriptionField.getText().trim();
-            String id = VROverlayConfig.createCustom(name, description, TEMPLATE_IDS[selectedTemplate]);
-            if (id == null) {
-                saveMessage = "Could not create overlay";
-                saveMessageTime = System.currentTimeMillis();
-                return;
-            }
-            VROverlayConfig.Entry created = VROverlayConfig.get(id);
-            OverlayEntry createdRow = new OverlayEntry(id, name, description, created.anchor,
-                    created.visible, created.scale, created.distance, 1.0F, created.flag);
-            createdRow.offsetX = created.offsetX;
-            createdRow.offsetY = created.offsetY;
-            createdRow.custom = true;
-            createdRow.template = created.template;
-            overlays.add(createdRow);
-            selectedIndex = overlays.size() - 1;
-            if (overlaySearchField != null) overlaySearchField.setText("");
-            filterBuiltIn = true;
-            filterCustom = true;
-            filterHasOptions = true;
-            filterNoOptions = true;
-            showFilterPanel = false;
-            selectedGroup = null;
-            confirmRemove = false;
-            currentTab = Tab.OVERLAYS;
-            customNameField.setText("");
-            customDescriptionField.setText("");
-            templateSearchField.setText("");
-            templateSearchField.setFocused(false);
-            customNameField.setFocused(false);
-            customDescriptionField.setFocused(false);
-            saveMessage = "Created " + name;
-            saveMessageTime = System.currentTimeMillis();
-            playClickSound();
-        }
-    }
-
-    private void playClickSound() {
-        this.mc.getSoundHandler().playSound(net.minecraft.client.audio.PositionedSoundRecord.func_147674_a(
-                new ResourceLocation("gui.button.press"), 1.0F));
-    }
-
-    private static boolean isHandOnlyAnchorOverlay(String id) {
-        return VROverlayConfig.STATUS.equals(id) || VROverlayConfig.MAP.equals(id)
-                || VROverlayConfig.INFO.equals(id) || VROverlayConfig.POTIONS.equals(id);
-    }
-
-    private static String anchorLabel(OverlayEntry overlay) {
-        return (isHandOnlyAnchorOverlay(overlay.id) ? "Hand: \u00a7b" : "Anchor: \u00a7b") + overlay.anchor;
-    }
-
-    private void cycleAnchor(OverlayEntry cur) {
-        // These wrist panels have only two real placements in their renderers.
-        // Do not offer HMD/WORLD states that would look selectable but do nothing.
-        if (isHandOnlyAnchorOverlay(cur.id)) {
-            cur.anchor = "MAIN_HAND".equals(cur.anchor) ? "OFFHAND" : "MAIN_HAND";
-            return;
-        }
-        switch (cur.anchor) {
-            case "HMD": cur.anchor = "MAIN_HAND"; break;
-            case "MAIN_HAND": cur.anchor = "OFFHAND"; break;
-            case "OFFHAND": cur.anchor = "WORLD"; break;
-            default: cur.anchor = "HMD"; break;
-        }
-    }
-
-    private float stickListScrollAccum = 0.0F;
-    private float stickDetailScrollAccum = 0.0F;
-
-    public void handleStickScroll(float stickY, int mouseX, int mouseY) {
-        if (currentTab != Tab.OVERLAYS) return;
-
-        if (Math.abs(stickY) < 0.15F) {
-            stickListScrollAccum = 0.0F;
-            stickDetailScrollAccum = 0.0F;
-            return;
-        }
-
-        int bgX = scaleHelper.getStartX();
-        int splitX = bgX + scaleHelper.scaledSize(112);
-
-        // If pointer is in the left list area or left side of menu
-        boolean targetLeft = (mouseX > 0 && mouseX < splitX);
-
-        float speed = scaleHelper.scaledSize(4) * stickY;
-
-        if (targetLeft) {
-            int max = getMaxListScroll();
-            if (max > 0) {
-                stickListScrollAccum -= speed;
-                if (Math.abs(stickListScrollAccum) >= 1.0F) {
-                    int delta = (int) stickListScrollAccum;
-                    overlayListScroll = Math.max(0, Math.min(max, overlayListScroll + delta));
-                    stickListScrollAccum -= delta;
-                }
-            }
-        } else {
-            // Target right details panel
-            int max = getMaxDetailScroll();
-            if (max > 0) {
-                stickDetailScrollAccum -= speed;
-                if (Math.abs(stickDetailScrollAccum) >= 1.0F) {
-                    int delta = (int) stickDetailScrollAccum;
-                    overlayDetailScroll = Math.max(0, Math.min(max, overlayDetailScroll + delta));
-                    stickDetailScrollAccum -= delta;
-                }
-            } else {
-                int listMax = getMaxListScroll();
-                if (listMax > 0) {
-                    stickListScrollAccum -= speed;
-                    if (Math.abs(stickListScrollAccum) >= 1.0F) {
-                        int delta = (int) stickListScrollAccum;
-                        overlayListScroll = Math.max(0, Math.min(listMax, overlayListScroll + delta));
-                        stickListScrollAccum -= delta;
-                    }
-                }
-            }
-        }
-    }
-
-    @Override
-    public void handleMouseInput() {
-        super.handleMouseInput();
-        if (currentTab != Tab.OVERLAYS) return;
-
-        int wheel = org.lwjgl.input.Mouse.getEventDWheel();
-        if (wheel != 0) {
-            int d = (wheel > 0) ? -scaleHelper.scaledSize(14) : scaleHelper.scaledSize(14);
-            int mouseX = org.lwjgl.input.Mouse.getEventX() * this.width / this.mc.displayWidth;
-
-            int bgX = scaleHelper.getStartX();
-            int splitX = bgX + scaleHelper.scaledSize(112);
-
-            if (mouseX > 0 && mouseX < splitX) {
-                overlayListScroll = Math.max(0, Math.min(getMaxListScroll(), overlayListScroll + d));
-            } else {
-                int maxDetail = getMaxDetailScroll();
-                if (maxDetail > 0) {
-                    overlayDetailScroll = Math.max(0, Math.min(maxDetail, overlayDetailScroll + d));
-                } else {
-                    overlayListScroll = Math.max(0, Math.min(getMaxListScroll(), overlayListScroll + d));
-                }
-            }
-        }
-    }
-
-    private void drawScrollbar(int x, int y, int w, int h, int currentScroll, int maxScroll) {
-        if (maxScroll <= 0) return;
-        drawRect(x, y, x + w, y + h, 0xFF141414);
-        int thumbH = Math.max(scaleHelper.scaledSize(10), h * h / (h + maxScroll));
-        int thumbY = y + (h - thumbH) * currentScroll / maxScroll;
-        drawRect(x, thumbY, x + w, thumbY + thumbH, 0xFF7BB3F0);
-    }
-
-    @Override
-    protected void mouseClickMove(int mouseX, int mouseY, int clickedMouseButton, long timeSinceLastClick) {
-        if (activeSlider >= 0 && selectedIndex >= 0 && selectedIndex < overlays.size()) {
-            OverlayEntry cur = overlays.get(selectedIndex);
-            int bgX = scaleHelper.getStartX();
-            int detailX = bgX + scaleHelper.scaledSize(118);
-            int detailW = scaleHelper.scaledSize(106);
-            updateSliderFromMouse(mouseX, detailX, detailW, cur, activeSlider);
-        }
-    }
-
-    @Override
-    protected void mouseMovedOrUp(int mouseX, int mouseY, int which) {
-        if (which >= 0) {
-            activeSlider = -1;
-        }
-    }
-
-    private void updateSliderFromMouse(int mouseX, int x, int w, OverlayEntry cur, int slider) {
-        float pct = Math.max(0.0F, Math.min(1.0F, (float) (mouseX - x) / (float) w));
-        if (slider == 0) {
-            cur.scale = 0.2F + pct * 2.8F;           // 0.2x .. 3.0x
-        } else if (slider == 1) {
-            cur.distance = 0.2F + pct * 5.8F;        // 0.2 m .. 6.0 m
-        } else if (slider == 2) {
-            cur.offsetX = -0.5F + pct;               // -0.5 m .. 0.5 m
-        } else if (slider == 3) {
-            cur.offsetY = -0.5F + pct;
-        } else if (slider == 4) {
-            cur.opacity = 0.05F + pct * 0.95F;
-        }
+    public void onGuiClosed() {
+        if (activeInstance == this) activeInstance = null;
+        super.onGuiClosed();
     }
 
     @Override
     public void updateScreen() {
         super.updateScreen();
-        if (overlaySearchField != null) overlaySearchField.updateCursorCounter();
-        if (identityNameField != null) identityNameField.updateCursorCounter();
-        if (identityDescriptionField != null) identityDescriptionField.updateCursorCounter();
+        if (searchField != null) searchField.updateCursorCounter();
+        if (createNameField != null) createNameField.updateCursorCounter();
+        if (createDescriptionField != null) createDescriptionField.updateCursorCounter();
         if (customNameField != null) customNameField.updateCursorCounter();
         if (customDescriptionField != null) customDescriptionField.updateCursorCounter();
-        if (templateSearchField != null) templateSearchField.updateCursorCounter();
+    }
+
+    @Override
+    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        scaleHelper.computeScale(width, height);
+        mouseLogicalX = toLogicalX(mouseX);
+        mouseLogicalY = toLogicalY(mouseY);
+
+        drawDefaultBackground();
+        GL11.glPushMatrix();
+        GL11.glTranslatef(scaleHelper.getStartX(), scaleHelper.getStartY(), 0.0F);
+        GL11.glScalef(scaleHelper.getScale(), scaleHelper.getScale(), 1.0F);
+        drawTexture(tab == Tab.CREATE ? BACKGROUND_CREATE : BACKGROUND_OVERLAYS, 0, 0, UI_WIDTH, UI_HEIGHT, UI_WIDTH, UI_HEIGHT);
+        if (tab == Tab.OVERLAYS) drawOverlayTab(mouseLogicalX, mouseLogicalY, partialTicks);
+        else drawCreateTab(mouseLogicalX, mouseLogicalY);
+        drawTopNavigation(mouseLogicalX, mouseLogicalY);
+        if (confirmRemove) drawConfirmation("Remove this custom overlay?", "REMOVE", "CANCEL");
+        if (confirmDiscard) drawConfirmation("Discard unsaved changes?", "DISCARD", "KEEP EDITING");
+        if (statusText != null && System.currentTimeMillis() < statusUntil) {
+            drawCenteredString(fontRendererObj, statusText, UI_WIDTH / 2, 245, 0xFFBFE8FF);
+        }
+        GL11.glPopMatrix();
+        super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    private void drawTopNavigation(int mx, int my) {
+        drawButton(63, 5, 58, 15, "Overlays", tab == Tab.OVERLAYS, hit(mx, my, 63, 5, 58, 15));
+        drawButton(122, 5, 92, 15, "Create Overlay", tab == Tab.CREATE, hit(mx, my, 122, 5, 92, 15));
+        drawButton(237, 5, 14, 14, "X", false, hit(mx, my, 237, 5, 14, 14));
+        drawString(fontRendererObj, "Setup Overlays (VR)", 8, 9, 0xFFEAEAEA);
+    }
+
+    private void drawOverlayTab(int mx, int my, float partialTicks) {
+        drawPanel(6, 27, 101, 215, 0xB815171B);
+        drawPanel(111, 27, 140, 215, 0xB8101115);
+        drawString(fontRendererObj, "OVERLAYS", 9, 27, 0xFF9FCDFB);
+
+        drawPanel(7, 33, 98, 15, 0xFF171A20);
+        searchField.drawTextBox();
+        drawButton(88, 33, 15, 14, showFilters ? "v" : "≡", showFilters, hit(mx, my, 88, 33, 15, 14));
+
+        if (showFilters) {
+            drawPanel(7, 49, 98, 28, 0xFF20242B);
+            drawCheckbox(10, 52, "Built-in", filterBuiltIn);
+            drawCheckbox(10, 64, "Custom", filterCustom);
+        }
+
+        int listY = showFilters ? 80 : 50;
+        int listBottom = 190;
+        drawPanel(7, listY, 98, listBottom - listY, 0xAA0A0B0E);
+        List<String> visible = getVisibleIds();
+        int rowHeight = 11;
+        int visibleRows = Math.max(1, (listBottom - listY - 2) / rowHeight);
+        int maxScroll = Math.max(0, visible.size() - visibleRows);
+        listScroll = Math.max(0, Math.min(listScroll, maxScroll));
+        for (int row = 0; row < visibleRows && row + listScroll < visible.size(); row++) {
+            String id = visible.get(row + listScroll);
+            int y = listY + 2 + row * rowHeight;
+            boolean selected = id.equals(selectedId);
+            if (selected) drawPanel(8, y, 96, rowHeight - 1, 0xFF315E84);
+            else if (hit(mx, my, 8, y, 96, rowHeight - 1)) drawPanel(8, y, 96, rowHeight - 1, 0xFF2B3038);
+            drawString(fontRendererObj, clip(nameOf(id), 17), 11, y + 2, selected ? 0xFFFFFFFF : 0xFFD2D4D8);
+            drawString(fontRendererObj, VROverlayConfig.get(id).custom ? "C" : "•", 94, y + 2,
+                    VROverlayConfig.get(id).custom ? 0xFF83D6A7 : 0xFF7D8793);
+        }
+        if (visible.isEmpty()) drawString(fontRendererObj, "No overlays found", 14, listY + 8, 0xFF969AA1);
+        drawButton(7, 194, 98, 14, "Load from disk", false, hit(mx, my, 7, 194, 98, 14));
+        drawButton(7, 210, 98, 14, "Load defaults", false, hit(mx, my, 7, 210, 98, 14));
+        drawButton(7, 226, 98, 14, "Close", false, hit(mx, my, 7, 226, 98, 14));
+
+        if (selectedId == null || !containsId(selectedId)) {
+            drawCenteredString(fontRendererObj, "Select an overlay", 180, 54, 0xFFB5BAC2);
+            return;
+        }
+        drawOverlayIdentity(mx, my);
+        drawLivePreview(mx, my, partialTicks);
+        drawGroupTabs(mx, my);
+        drawSelectedGroup(mx, my);
+        drawFooterActions(mx, my);
+    }
+
+    private void drawOverlayIdentity(int mx, int my) {
+        VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
+        drawPanel(115, 31, 132, 27, 0xFF181B20);
+        drawPanel(119, 35, 18, 18, entry.custom ? 0xFF345D4D : 0xFF3A485A);
+        drawCenteredString(fontRendererObj, entry.custom ? "C" : "V", 128, 40, 0xFFFFFFFF);
+        drawString(fontRendererObj, clip(nameOf(selectedId), 19), 141, 35, 0xFFFFFFFF);
+        drawString(fontRendererObj, clip("ID: " + selectedId, 20), 141, 45, 0xFFADB6C2);
+        drawString(fontRendererObj, entry.custom ? "CUSTOM OVERLAY" : "BUILT-IN OVERLAY", 117, 60,
+                entry.custom ? 0xFF83D6A7 : 0xFF9FCDFB);
+    }
+
+    private void drawLivePreview(int mx, int my, float partialTicks) {
+        VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
+        drawPanel(115, 71, 132, 44, 0xFF090A0D);
+        drawString(fontRendererObj, "LIVE PREVIEW", 119, 73, 0xFF9DA5AF);
+        int cx = 181;
+        int cy = 94;
+        float size = Math.max(0.30F, Math.min(1.0F, entry.scale / 2.2F));
+        int w = Math.max(14, (int) (72 * size));
+        int h = Math.max(8, (int) (25 * size));
+        int x = cx - w / 2 + Math.round(entry.offsetX * 28.0F);
+        int y = cy - h / 2 - Math.round(entry.offsetY * 25.0F);
+        x = Math.max(118, Math.min(244 - w, x));
+        y = Math.max(82, Math.min(108 - h, y));
+        int alpha = Math.max(20, Math.min(220, (int) (entry.opacity * 220.0F)));
+        int fill = (alpha << 24) | 0x002C3A4B;
+        int edge = entry.visible ? 0xFF69B8F5 : 0xFFB65D61;
+        drawPanel(x, y, w, h, fill);
+        drawOutline(x, y, w, h, edge);
+        drawPreviewContent(baseId(selectedId), x, y, w, h, entry.opacity);
+        String poseText = anchorShort(entry.anchor) + "  " + String.format(Locale.ROOT, "%.2fm", entry.distance);
+        drawString(fontRendererObj, clip(poseText, 22), 119, 105, entry.visible ? 0xFFD8E8F6 : 0xFFE79A9A);
+        if (!entry.visible) drawCenteredString(fontRendererObj, "HIDDEN", x + w / 2, y + h / 2 - 3, 0xFFFFA0A0);
+    }
+
+    private void drawPreviewContent(String id, int x, int y, int w, int h, float opacity) {
+        int a = Math.max(30, Math.min(220, (int) (opacity * 220.0F)));
+        int c = (a << 24) | 0x003E627D;
+        if (VROverlayConfig.HUD.equals(id) || VROverlayConfig.STATUS.equals(id)
+                || VROverlayConfig.INFO.equals(id) || VROverlayConfig.POTIONS.equals(id)) {
+            drawPanel(x + 3, y + 3, Math.max(3, w - 6), 2, c);
+            drawPanel(x + 3, y + 7, Math.max(3, (w - 8) / 2), 2, c);
+            drawPanel(x + 3, y + 11, Math.max(3, (w - 8) / 3), 2, c);
+        } else if (VROverlayConfig.HOTBAR_MAIN.equals(id) || VROverlayConfig.HOTBAR_OFFHAND.equals(id)) {
+            int slot = Math.max(2, (w - 8) / 3);
+            for (int row = 0; row < 3; row++) for (int col = 0; col < 3; col++) {
+                drawOutline(x + 3 + col * (slot + 1), y + 3 + row * (slot + 1), slot, slot, c);
+            }
+        } else if (VROverlayConfig.CROSSHAIR.equals(id)) {
+            drawPanel(x + w / 2 - 1, y + 2, 2, h - 4, c);
+            drawPanel(x + 2, y + h / 2 - 1, w - 4, 2, c);
+        } else if (VROverlayConfig.KEYBOARD.equals(id)) {
+            for (int row = 0; row < 3; row++) {
+                int count = row == 2 ? 5 : 8;
+                int keyW = Math.max(2, (w - 8) / count);
+                for (int col = 0; col < count; col++)
+                    drawOutline(x + 3 + col * (keyW + 1), y + 3 + row * Math.max(3, (h - 6) / 3), keyW, 3, c);
+            }
+        } else {
+            drawOutline(x + 4, y + 4, Math.max(3, w - 8), Math.max(3, h - 8), c);
+        }
+    }
+
+    private void drawGroupTabs(int mx, int my) {
+        drawString(fontRendererObj, "OPTION GROUP", 116, 118, 0xFF9DA5AF);
+        String[] labels = { "General", "Visible", "Pose", "Size", "Misc" };
+        Group[] groups = Group.values();
+        int x = 115;
+        for (int i = 0; i < groups.length; i++) {
+            int tabW = i == 0 ? 29 : 25;
+            boolean supported = groups[i] != Group.GENERAL || VROverlayConfig.get(selectedId).custom;
+            drawButton(x, 128, tabW, 14, labels[i], group == groups[i], hit(mx, my, x, 128, tabW, 14), supported);
+            x += tabW + 1;
+        }
+    }
+
+    private void drawSelectedGroup(int mx, int my) {
+        drawPanel(115, 144, 132, 70, 0xCC15181D);
+        VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
+        switch (group) {
+            case GENERAL:
+                drawString(fontRendererObj, "Overlay identity", 119, 146, 0xFFE8EDF2);
+                if (entry.custom) {
+                    drawString(fontRendererObj, "Name", 119, 157, 0xFFB2BAC5);
+                    customNameField.drawTextBox();
+                    drawString(fontRendererObj, "Description", 119, 177, 0xFFB2BAC5);
+                    customDescriptionField.drawTextBox();
+                } else {
+                    drawWrapped("This overlay is supplied by GTNH-VR. Its identity is read-only.", 119, 160, 124, 9, 0xFFBEC4CC);
+                }
+                break;
+            case VISIBILITY:
+                drawString(fontRendererObj, "Visibility", 119, 148, 0xFFE8EDF2);
+                drawToggle(119, 165, 120, 18, "Overlay enabled", entry.visible, mx, my, "visible");
+                drawString(fontRendererObj, "Changes apply immediately.", 119, 191, 0xFF9DA5AF);
+                break;
+            case POSE:
+                drawString(fontRendererObj, "Position and anchor", 119, 146, 0xFFE8EDF2);
+                drawButton(119, 156, 123, 13, "Anchor: " + anchorLabel(entry.anchor), false,
+                        hit(mx, my, 119, 156, 123, 13));
+                drawSlider(119, 174, 123, "Distance", entry.distance, 0.1F, 6.0F,
+                        String.format(Locale.ROOT, "%.2f m", entry.distance), 0, mx, my);
+                drawSlider(119, 193, 123, "Horizontal", entry.offsetX, -1.0F, 1.0F,
+                        String.format(Locale.ROOT, "%.2f m", entry.offsetX), 1, mx, my);
+                drawSlider(119, 212, 123, "Vertical", entry.offsetY, -1.0F, 1.0F,
+                        String.format(Locale.ROOT, "%.2f m", entry.offsetY), 2, mx, my);
+                break;
+            case RESIZING:
+                drawString(fontRendererObj, "Overlay size", 119, 147, 0xFFE8EDF2);
+                drawSlider(119, 170, 123, "Scale", entry.scale, 0.2F, 3.0F,
+                        String.format(Locale.ROOT, "%.2fx", entry.scale), 3, mx, my);
+                drawString(fontRendererObj, "Resize is reflected in preview.", 119, 199, 0xFF9DA5AF);
+                break;
+            case MISC:
+                drawString(fontRendererObj, "Appearance", 119, 147, 0xFFE8EDF2);
+                drawSlider(119, 170, 123, "Opacity", entry.opacity, 0.05F, 1.0F,
+                        String.format(Locale.ROOT, "%.0f%%", entry.opacity * 100.0F), 4, mx, my);
+                String flagName = flagLabelOf(selectedId);
+                if (flagName != null) drawToggle(119, 190, 123, 14, flagName, entry.flag, mx, my, "flag");
+                break;
+        }
+    }
+
+    private void drawFooterActions(int mx, int my) {
+        drawButton(115, 219, 40, 14, "Copy", copiedGroupType == group, hit(mx, my, 115, 219, 40, 14), canCopy(group));
+        drawButton(157, 219, 40, 14, "Paste", false, hit(mx, my, 157, 219, 40, 14),
+                copiedGroup != null && copiedGroupType == group && canCopy(group));
+        drawButton(199, 219, 48, 14, "Reset", false, hit(mx, my, 199, 219, 48, 14));
+        drawButton(115, 235, 64, 14, dirty ? "Save *" : "Save", dirty, hit(mx, my, 115, 235, 64, 14));
+        drawButton(181, 235, 66, 14, VROverlayConfig.get(selectedId).custom ? "Remove" : "Revert",
+                false, hit(mx, my, 181, 235, 66, 14));
+    }
+
+    private void drawCreateTab(int mx, int my) {
+        drawPanel(12, 30, 233, 204, 0xB8121418);
+        drawString(fontRendererObj, "CREATE OVERLAY", 18, 35, 0xFF9FCDFB);
+        drawString(fontRendererObj, "Create a configurable copy of a supported template.", 18, 49, 0xFFCBD0D6);
+        drawString(fontRendererObj, "Template", 18, 65, 0xFFB2BAC5);
+        drawButton(76, 61, 164, 14, TEMPLATE_NAMES[templateIndex], false, hit(mx, my, 76, 61, 164, 14));
+        drawString(fontRendererObj, "Name", 18, 78, 0xFFB2BAC5);
+        createNameField.drawTextBox();
+        drawString(fontRendererObj, "Description", 18, 101, 0xFFB2BAC5);
+        createDescriptionField.drawTextBox();
+        drawLiveCreateCard();
+        drawButton(18, 206, 104, 17, "Create overlay", false, hit(mx, my, 18, 206, 104, 17));
+        drawButton(128, 206, 112, 17, "Back to overlays", false, hit(mx, my, 128, 206, 112, 17));
+        drawString(fontRendererObj, "The copy has independent pose, size, visibility and opacity.", 18, 233, 0xFF9DA5AF);
+    }
+
+    private void drawLiveCreateCard() {
+        drawPanel(18, 127, 222, 70, 0xFF0A0B0D);
+        drawString(fontRendererObj, "PREVIEW", 23, 132, 0xFF9DA5AF);
+        int x = 82, y = 150, w = 90, h = TEMPLATE_IDS[templateIndex].equals(VROverlayConfig.KEYBOARD) ? 31 : 42;
+        drawPanel(x, y, w, h, 0xCC263949);
+        drawOutline(x, y, w, h, 0xFF6BB8F0);
+        drawPreviewContent(TEMPLATE_IDS[templateIndex], x, y, w, h, 1.0F);
+    }
+
+    private void drawConfirmation(String prompt, String accept, String cancel) {
+        drawRect(0, 0, UI_WIDTH, UI_HEIGHT, 0x99000000);
+        drawPanel(48, 101, 161, 54, 0xFF171A20);
+        drawOutline(48, 101, 161, 54, 0xFF76B9F1);
+        drawCenteredString(fontRendererObj, prompt, 128, 111, 0xFFFFFFFF);
+        drawButton(55, 130, 73, 16, accept, false, false);
+        drawButton(133, 130, 69, 16, cancel, false, false);
+    }
+
+    private void drawToggle(int x, int y, int w, int h, String label, boolean value, int mx, int my, String property) {
+        drawButton(x, y, w, h, label, value, hit(mx, my, x, y, w, h));
+        drawPanel(x + w - 15, y + 3, 11, h - 6, value ? 0xFF3FAD75 : 0xFF545B65);
+        drawPanel(x + w - (value ? 8 : 14), y + 5, 5, h - 10, 0xFFFFFFFF);
+    }
+
+    private void drawSlider(int x, int y, int w, String label, float value, float min, float max,
+                            String valueText, int sliderId, int mx, int my) {
+        drawString(fontRendererObj, label, x, y, 0xFFD7DCE3);
+        drawString(fontRendererObj, valueText, x + w - fontRendererObj.getStringWidth(valueText), y, 0xFF9FCDFB);
+        int trackX = x + 1, trackY = y + 10, trackW = w - 2;
+        drawPanel(trackX, trackY, trackW, 3, 0xFF303842);
+        float pct = (value - min) / (max - min);
+        pct = Math.max(0.0F, Math.min(1.0F, pct));
+        drawPanel(trackX, trackY, Math.max(1, (int) (trackW * pct)), 3, 0xFF579DD7);
+        int knobX = trackX + (int) (trackW * pct) - 2;
+        drawPanel(knobX, trackY - 2, 5, 7, activeSlider == sliderId ? 0xFFFFFFFF : 0xFFB9DFFF);
+    }
+
+    private void drawButton(int x, int y, int w, int h, String label, boolean selected, boolean hovered) {
+        drawButton(x, y, w, h, label, selected, hovered, true);
+    }
+
+    private void drawButton(int x, int y, int w, int h, String label, boolean selected, boolean hovered, boolean enabled) {
+        int background = !enabled ? 0xFF1C1E22 : selected ? 0xFF315F85 : hovered ? 0xFF353D47 : 0xFF252930;
+        int border = selected ? 0xFF76B9F1 : hovered && enabled ? 0xFF6D7784 : 0xFF444B55;
+        drawPanel(x, y, w, h, background);
+        drawOutline(x, y, w, h, border);
+        int color = !enabled ? 0xFF70757D : selected ? 0xFFFFFFFF : 0xFFDDE2E8;
+        drawCenteredString(fontRendererObj, clip(label, Math.max(3, w / 4)), x + w / 2, y + (h - 8) / 2, color);
+    }
+
+    private void drawCheckbox(int x, int y, String label, boolean checked) {
+        drawOutline(x, y + 1, 8, 8, checked ? 0xFF76B9F1 : 0xFF8A919B);
+        if (checked) drawPanel(x + 2, y + 3, 4, 4, 0xFF76B9F1);
+        drawString(fontRendererObj, label, x + 12, y + 1, 0xFFD6DCE3);
+    }
+
+    private void drawPanel(int x, int y, int w, int h, int color) {
+        drawRect(x, y, x + w, y + h, color);
+    }
+
+    private void drawOutline(int x, int y, int w, int h, int color) {
+        drawPanel(x, y, w, 1, color);
+        drawPanel(x, y + h - 1, w, 1, color);
+        drawPanel(x, y, 1, h, color);
+        drawPanel(x + w - 1, y, 1, h, color);
+    }
+
+    private void drawTexture(ResourceLocation texture, int x, int y, int w, int h, int texW, int texH) {
+        Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
+        GL11.glColor4f(1, 1, 1, 1);
+        net.minecraft.client.renderer.Tessellator tessellator = net.minecraft.client.renderer.Tessellator.instance;
+        tessellator.startDrawingQuads();
+        tessellator.addVertexWithUV(x, y + h, 0, 0, 1);
+        tessellator.addVertexWithUV(x + w, y + h, 0, 1, 1);
+        tessellator.addVertexWithUV(x + w, y, 0, 1, 0);
+        tessellator.addVertexWithUV(x, y, 0, 0, 0);
+        tessellator.draw();
+    }
+
+    private void drawWrapped(String text, int x, int y, int maxWidth, int lineHeight, int color) {
+        StringBuilder line = new StringBuilder();
+        int yy = y;
+        for (String word : text.split(" ")) {
+            String next = line.length() == 0 ? word : line + " " + word;
+            if (fontRendererObj.getStringWidth(next) > maxWidth && line.length() > 0) {
+                drawString(fontRendererObj, line.toString(), x, yy, color);
+                yy += lineHeight;
+                line = new StringBuilder(word);
+            } else line = new StringBuilder(next);
+        }
+        if (line.length() > 0) drawString(fontRendererObj, line.toString(), x, yy, color);
+    }
+
+    private List<String> getVisibleIds() {
+        List<String> ids = new ArrayList<>();
+        String query = searchField == null ? "" : searchField.getText().trim().toLowerCase(Locale.ROOT);
+        for (String id : VROverlayConfig.getAllIds()) {
+            VROverlayConfig.Entry entry = VROverlayConfig.get(id);
+            if (entry.custom && !filterCustom) continue;
+            if (!entry.custom && !filterBuiltIn) continue;
+            if (!query.isEmpty() && !nameOf(id).toLowerCase(Locale.ROOT).contains(query)
+                    && !id.toLowerCase(Locale.ROOT).contains(query)) continue;
+            ids.add(id);
+        }
+        return ids;
+    }
+
+    private String nameOf(String id) {
+        VROverlayConfig.Entry entry = VROverlayConfig.get(id);
+        if (entry.custom && entry.name != null && !entry.name.trim().isEmpty()) return entry.name;
+        switch (baseId(id)) {
+            case VROverlayConfig.HUD: return "HUD";
+            case VROverlayConfig.HOTBAR_MAIN: return "Hotbar Main";
+            case VROverlayConfig.HOTBAR_OFFHAND: return "Hotbar Offhand";
+            case VROverlayConfig.GAME_SCREEN: return "Game Screen";
+            case VROverlayConfig.KEYBOARD: return "Virtual Keyboard";
+            case VROverlayConfig.CROSSHAIR: return "Crosshair";
+            case VROverlayConfig.WRIST: return "Wrist Inventory";
+            case VROverlayConfig.STATUS: return "Wrist Status";
+            case VROverlayConfig.MAP: return "Wrist Map";
+            case VROverlayConfig.INFO: return "Wrist Info";
+            case VROverlayConfig.POTIONS: return "Wrist Potions";
+            default: return id;
+        }
+    }
+
+    private String baseId(String id) {
+        VROverlayConfig.Entry entry = VROverlayConfig.get(id);
+        return entry.custom ? entry.template : id;
+    }
+
+    private String anchorLabel(String anchor) {
+        if ("MAIN_HAND".equals(anchor)) return "Main Hand";
+        if ("OFFHAND".equals(anchor)) return "Off Hand";
+        if ("WORLD".equals(anchor)) return "World";
+        return "Head (HMD)";
+    }
+
+    private String anchorShort(String anchor) {
+        if ("MAIN_HAND".equals(anchor)) return "MAIN HAND";
+        if ("OFFHAND".equals(anchor)) return "OFFHAND";
+        if ("WORLD".equals(anchor)) return "WORLD";
+        return "HMD";
+    }
+
+    private String flagLabelOf(String id) {
+        switch (baseId(id)) {
+            case VROverlayConfig.HUD: return "Curved HUD";
+            case VROverlayConfig.HOTBAR_MAIN:
+            case VROverlayConfig.HOTBAR_OFFHAND: return "Slot numbers";
+            case VROverlayConfig.CROSSHAIR: return "Laser beam";
+            default: return null;
+        }
+    }
+
+    private boolean canCopy(Group selectedGroup) {
+        return selectedGroup != Group.GENERAL;
+    }
+
+    private void takeSnapshot() {
+        originalValues.clear();
+        originalIds.clear();
+        for (String id : VROverlayConfig.getAllIds()) {
+            VROverlayConfig.Entry entry = VROverlayConfig.get(id);
+            syncEntryFromLegacy(id, entry);
+            VROverlayConfig.Entry copy = new VROverlayConfig.Entry();
+            copy.set(entry);
+            originalValues.put(id, copy);
+            originalIds.add(id);
+        }
+    }
+
+    private void refreshSelectedFields() {
+        if (selectedId == null || !containsId(selectedId)) {
+            String[] ids = VROverlayConfig.getAllIds();
+            selectedId = ids.length == 0 ? null : ids[0];
+        }
+        if (customNameField != null && customDescriptionField != null && selectedId != null) {
+            VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
+            customNameField.setText(entry.custom ? safe(entry.name) : "");
+            customDescriptionField.setText(entry.custom ? safe(entry.description) : "");
+        }
+    }
+
+    private void syncEntryFromLegacy(String id, VROverlayConfig.Entry entry) {
+        if (entry.custom) return;
+        if (VROverlayConfig.HUD.equals(id)) {
+            entry.scale = VRClientSettings.hudScale;
+            entry.distance = VRClientSettings.hudDistance;
+            entry.flag = VRClientSettings.curvedHud;
+        } else if (VROverlayConfig.HOTBAR_MAIN.equals(id) || VROverlayConfig.HOTBAR_OFFHAND.equals(id)) {
+            entry.flag = VRClientSettings.hotbarSlotNumbers;
+        } else if (VROverlayConfig.CROSSHAIR.equals(id)) {
+            entry.visible = VRClientSettings.vrCrosshair;
+            entry.distance = VRClientSettings.interactionReach;
+            entry.flag = VRClientSettings.crosshairLaser;
+        }
+    }
+
+    private void syncLegacyFromEntry(String id, VROverlayConfig.Entry entry) {
+        if (entry.custom) return;
+        switch (id) {
+            case VROverlayConfig.HUD:
+                VRClientSettings.hudScale = entry.scale;
+                VRClientSettings.hudDistance = entry.distance;
+                VRClientSettings.curvedHud = entry.flag;
+                break;
+            case VROverlayConfig.HOTBAR_MAIN:
+            case VROverlayConfig.HOTBAR_OFFHAND:
+                VRClientSettings.hotbarSlotNumbers = entry.flag;
+                break;
+            case VROverlayConfig.CROSSHAIR:
+                VRClientSettings.vrCrosshair = entry.visible;
+                VRClientSettings.interactionReach = entry.distance;
+                VRClientSettings.crosshairLaser = entry.flag;
+                break;
+        }
+    }
+
+    private void onValueChanged() {
+        dirty = true;
+        if (selectedId != null && containsId(selectedId)) {
+            VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
+            if (group == Group.GENERAL && entry.custom) {
+                entry.name = customNameField.getText();
+                entry.description = customDescriptionField.getText();
+            }
+            syncLegacyFromEntry(selectedId, entry);
+        }
+    }
+
+    private void saveChanges() {
+        if (selectedId != null && containsId(selectedId)) onValueChanged();
+        VROverlayConfig.save();
+        VRClientSettings.save();
+        takeSnapshot();
+        dirty = false;
+        status("Overlay settings saved");
+    }
+
+    private void discardChanges() {
+        for (String id : new ArrayList<>(VROverlayConfig.getAllIds())) {
+            if (!originalIds.contains(id) && VROverlayConfig.get(id).custom) VROverlayConfig.removeCustom(id);
+        }
+        for (Map.Entry<String, VROverlayConfig.Entry> item : originalValues.entrySet()) {
+            if (containsId(item.getKey())) {
+                VROverlayConfig.get(item.getKey()).set(item.getValue());
+                syncLegacyFromEntry(item.getKey(), VROverlayConfig.get(item.getKey()));
+            }
+        }
+        VROverlayConfig.save();
+        VRClientSettings.save();
+        dirty = false;
+        confirmDiscard = false;
+        leaveScreen();
+    }
+
+    private void leaveScreen() {
+        activeSlider = -1;
+        mc.displayGuiScreen(parentScreen);
+    }
+
+    private void loadDefaultsForGroup() {
+        if (selectedId == null) return;
+        VROverlayConfig.Entry current = VROverlayConfig.get(selectedId);
+        VROverlayConfig.Entry defaults = VROverlayConfig.defaults(selectedId);
+        switch (group) {
+            case VISIBILITY:
+                current.visible = defaults.visible;
+                break;
+            case POSE:
+                current.anchor = defaults.anchor;
+                current.distance = defaults.distance;
+                current.offsetX = defaults.offsetX;
+                current.offsetY = defaults.offsetY;
+                break;
+            case RESIZING:
+                current.scale = defaults.scale;
+                break;
+            case MISC:
+                current.opacity = defaults.opacity;
+                current.flag = defaults.flag;
+                break;
+            case GENERAL:
+                if (current.custom) {
+                    current.name = "";
+                    current.description = "";
+                    refreshSelectedFields();
+                }
+                break;
+        }
+        syncLegacyFromEntry(selectedId, current);
+        dirty = true;
+    }
+
+    private void copyCurrentGroup() {
+        if (selectedId == null || group == Group.GENERAL) return;
+        copiedGroup = new VROverlayConfig.Entry();
+        copiedGroup.set(VROverlayConfig.get(selectedId));
+        copiedGroupType = group;
+        status("Option group copied");
+    }
+
+    private void pasteCurrentGroup() {
+        if (selectedId == null || copiedGroup == null || copiedGroupType != group) return;
+        VROverlayConfig.Entry target = VROverlayConfig.get(selectedId);
+        switch (group) {
+            case VISIBILITY: target.visible = copiedGroup.visible; break;
+            case POSE:
+                target.anchor = copiedGroup.anchor;
+                target.distance = copiedGroup.distance;
+                target.offsetX = copiedGroup.offsetX;
+                target.offsetY = copiedGroup.offsetY;
+                break;
+            case RESIZING: target.scale = copiedGroup.scale; break;
+            case MISC:
+                target.opacity = copiedGroup.opacity;
+                target.flag = copiedGroup.flag;
+                break;
+            default: return;
+        }
+        syncLegacyFromEntry(selectedId, target);
+        dirty = true;
+        status("Option group pasted");
+    }
+
+    private void reloadFromDisk() {
+        VROverlayConfig.load();
+        VRClientSettings.load();
+        listScroll = 0;
+        takeSnapshot();
+        refreshSelectedFields();
+        dirty = false;
+        status("Reloaded saved overlay settings");
+    }
+
+    private void createOverlay() {
+        String name = createNameField.getText() == null ? "" : createNameField.getText().trim();
+        if (name.isEmpty()) {
+            status("Enter an overlay name first");
+            return;
+        }
+        String description = safe(createDescriptionField.getText()).trim();
+        String id = VROverlayConfig.createCustom(name, description, TEMPLATE_IDS[templateIndex]);
+        selectedId = id;
+        tab = Tab.OVERLAYS;
+        group = Group.POSE;
+        searchField.setText("");
+        listScroll = 0;
+        refreshSelectedFields();
+        dirty = true;
+        status("Overlay created — save to keep your changes");
+    }
+
+    private void removeSelectedOverlay() {
+        if (selectedId == null || !VROverlayConfig.get(selectedId).custom) return;
+        String removed = selectedId;
+        VROverlayConfig.removeCustom(removed);
+        selectedId = null;
+        confirmRemove = false;
+        rebuildSelection();
+        takeSnapshot();
+        dirty = false;
+        status("Custom overlay removed");
+    }
+
+    private void rebuildSelection() {
+        List<String> ids = VROverlayConfig.getAllIds().length == 0 ? new ArrayList<>() : List.of(VROverlayConfig.getAllIds());
+        selectedId = ids.isEmpty() ? null : ids.get(0);
+        refreshSelectedFields();
+    }
+
+    private boolean containsId(String id) {
+        if (id == null) return false;
+        for (String candidate : VROverlayConfig.getAllIds()) if (candidate.equals(id)) return true;
+        return false;
+    }
+
+    private void status(String value) {
+        statusText = value;
+        statusUntil = System.currentTimeMillis() + 2200L;
+    }
+
+    private boolean hit(int mx, int my, int x, int y, int w, int h) {
+        return mx >= x && mx < x + w && my >= y && my < y + h;
+    }
+
+    private int toLogicalX(int x) {
+        return Math.round((x - scaleHelper.getStartX()) / Math.max(0.01F, scaleHelper.getScale()));
+    }
+
+    private int toLogicalY(int y) {
+        return Math.round((y - scaleHelper.getStartY()) / Math.max(0.01F, scaleHelper.getScale()));
+    }
+
+    private String clip(String value, int maxChars) {
+        if (value == null) return "";
+        return value.length() <= maxChars ? value : value.substring(0, Math.max(0, maxChars - 1)) + "…";
+    }
+
+    private String safe(String value) { return value == null ? "" : value; }
+
+    @Override
+    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) {
+        int mx = toLogicalX(mouseX);
+        int my = toLogicalY(mouseY);
+        if (confirmRemove) {
+            if (hit(mx, my, 55, 130, 73, 16)) removeSelectedOverlay();
+            else if (hit(mx, my, 133, 130, 69, 16)) confirmRemove = false;
+            return;
+        }
+        if (confirmDiscard) {
+            if (hit(mx, my, 55, 130, 73, 16)) discardChanges();
+            else if (hit(mx, my, 133, 130, 69, 16)) confirmDiscard = false;
+            return;
+        }
+        if (searchField != null) searchField.mouseClicked(mx, my, mouseButton);
+        if (tab == Tab.CREATE) {
+            createNameField.mouseClicked(mx, my, mouseButton);
+            createDescriptionField.mouseClicked(mx, my, mouseButton);
+        } else if (group == Group.GENERAL && selectedId != null && VROverlayConfig.get(selectedId).custom) {
+            customNameField.mouseClicked(mx, my, mouseButton);
+            customDescriptionField.mouseClicked(mx, my, mouseButton);
+        }
+
+        if (mouseButton != 0) return;
+        if (hit(mx, my, 237, 5, 14, 14)) {
+            if (dirty) confirmDiscard = true;
+            else leaveScreen();
+            return;
+        }
+        if (hit(mx, my, 63, 5, 58, 15)) { tab = Tab.OVERLAYS; return; }
+        if (hit(mx, my, 122, 5, 92, 15)) { tab = Tab.CREATE; return; }
+
+        if (tab == Tab.CREATE) {
+            if (hit(mx, my, 76, 61, 164, 14)) {
+                templateIndex = (templateIndex + 1) % TEMPLATE_IDS.length;
+            } else if (hit(mx, my, 18, 206, 104, 17)) createOverlay();
+            else if (hit(mx, my, 128, 206, 112, 17)) tab = Tab.OVERLAYS;
+            return;
+        }
+
+        if (hit(mx, my, 88, 33, 15, 14)) { showFilters = !showFilters; return; }
+        if (showFilters && hit(mx, my, 10, 52, 90, 10)) { filterBuiltIn = !filterBuiltIn; listScroll = 0; return; }
+        if (showFilters && hit(mx, my, 10, 64, 90, 10)) { filterCustom = !filterCustom; listScroll = 0; return; }
+
+        int listY = showFilters ? 80 : 50;
+        int listBottom = 190;
+        int rowHeight = 11;
+        int visibleRows = Math.max(1, (listBottom - listY - 2) / rowHeight);
+        List<String> ids = getVisibleIds();
+        for (int row = 0; row < visibleRows && row + listScroll < ids.size(); row++) {
+            int y = listY + 2 + row * rowHeight;
+            if (hit(mx, my, 8, y, 96, rowHeight - 1)) {
+                selectedId = ids.get(row + listScroll);
+                group = Group.POSE;
+                confirmRemove = false;
+                refreshSelectedFields();
+                return;
+            }
+        }
+        if (hit(mx, my, 7, 194, 98, 14)) { reloadFromDisk(); return; }
+        if (hit(mx, my, 7, 210, 98, 14)) { loadDefaultsForGroup(); return; }
+        if (hit(mx, my, 7, 226, 98, 14)) {
+            if (dirty) confirmDiscard = true;
+            else leaveScreen();
+            return;
+        }
+
+        int tabX = 115;
+        int[] widths = {29, 25, 25, 25, 25};
+        Group[] groups = Group.values();
+        for (int i = 0; i < groups.length; i++) {
+            if (hit(mx, my, tabX, 128, widths[i], 14)) {
+                if (groups[i] != Group.GENERAL || VROverlayConfig.get(selectedId).custom) group = groups[i];
+                return;
+            }
+            tabX += widths[i] + 1;
+        }
+        if (selectedId == null) return;
+        VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
+        if (group == Group.VISIBILITY && hit(mx, my, 119, 165, 123, 18)) {
+            entry.visible = !entry.visible; onValueChanged(); return;
+        }
+        if (group == Group.POSE && hit(mx, my, 119, 156, 123, 13)) {
+            int next = 0;
+            for (int i = 0; i < VROverlayConfig.ANCHORS.length; i++) if (VROverlayConfig.ANCHORS[i].equals(entry.anchor)) next = i + 1;
+            entry.anchor = VROverlayConfig.ANCHORS[next % VROverlayConfig.ANCHORS.length];
+            onValueChanged(); return;
+        }
+        if (group == Group.MISC && flagLabelOf(selectedId) != null && hit(mx, my, 119, 190, 123, 14)) {
+            entry.flag = !entry.flag; onValueChanged(); return;
+        }
+        if (group == Group.GENERAL && entry.custom
+                && (customNameField.isFocused() || customDescriptionField.isFocused())) {
+            entry.name = customNameField.getText();
+            entry.description = customDescriptionField.getText();
+            onValueChanged();
+            return;
+        }
+        if (hit(mx, my, 115, 219, 40, 14)) { copyCurrentGroup(); return; }
+        if (hit(mx, my, 157, 219, 40, 14)) { pasteCurrentGroup(); return; }
+        if (hit(mx, my, 199, 219, 48, 14)) { loadDefaultsForGroup(); return; }
+        if (hit(mx, my, 115, 235, 64, 14)) { saveChanges(); return; }
+        if (hit(mx, my, 181, 235, 66, 14)) {
+            if (entry.custom) confirmRemove = true;
+            else { confirmDiscard = true; }
+        }
+    }
+
+    @Override
+    protected void mouseClickMove(int mouseX, int mouseY, int clickedMouseButton, long timeSinceLastClick) {
+        if (clickedMouseButton != 0 || activeSlider < 0 || selectedId == null) return;
+        int mx = toLogicalX(mouseX);
+        VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
+        float pct;
+        float value;
+        int x = 120;
+        int w = 121;
+        int trackX = x + 1;
+        int trackW = w - 2;
+        // The track starts ten logical pixels below its label.
+        pct = Math.max(0.0F, Math.min(1.0F, (float) (mx - trackX) / trackW));
+        switch (activeSlider) {
+            case 0:
+                value = 0.1F + pct * 5.9F;
+                entry.distance = value;
+                break;
+            case 1:
+                value = -1.0F + pct * 2.0F;
+                entry.offsetX = value;
+                break;
+            case 2:
+                value = -1.0F + pct * 2.0F;
+                entry.offsetY = value;
+                break;
+            case 3:
+                value = 0.2F + pct * 2.8F;
+                entry.scale = value;
+                break;
+            case 4:
+                value = 0.05F + pct * 0.95F;
+                entry.opacity = value;
+                break;
+            default:
+                return;
+        }
+        onValueChanged();
+    }
+
+    @Override
+    protected void mouseMovedOrUp(int mouseX, int mouseY, int which) {
+        if (which >= 0) activeSlider = -1;
+    }
+
+    @Override
+    public void handleMouseInput() {
+        super.handleMouseInput();
+        int wheel = Mouse.getEventDWheel();
+        if (wheel == 0) return;
+        int sx = Mouse.getEventX() * this.width / this.mc.displayWidth;
+        int sy = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
+        int mx = toLogicalX(sx);
+        int my = toLogicalY(sy);
+        if (tab == Tab.OVERLAYS && hit(mx, my, 7, 50, 98, 140)) {
+            List<String> ids = getVisibleIds();
+            int listY = showFilters ? 80 : 50;
+            int visibleRows = Math.max(1, (190 - listY - 2) / 11);
+            int maxScroll = Math.max(0, ids.size() - visibleRows);
+            listScroll = Math.max(0, Math.min(maxScroll, listScroll + (wheel > 0 ? -2 : 2)));
+        }
     }
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) {
         if (keyCode == 1) {
-            this.mc.displayGuiScreen(parentScreen);
+            if (confirmRemove) { confirmRemove = false; return; }
+            if (confirmDiscard) { confirmDiscard = false; return; }
+            if (dirty) confirmDiscard = true;
+            else leaveScreen();
             return;
         }
-
-        if (currentTab == Tab.OVERLAYS && overlaySearchField != null && overlaySearchField.isFocused()) {
-            if (overlaySearchField.textboxKeyTyped(typedChar, keyCode)) overlayListScroll = 0;
+        if (tab == Tab.CREATE) {
+            if (createNameField.textboxKeyTyped(typedChar, keyCode)) return;
+            createDescriptionField.textboxKeyTyped(typedChar, keyCode);
             return;
         }
-        if (currentTab == Tab.OVERLAYS && selectedGroup != null && GROUP_GENERAL.equals(selectedGroup)
-                && selectedIndex >= 0 && selectedIndex < overlays.size() && overlays.get(selectedIndex).custom) {
-            if (identityNameField != null && identityNameField.isFocused()) {
-                identityNameField.textboxKeyTyped(typedChar, keyCode);
-                applyIdentityFieldInput(true);
+        if (searchField != null && searchField.isFocused()) {
+            if (searchField.textboxKeyTyped(typedChar, keyCode)) listScroll = 0;
+            return;
+        }
+        if (group == Group.GENERAL && selectedId != null && VROverlayConfig.get(selectedId).custom) {
+            if (customNameField.textboxKeyTyped(typedChar, keyCode)) {
+                VROverlayConfig.get(selectedId).name = customNameField.getText();
+                onValueChanged();
                 return;
             }
-            if (identityDescriptionField != null && identityDescriptionField.isFocused()) {
-                identityDescriptionField.textboxKeyTyped(typedChar, keyCode);
-                applyIdentityFieldInput(false);
-                return;
+            if (customDescriptionField.textboxKeyTyped(typedChar, keyCode)) {
+                VROverlayConfig.get(selectedId).description = customDescriptionField.getText();
+                onValueChanged();
             }
         }
-        if (currentTab == Tab.CREATE_OVERLAY) {
-            if (customNameField != null && customNameField.isFocused()) {
-                customNameField.textboxKeyTyped(typedChar, keyCode);
-                return;
-            }
-            if (customDescriptionField != null && customDescriptionField.isFocused()) {
-                customDescriptionField.textboxKeyTyped(typedChar, keyCode);
-                return;
-            }
-            if (templateSearchField != null && templateSearchField.isFocused()) {
-                templateSearchField.textboxKeyTyped(typedChar, keyCode);
-                return;
-            }
-        }
-        super.keyTyped(typedChar, keyCode);
     }
 
-    private boolean isHovered(int mouseX, int mouseY, int x, int y, int width, int height) {
-        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
-    }
-
-    private void drawTexturedQuad(int x, int y, int width, int height,
-                                  float u, float v, float uWidth, float vHeight,
-                                  float texWidth, float texHeight) {
-        float f = 1.0F / texWidth;
-        float f1 = 1.0F / texHeight;
-        net.minecraft.client.renderer.Tessellator tessellator = net.minecraft.client.renderer.Tessellator.instance;
-        tessellator.startDrawingQuads();
-        tessellator.addVertexWithUV(x, y + height, 0.0D, u * f, (v + vHeight) * f1);
-        tessellator.addVertexWithUV(x + width, y + height, 0.0D, (u + uWidth) * f, (v + vHeight) * f1);
-        tessellator.addVertexWithUV(x + width, y, 0.0D, (u + uWidth) * f, v * f1);
-        tessellator.addVertexWithUV(x, y, 0.0D, u * f, v * f1);
-        tessellator.draw();
+    private static boolean hitStatic(int mx, int my, int x, int y, int w, int h) {
+        return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 }
