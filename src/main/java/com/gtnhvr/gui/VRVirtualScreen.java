@@ -210,6 +210,9 @@ public final class VRVirtualScreen {
             screenHeight = 1.25F * cfg.scale;
             orientationInitialized = true;
         }
+        // Position and orientation anchors are independent in Visor. Re-evaluate rotation
+        // each frame so orientation sliders remain live even for a world-positioned screen.
+        screenRot.set(VRCustomOverlayRenderer.getConfiguredRotation(cfg, hmdRot));
     }
 
     /** Anchor HMD / MAIN_HAND / OFFHAND: the screen follows that reference every frame. */
