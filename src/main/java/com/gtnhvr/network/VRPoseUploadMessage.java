@@ -1,13 +1,11 @@
 package com.gtnhvr.network;
 
-import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import cpw.mods.fml.relauncher.Side;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.server.MinecraftServer;
 
 /** Client-to-server pose sample. These fields are for remote rendering, never gameplay authority. */
 public final class VRPoseUploadMessage implements IMessage {
@@ -29,8 +27,9 @@ public final class VRPoseUploadMessage implements IMessage {
             final EntityPlayerMP player = context.getServerHandler().playerEntity;
             if (player == null) return null;
             final VRPoseData sample = message.pose.copy();
-            MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
-            if (server != null) server.func_152344_a(() -> VRRemotePoseServerState.acceptPose(player, sample));
+            // Forge 1.7.10 dispatches SimpleImpl handlers on the game thread. The task scheduler
+            // used by Minecraft 1.8+ does not exist on this target.
+            VRRemotePoseServerState.acceptPose(player, sample);
             return null;
         }
     }

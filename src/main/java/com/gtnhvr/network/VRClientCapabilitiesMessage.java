@@ -1,13 +1,11 @@
 package com.gtnhvr.network;
 
-import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import cpw.mods.fml.relauncher.Side;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.server.MinecraftServer;
 
 /** Opt-in acknowledgement that this client understands GTNHVR's versioned pose relay. */
 public final class VRClientCapabilitiesMessage implements IMessage {
@@ -29,8 +27,9 @@ public final class VRClientCapabilitiesMessage implements IMessage {
             if (context.side != Side.SERVER || message.poseProtocolVersion != POSE_PROTOCOL_VERSION) return null;
             final EntityPlayerMP player = context.getServerHandler().playerEntity;
             if (player == null) return null;
-            MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
-            if (server != null) server.func_152344_a(() -> VRRemotePoseServerState.clientJoinedVR(player));
+            // Forge 1.7.10 dispatches SimpleImpl handlers on the game thread. The task scheduler
+            // used by Minecraft 1.8+ does not exist on this target.
+            VRRemotePoseServerState.clientJoinedVR(player);
             return null;
         }
     }
