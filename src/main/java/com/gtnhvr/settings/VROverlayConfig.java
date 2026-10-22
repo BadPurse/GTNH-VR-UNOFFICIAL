@@ -39,6 +39,7 @@ public final class VROverlayConfig {
         public String anchor = "HMD";
         public float scale = 1.0F;
         public float distance = 1.0F;
+        public float opacity = 1.0F;
         public float offsetX = 0.0F;
         public float offsetY = 0.0F;
         public boolean flag = false;
@@ -53,6 +54,7 @@ public final class VROverlayConfig {
             anchor = other.anchor;
             scale = other.scale;
             distance = other.distance;
+            opacity = other.opacity;
             offsetX = other.offsetX;
             offsetY = other.offsetY;
             flag = other.flag;
@@ -258,6 +260,8 @@ public final class VROverlayConfig {
                 e.anchor = normalizeAnchor(config.get(cat, "anchor", d.anchor).getString(), d.anchor);
                 e.scale = clamp((float) config.get(cat, "scale", (double) d.scale).getDouble(), 0.2F, 3.0F);
                 e.distance = clamp((float) config.get(cat, "distance", (double) d.distance).getDouble(), 0.1F, 6.0F);
+                e.opacity = clamp((float) config.get(cat, "opacity", (double) d.opacity).getDouble(), 0.05F, 1.0F);
+                e.opacity = clamp((float) config.get(cat, "opacity", (double) d.opacity).getDouble(), 0.05F, 1.0F);
                 e.offsetX = clamp((float) config.get(cat, "offsetX", (double) d.offsetX).getDouble(), -1.0F, 1.0F);
                 e.offsetY = clamp((float) config.get(cat, "offsetY", (double) d.offsetY).getDouble(), -1.0F, 1.0F);
                 e.flag = config.get(cat, "flag", d.flag).getBoolean();
@@ -303,6 +307,7 @@ public final class VROverlayConfig {
         config.get(category, "anchor", defaults.anchor).set(entry.anchor);
         config.get(category, "scale", (double) defaults.scale).set((double) entry.scale);
         config.get(category, "distance", (double) defaults.distance).set((double) entry.distance);
+        config.get(category, "opacity", (double) defaults.opacity).set((double) entry.opacity);
         config.get(category, "offsetX", (double) defaults.offsetX).set((double) entry.offsetX);
         config.get(category, "offsetY", (double) defaults.offsetY).set((double) entry.offsetY);
         config.get(category, "flag", defaults.flag).set(entry.flag);
