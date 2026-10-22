@@ -1,6 +1,7 @@
 package com.gtnhvr.gui;
 
 import com.gtnewhorizons.angelica.glsm.GLStateManager;
+import com.gtnhvr.VRControllerHandler;
 import com.gtnhvr.settings.VRClientSettings;
 import com.gtnhvr.settings.VROverlayConfig;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
@@ -43,6 +44,8 @@ public class GuiSettingsOverlays extends GuiScreen {
             new ResourceLocation("gtnhvr", "visor/textures/gui/overlays/settings/bg_general_128x256.png");
     private static final ResourceLocation BACKGROUND_EXTRA =
             new ResourceLocation("gtnhvr", "visor/textures/gui/overlays/settings/bg_main_extra_1.png");
+    private static final ResourceLocation GENERAL_SPRITES =
+            new ResourceLocation("gtnhvr", "visor/textures/gui/overlays/settings/general_1.png");
 
     private static final String[] TEMPLATE_IDS = {
             VROverlayConfig.HUD, VROverlayConfig.GAME_SCREEN, VROverlayConfig.KEYBOARD
@@ -69,6 +72,7 @@ public class GuiSettingsOverlays extends GuiScreen {
     private boolean filterCustom = true;
     private boolean confirmRemove;
     private boolean confirmDiscard;
+    private boolean draggingScreen;
     private boolean dirty;
     private int activeSlider = -1;
     private String statusText;
@@ -160,10 +164,21 @@ public class GuiSettingsOverlays extends GuiScreen {
     }
 
     private void drawTopNavigation(int mx, int my) {
-        drawButton(63, 5, 58, 15, "Overlays", tab == Tab.OVERLAYS, hit(mx, my, 63, 5, 58, 15));
-        drawButton(122, 5, 92, 15, "Create Overlay", tab == Tab.CREATE, hit(mx, my, 122, 5, 92, 15));
-        drawButton(237, 5, 14, 14, "X", false, hit(mx, my, 237, 5, 14, 14));
-        drawString(fontRendererObj, "Setup Overlays (VR)", 8, 9, 0xFFEAEAEA);
+        // Use the original Visor atlas sprites and placement for the tab, close and drag controls.
+        if (tab == Tab.OVERLAYS) {
+            drawString(fontRendererObj, "Overlays", 6, 13, 0xFFE2E2E2);
+            drawTextureRegion(GENERAL_SPRITES, 115, 6, 115, 23, 64, 0, 115, 23, 179, 188);
+            drawCenteredString(fontRendererObj, "Create Overlay", 172, 13, 0xFFD9D9D9);
+        } else {
+            drawString(fontRendererObj, "Create Overlay", 121, 13, 0xFFE2E2E2);
+            drawTextureRegion(GENERAL_SPRITES, 0, 6, 115, 23, 64, 24, 115, 23, 179, 188);
+            drawCenteredString(fontRendererObj, "Overlays", 57, 13, 0xFFD9D9D9);
+        }
+        drawTextureRegion(GENERAL_SPRITES, 235, 12, 19, 19, 110, 112, 34, 34, 179, 188);
+        drawTextureRegion(GENERAL_SPRITES, 235, 35, 19, 19, 75, 152, 34, 34, 179, 188);
+        if (hit(mx, my, 235, 35, 19, 19)) {
+            drawPanel(235, 35, 19, 19, 0x335DBBFF);
+        }
     }
 
     private void drawOverlayTab(int mx, int my, float partialTicks) {
@@ -432,14 +447,24 @@ public class GuiSettingsOverlays extends GuiScreen {
     }
 
     private void drawTexture(ResourceLocation texture, int x, int y, int w, int h, int texW, int texH) {
+        drawTextureRegion(texture, x, y, w, h, 0, 0, texW, texH, texW, texH);
+    }
+
+    private void drawTextureRegion(ResourceLocation texture, int x, int y, int w, int h,
+                                   float u, float v, float regionW, float regionH,
+                                   float texW, float texH) {
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         GL11.glColor4f(1, 1, 1, 1);
+        float u0 = u / texW;
+        float u1 = (u + regionW) / texW;
+        float v0 = v / texH;
+        float v1 = (v + regionH) / texH;
         net.minecraft.client.renderer.Tessellator tessellator = net.minecraft.client.renderer.Tessellator.instance;
         tessellator.startDrawingQuads();
-        tessellator.addVertexWithUV(x, y + h, 0, 0, 1);
-        tessellator.addVertexWithUV(x + w, y + h, 0, 1, 1);
-        tessellator.addVertexWithUV(x + w, y, 0, 1, 0);
-        tessellator.addVertexWithUV(x, y, 0, 0, 0);
+        tessellator.addVertexWithUV(x, y + h, 0, u0, v1);
+        tessellator.addVertexWithUV(x + w, y + h, 0, u1, v1);
+        tessellator.addVertexWithUV(x + w, y, 0, u1, v0);
+        tessellator.addVertexWithUV(x, y, 0, u0, v0);
         tessellator.draw();
     }
 
@@ -824,13 +849,24 @@ public class GuiSettingsOverlays extends GuiScreen {
         }
 
         if (mouseButton != 0) return;
-        if (hit(mx, my, 237, 5, 14, 14)) {
+        if (hit(mx, my, 235, 12, 19, 19)) {
             if (dirty) confirmDiscard = true;
             else leaveScreen();
             return;
         }
-        if (hit(mx, my, 63, 5, 58, 15)) { tab = Tab.OVERLAYS; return; }
-        if (hit(mx, my, 122, 5, 92, 15)) { tab = Tab.CREATE; return; }
+        if (hit(mx, my, 235, 35, 19, 19)) {
+            VRControllerHandler controller = VRControllerHandler.getInstance();
+            if (controller.isRightHandTracked()) {
+                VRVirtualScreen.getInstance().startDragging(controller.getRightHandPos(), controller.getRightHandRot());
+                draggingScreen = true;
+                status("Grab the menu with the right controller; release to place it");
+            } else {
+                status("Track the right controller to move this menu");
+            }
+            return;
+        }
+        if (hit(mx, my, 115, 6, 115, 23)) { tab = Tab.CREATE; return; }
+        if (hit(mx, my, 0, 6, 115, 23)) { tab = Tab.OVERLAYS; return; }
 
         if (tab == Tab.CREATE) {
             if (hit(mx, my, 76, 61, 164, 14)) {
@@ -943,7 +979,13 @@ public class GuiSettingsOverlays extends GuiScreen {
 
     @Override
     protected void mouseMovedOrUp(int mouseX, int mouseY, int which) {
-        if (which >= 0) activeSlider = -1;
+        if (which >= 0) {
+            activeSlider = -1;
+            if (draggingScreen) {
+                VRVirtualScreen.getInstance().stopDragging();
+                draggingScreen = false;
+            }
+        }
     }
 
     @Override
