@@ -439,6 +439,7 @@ public class GuiSettingsOverlays extends GuiScreen {
                 || VROverlayConfig.HOTBAR_OFFHAND.equals(overlay.id)) {
             overlay.extraFlag = false;
         }
+        if (overlay.custom) overlay.offsetX = 0.32F;
         overlayDetailScroll = 0;
         confirmRemove = false;
     }
