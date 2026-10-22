@@ -285,7 +285,12 @@ public final class GuiEventHandler {
                             mc.gameSettings.guiScale = target;
                             net.minecraft.client.gui.ScaledResolution scaled =
                                     new net.minecraft.client.gui.ScaledResolution(mc, guiPixelWidth(mc), guiPixelHeight(mc));
-                            gui.setWorldAndResolution(mc, scaled.getScaledWidth(), scaled.getScaledHeight());
+                            VRGuiProfiler.pushResolutionReason("gui-scale-adjustment");
+                            try {
+                                gui.setWorldAndResolution(mc, scaled.getScaledWidth(), scaled.getScaledHeight());
+                            } finally {
+                                VRGuiProfiler.popResolutionReason();
+                            }
                         } finally {
                             reinitializingGui = false;
                         }
