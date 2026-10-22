@@ -659,8 +659,16 @@ public final class VRHandRenderer {
         com.gtnhvr.settings.ItemHandOffset offset = VRClientSettings.getHandOffset(offsetCat, isRight);
 
         boolean isThaumo = isThaumometer(heldItem);
+        com.gtnhvr.api.VRAddonRegistry.HandItemTransform addonPose =
+                com.gtnhvr.api.VRAddonRegistry.findHandItemPose(mc, mc.thePlayer, heldItem, isRight);
         try {
-            if (isThaumo) {
+            if (addonPose != null) {
+                GLStateManager.glTranslatef(handX + addonPose.translateX, addonPose.translateY, addonPose.translateZ);
+                if (addonPose.yaw != 0.0F) GLStateManager.glRotatef(addonPose.yaw, 0.0F, 1.0F, 0.0F);
+                if (addonPose.pitch != 0.0F) GLStateManager.glRotatef(addonPose.pitch, 1.0F, 0.0F, 0.0F);
+                if (addonPose.roll != 0.0F) GLStateManager.glRotatef(addonPose.roll, 0.0F, 0.0F, 1.0F);
+                GLStateManager.glScalef(addonPose.scaleX, addonPose.scaleY, addonPose.scaleZ);
+            } else if (isThaumo) {
                 // Dedicated Thaumcraft Thaumometer handheld scanner transform:
                 // Compact scale, centered in hand, tilted towards eyes for comfortable scanning
                 GLStateManager.glTranslatef(handX + offset.posX, 0.020F + offset.posY, -0.060F + offset.posZ);
