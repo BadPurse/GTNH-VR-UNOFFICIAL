@@ -329,97 +329,149 @@ public class GuiSettingsOverlays extends GuiScreen {
 
     private void loadOverlayData() {
         overlays.clear();
-        for (String id : VROverlayConfig.IDS) {
-            VROverlayConfig.Entry c = VROverlayConfig.get(id);
-            OverlayEntry o = new OverlayEntry(id, nameOf(id), descriptionOf(id), c.anchor, c.visible,
-                    c.scale, c.distance, 1.0F, c.flag);
-            o.offsetX = c.offsetX;
-            o.offsetY = c.offsetY;
-            // Values that other settings screens also edit stay linked to those settings.
-            switch (id) {
-                case VROverlayConfig.HUD:
-                    o.scale = VRClientSettings.hudScale;
-                    o.distance = VRClientSettings.hudDistance;
-                    o.extraFlag = VRClientSettings.curvedHud;
-                    break;
-                case VROverlayConfig.HOTBAR_MAIN:
-                case VROverlayConfig.HOTBAR_OFFHAND:
-                    o.extraFlag = VRClientSettings.hotbarSlotNumbers;
-                    break;
-                case VROverlayConfig.CROSSHAIR:
-                    o.visible = VRClientSettings.vrCrosshair;
-                    o.distance = VRClientSettings.interactionReach;
-                    o.extraFlag = VRClientSettings.crosshairLaser;
-                    break;
-                default:
-                    break;
+        for (String id : VROverlayConfig.getAllIds()) {
+            VROverlayConfig.Entry config = VROverlayConfig.get(id);
+            OverlayEntry overlay = new OverlayEntry(id, nameOf(id), descriptionOf(id), config.anchor,
+                    config.visible, config.scale, config.distance, 1.0F, config.flag);
+            overlay.offsetX = config.offsetX;
+            overlay.offsetY = config.offsetY;
+            overlay.custom = config.custom;
+            overlay.template = config.template;
+
+            // Keep legacy settings screens and overlay setup in sync for built-in overlays.
+            // User-created copies must never overwrite the source overlay's global settings.
+            if (!config.custom) {
+                switch (id) {
+                    case VROverlayConfig.HUD:
+                        overlay.scale = VRClientSettings.hudScale;
+                        overlay.distance = VRClientSettings.hudDistance;
+                        overlay.extraFlag = VRClientSettings.curvedHud;
+                        break;
+                    case VROverlayConfig.HOTBAR_MAIN:
+                    case VROverlayConfig.HOTBAR_OFFHAND:
+                        overlay.extraFlag = VRClientSettings.hotbarSlotNumbers;
+                        break;
+                    case VROverlayConfig.CROSSHAIR:
+                        overlay.visible = VRClientSettings.vrCrosshair;
+                        overlay.distance = VRClientSettings.interactionReach;
+                        overlay.extraFlag = VRClientSettings.crosshairLaser;
+                        break;
+                    default:
+                        break;
+                }
             }
-            overlays.add(o);
+            overlays.add(overlay);
         }
+        selectedIndex = overlays.isEmpty() ? -1 : Math.max(0, Math.min(selectedIndex, overlays.size() - 1));
+        overlayListScroll = Math.max(0, Math.min(overlayListScroll, getMaxListScroll()));
+        overlayDetailScroll = Math.max(0, Math.min(overlayDetailScroll, getMaxDetailScroll()));
     }
 
     private void applyOverlayData() {
-        for (OverlayEntry o : overlays) {
-            VROverlayConfig.Entry c = VROverlayConfig.get(o.id);
-            c.visible = o.visible;
-            c.anchor = o.anchor;
-            c.scale = o.scale;
-            c.distance = o.distance;
-            c.offsetX = o.offsetX;
-            c.offsetY = o.offsetY;
-            c.flag = o.extraFlag;
-            switch (o.id) {
-                case VROverlayConfig.HUD:
-                    VRClientSettings.hudScale = o.scale;
-                    VRClientSettings.hudDistance = o.distance;
-                    VRClientSettings.curvedHud = o.extraFlag;
-                    break;
-                case VROverlayConfig.HOTBAR_MAIN:
-                case VROverlayConfig.HOTBAR_OFFHAND:
-                    VRClientSettings.hotbarSlotNumbers = o.extraFlag;
-                    break;
-                case VROverlayConfig.CROSSHAIR:
-                    VRClientSettings.vrCrosshair = o.visible;
-                    VRClientSettings.interactionReach = o.distance;
-                    VRClientSettings.crosshairLaser = o.extraFlag;
-                    break;
-                default:
-                    break;
+        for (OverlayEntry overlay : overlays) {
+            VROverlayConfig.Entry config = VROverlayConfig.get(overlay.id);
+            config.visible = overlay.visible;
+            config.anchor = overlay.anchor;
+            config.scale = overlay.scale;
+            config.distance = overlay.distance;
+            config.offsetX = overlay.offsetX;
+            config.offsetY = overlay.offsetY;
+            config.flag = overlay.extraFlag;
+            if (overlay.custom) {
+                config.custom = true;
+                config.name = overlay.name;
+                config.description = overlay.description;
+                config.template = overlay.template;
+            } else {
+                switch (overlay.id) {
+                    case VROverlayConfig.HUD:
+                        VRClientSettings.hudScale = overlay.scale;
+                        VRClientSettings.hudDistance = overlay.distance;
+                        VRClientSettings.curvedHud = overlay.extraFlag;
+                        break;
+                    case VROverlayConfig.HOTBAR_MAIN:
+                    case VROverlayConfig.HOTBAR_OFFHAND:
+                        VRClientSettings.hotbarSlotNumbers = overlay.extraFlag;
+                        break;
+                    case VROverlayConfig.CROSSHAIR:
+                        VRClientSettings.vrCrosshair = overlay.visible;
+                        VRClientSettings.interactionReach = overlay.distance;
+                        VRClientSettings.crosshairLaser = overlay.extraFlag;
+                        break;
+                    default:
+                        break;
+                }
             }
         }
         VROverlayConfig.save();
         VRClientSettings.save();
 
-        // Re-place overlays that cache their pose so the new values show immediately.
+        // Pose caches are reset only after Save, just like Visor applies saved option groups.
         VRHudRenderer.resetSmoothing();
         VRVirtualScreen.getInstance().resetOrientation();
         VRVirtualKeyboard.getInstance().resetDefaultPose();
+        VRCustomOverlayRenderer.resetPoses();
 
         saveMessage = I18n.format("visor.overlay.options.overlays.save") + " OK!";
         saveMessageTime = System.currentTimeMillis();
     }
 
     private void resetOverlayDefaults() {
-        if (selectedIndex < 0 || selectedIndex >= overlays.size()) {
-            return;
+        if (selectedIndex < 0 || selectedIndex >= overlays.size()) return;
+        OverlayEntry overlay = overlays.get(selectedIndex);
+        VROverlayConfig.Entry defaults = VROverlayConfig.defaults(overlay.custom ? overlay.template : overlay.id);
+        overlay.anchor = defaults.anchor;
+        overlay.visible = defaults.visible;
+        overlay.scale = defaults.scale;
+        overlay.distance = defaults.distance;
+        overlay.offsetX = defaults.offsetX;
+        overlay.offsetY = defaults.offsetY;
+        overlay.extraFlag = defaults.flag;
+        if (VROverlayConfig.HOTBAR_MAIN.equals(overlay.id)
+                || VROverlayConfig.HOTBAR_OFFHAND.equals(overlay.id)) {
+            overlay.extraFlag = false;
         }
-        OverlayEntry cur = overlays.get(selectedIndex);
-        VROverlayConfig.Entry d = VROverlayConfig.defaults(cur.id);
-        cur.anchor = d.anchor;
-        cur.visible = d.visible;
-        cur.scale = d.scale;
-        cur.distance = d.distance;
-        cur.offsetX = d.offsetX;
-        cur.offsetY = d.offsetY;
-        cur.extraFlag = d.flag;
-        if (cur.id.equals(VROverlayConfig.HOTBAR_MAIN) || cur.id.equals(VROverlayConfig.HOTBAR_OFFHAND)) {
-            cur.extraFlag = false; // slot numbers are off by default
-        }
+        overlayDetailScroll = 0;
+        confirmRemove = false;
     }
 
     @Override
     public void initGui() {
         scaleHelper.computeScale(this.width, this.height);
+        if (overlaySearchField == null) {
+            overlaySearchField = new GuiTextField(0, this.fontRendererObj, 0, 0, 1, 1);
+            overlaySearchField.setMaxStringLength(64);
+        }
+        if (customNameField == null) {
+            customNameField = new GuiTextField(1, this.fontRendererObj, 0, 0, 1, 1);
+            customNameField.setMaxStringLength(48);
+        }
+        if (customDescriptionField == null) {
+            customDescriptionField = new GuiTextField(2, this.fontRendererObj, 0, 0, 1, 1);
+            customDescriptionField.setMaxStringLength(120);
+        }
+        layoutTextFields();
+    }
+
+    private void layoutTextFields() {
+        if (overlaySearchField != null) {
+            overlaySearchField.xPosition = scaleHelper.scaledX(12);
+            overlaySearchField.yPosition = scaleHelper.scaledY(35);
+            overlaySearchField.width = scaleHelper.scaledSize(74);
+            overlaySearchField.height = scaleHelper.scaledSize(15);
+        }
+        if (customNameField != null) {
+            customNameField.xPosition = scaleHelper.scaledX(119);
+            customNameField.yPosition = scaleHelper.scaledY(72);
+            customNameField.width = scaleHelper.scaledSize(126);
+            customNameField.height = scaleHelper.scaledSize(15);
+        }
+        if (customDescriptionField != null) {
+            customDescriptionField.xPosition = scaleHelper.scaledX(119);
+            customDescriptionField.yPosition = scaleHelper.scaledY(100);
+            customDescriptionField.width = scaleHelper.scaledSize(126);
+            customDescriptionField.height = scaleHelper.scaledSize(15);
+        }
     }
 
     @Override
