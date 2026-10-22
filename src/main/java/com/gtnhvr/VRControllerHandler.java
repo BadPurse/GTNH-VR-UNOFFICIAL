@@ -362,6 +362,30 @@ public final class VRControllerHandler {
         return p.get(0);
     }
 
+    private void releaseControllerInputAfterSyncFailure() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc != null) {
+            releaseAllInGameKeys(mc);
+        } else {
+            releaseAllMappedControllerKeys();
+        }
+        releaseMenuClicks();
+        rightTriggerValue = leftTriggerValue = 0.0F;
+        rightGripValue = leftGripValue = 0.0F;
+        rightStickX = rightStickY = leftStickX = leftStickY = 0.0F;
+        rightStickClick = leftStickClick = false;
+        rightPrimaryValue = leftPrimaryValue = false;
+        rightSecondaryValue = leftSecondaryValue = false;
+        leftMenuValue = false;
+        inGameAttackHeld = false;
+        rightAttackTriggerHeld = false;
+        leftBindingTriggerHeld = false;
+        inGameUseItemHeld = false;
+        for (int i = 0; i < mappedAnalogLatch.length; i++) {
+            mappedAnalogLatch[i] = false;
+        }
+    }
+
     public void update(XrSession session, XrSpace localSpace, long displayTime) {
         if (!initialized || session == null || localSpace == null) return;
 
@@ -376,6 +400,10 @@ public final class VRControllerHandler {
             int syncRes = xrSyncActions(session, sync);
             if (syncRes < 0) {
                 GTNHVRLog.throttled("OpenXR xrSyncActions failed with code %d", syncRes);
+                // Never leave a synthetic attack/use/movement key latched when the runtime
+                // temporarily fails to synchronize actions. A stale attack state can make
+                // block breaking appear to stop until the trigger is pressed again.
+                releaseControllerInputAfterSyncFailure();
                 return;
             }
 
