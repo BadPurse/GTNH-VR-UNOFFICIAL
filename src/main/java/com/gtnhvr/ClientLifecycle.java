@@ -54,6 +54,7 @@ public final class ClientLifecycle {
             HeadPoseController.apply();
             tickBodyHaptics(mc);
             VRHeightCalibrator.tick(mc);
+            com.gtnhvr.api.VRAddonRegistry.dispatchClientTick(mc);
             return;
         }
 
