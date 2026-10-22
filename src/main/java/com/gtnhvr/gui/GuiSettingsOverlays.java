@@ -674,7 +674,7 @@ public class GuiSettingsOverlays extends GuiScreen {
     }
 
     private void discardChanges() {
-        for (String id : new ArrayList<>(VROverlayConfig.getAllIds())) {
+        for (String id : VROverlayConfig.getAllIds()) {
             if (!originalIds.contains(id) && VROverlayConfig.get(id).custom) VROverlayConfig.removeCustom(id);
         }
         for (Map.Entry<String, VROverlayConfig.Entry> item : originalValues.entrySet()) {
