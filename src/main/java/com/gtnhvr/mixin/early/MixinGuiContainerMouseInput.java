@@ -21,15 +21,21 @@ public abstract class MixinGuiContainerMouseInput {
     @Unique
     private long gtnhvr$slotDrawStartNanos;
 
+    @Unique
+    private int gtnhvr$slotDrawGpuStartQuery = -1;
+
     @Inject(method = {"drawSlot", "func_146977_a"}, at = @At("HEAD"), require = 0)
     private void gtnhvr$profileSlotDrawStart(Slot slot, CallbackInfo ci) {
         gtnhvr$slotDrawStartNanos = VRGuiProfiler.startCpu();
+        gtnhvr$slotDrawGpuStartQuery = VRGuiProfiler.beginSampledGpuTimestamp();
     }
 
     @Inject(method = {"drawSlot", "func_146977_a"}, at = @At("RETURN"), require = 0)
     private void gtnhvr$profileSlotDrawEnd(Slot slot, CallbackInfo ci) {
         VRGuiProfiler.endCpu("container-slot-draw", gtnhvr$slotDrawStartNanos);
+        VRGuiProfiler.endSampledGpuTimestamp(gtnhvr$slotDrawGpuStartQuery, "container-slot-draw-sampled");
         gtnhvr$slotDrawStartNanos = 0L;
+        gtnhvr$slotDrawGpuStartQuery = -1;
     }
 
 
