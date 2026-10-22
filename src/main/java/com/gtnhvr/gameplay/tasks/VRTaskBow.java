@@ -141,7 +141,10 @@ public class VRTaskBow {
         hitPointRoom = null;
         if (tension > 0.05F && mc.theWorld != null) {
             float charge = tension * FULL_CHARGE_TICKS;
-            float f = (charge * charge + charge * 2.0F) / 3.0F / 20.0F;
+            // Exact ItemBow 1.7.10 charge curve: f = charge / 20, then
+            // f = (f*f + 2*f)/3. The old expression overcharged weak pulls.
+            float f = charge / 20.0F;
+            f = (f * f + f * 2.0F) / 3.0F;
             if (f > 1.0F) f = 1.0F;
             float speed = f * 2.0F;
 
@@ -167,6 +170,15 @@ public class VRTaskBow {
             double px = mc.thePlayer.posX;
             double py = mc.thePlayer.posY;
             double pz = mc.thePlayer.posZ;
+
+            // Include the real projectile spawn point as the first visible trajectory vertex.
+            double startDx = curWorld.xCoord - px;
+            double startDy = curWorld.yCoord - py;
+            double startDz = curWorld.zCoord - pz;
+            float startRx = (float) (startDx * cos - startDz * sin);
+            float startRy = (float) startDy;
+            float startRz = (float) (startDx * sin + startDz * cos);
+            trajectoryPoints.add(new Vector3f(startRx, startRy, startRz));
 
             for (int step = 0; step < 30; step++) {
                 net.minecraft.util.Vec3 nextWorld = net.minecraft.util.Vec3.createVectorHelper(
