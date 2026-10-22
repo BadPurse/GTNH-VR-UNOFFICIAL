@@ -97,7 +97,8 @@ public final class VRCustomOverlayRenderer {
                 GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
                 GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
                 GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
-                GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+                GLStateManager.glColor4f(1.0F, 1.0F, 1.0F,
+                        Math.max(0.05F, Math.min(1.0F, config.opacity)));
 
                 GLStateManager.glTranslatef(pose.position.x, pose.position.y, pose.position.z);
                 AxisAngle4f axisAngle = new AxisAngle4f(pose.rotation);
