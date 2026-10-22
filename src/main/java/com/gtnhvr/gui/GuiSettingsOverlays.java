@@ -382,6 +382,24 @@ public class GuiSettingsOverlays extends GuiScreen {
         overlayListScroll = Math.max(0, overlayListScroll);
         overlayDetailScroll = Math.max(0, overlayDetailScroll);
         changesNotSaved = false;
+        syncIdentityFields();
+    }
+
+    private void syncIdentityFields() {
+        if (identityNameField == null || identityDescriptionField == null
+                || selectedIndex < 0 || selectedIndex >= overlays.size()) return;
+        OverlayEntry selected = overlays.get(selectedIndex);
+        identityNameField.setText(selected.custom ? selected.name : "");
+        identityDescriptionField.setText(selected.custom ? selected.description : "");
+    }
+
+    private void applyIdentityFieldInput(boolean nameField) {
+        if (selectedIndex < 0 || selectedIndex >= overlays.size()) return;
+        OverlayEntry selected = overlays.get(selectedIndex);
+        if (!selected.custom) return;
+        if (nameField && identityNameField != null) selected.name = identityNameField.getText();
+        if (!nameField && identityDescriptionField != null) selected.description = identityDescriptionField.getText();
+        changesNotSaved = true;
     }
 
     private void applyOverlayData() {
@@ -1007,6 +1025,25 @@ public class GuiSettingsOverlays extends GuiScreen {
 
         if (currentTab == Tab.OVERLAYS) {
             if (overlaySearchField != null) overlaySearchField.mouseClicked(mouseX, mouseY, button);
+            if (selectedGroup != null && GROUP_GENERAL.equals(selectedGroup)
+                    && selectedIndex >= 0 && selectedIndex < overlays.size()
+                    && overlays.get(selectedIndex).custom) {
+                boolean hitName = isHovered(mouseX, mouseY, identityNameField.xPosition, identityNameField.yPosition,
+                        identityNameField.width, identityNameField.height);
+                boolean hitDescription = isHovered(mouseX, mouseY, identityDescriptionField.xPosition, identityDescriptionField.yPosition,
+                        identityDescriptionField.width, identityDescriptionField.height);
+                identityNameField.mouseClicked(mouseX, mouseY, button);
+                identityDescriptionField.mouseClicked(mouseX, mouseY, button);
+                if (hitName || hitDescription) {
+                    customNameField.setFocused(false);
+                    customDescriptionField.setFocused(false);
+                    templateSearchField.setFocused(false);
+                    return;
+                }
+            } else {
+                identityNameField.setFocused(false);
+                identityDescriptionField.setFocused(false);
+            }
             customNameField.setFocused(false);
             customDescriptionField.setFocused(false);
             templateSearchField.setFocused(false);
@@ -1067,6 +1104,7 @@ public class GuiSettingsOverlays extends GuiScreen {
                 if (isHovered(mouseX, mouseY, listX, rowY, listW, itemH - scaleHelper.scaledSize(2))) {
                     selectedIndex = overlays.indexOf(visible.get(i));
                     selectedGroup = null;
+                    syncIdentityFields();
                     overlayDetailScroll = 0;
                     confirmRemove = false;
                     playClickSound();
@@ -1099,6 +1137,9 @@ public class GuiSettingsOverlays extends GuiScreen {
                 int rowY = groupY + i * groupStep;
                 if (isHovered(mouseX, mouseY, detailX, rowY, detailW, scaleHelper.scaledSize(14))) {
                     selectedGroup = groups[i];
+                    if (GROUP_GENERAL.equals(selectedGroup)) syncIdentityFields();
+                    identityNameField.setFocused(false);
+                    identityDescriptionField.setFocused(false);
                     overlayDetailScroll = 0;
                     confirmRemove = false;
                     playClickSound();
@@ -1215,6 +1256,12 @@ public class GuiSettingsOverlays extends GuiScreen {
             return;
         }
         if (isHovered(mouseX, mouseY, saveX, btnY, halfW, btnH)) {
+            if (!confirmRemove && current.custom && GROUP_GENERAL.equals(selectedGroup)
+                    && (current.name == null || current.name.trim().isEmpty())) {
+                saveMessage = "Display name cannot be empty";
+                saveMessageTime = System.currentTimeMillis();
+                return;
+            }
             if (confirmRemove && current.custom) {
                 confirmRemove = false;
             } else {
@@ -1445,6 +1492,8 @@ public class GuiSettingsOverlays extends GuiScreen {
     public void updateScreen() {
         super.updateScreen();
         if (overlaySearchField != null) overlaySearchField.updateCursorCounter();
+        if (identityNameField != null) identityNameField.updateCursorCounter();
+        if (identityDescriptionField != null) identityDescriptionField.updateCursorCounter();
         if (customNameField != null) customNameField.updateCursorCounter();
         if (customDescriptionField != null) customDescriptionField.updateCursorCounter();
         if (templateSearchField != null) templateSearchField.updateCursorCounter();
@@ -1460,6 +1509,19 @@ public class GuiSettingsOverlays extends GuiScreen {
         if (currentTab == Tab.OVERLAYS && overlaySearchField != null && overlaySearchField.isFocused()) {
             if (overlaySearchField.textboxKeyTyped(typedChar, keyCode)) overlayListScroll = 0;
             return;
+        }
+        if (currentTab == Tab.OVERLAYS && selectedGroup != null && GROUP_GENERAL.equals(selectedGroup)
+                && selectedIndex >= 0 && selectedIndex < overlays.size() && overlays.get(selectedIndex).custom) {
+            if (identityNameField != null && identityNameField.isFocused()) {
+                identityNameField.textboxKeyTyped(typedChar, keyCode);
+                applyIdentityFieldInput(true);
+                return;
+            }
+            if (identityDescriptionField != null && identityDescriptionField.isFocused()) {
+                identityDescriptionField.textboxKeyTyped(typedChar, keyCode);
+                applyIdentityFieldInput(false);
+                return;
+            }
         }
         if (currentTab == Tab.CREATE_OVERLAY) {
             if (customNameField != null && customNameField.isFocused()) {
