@@ -84,6 +84,8 @@ public class GuiSettingsOverlays extends GuiScreen {
     private GuiTextField customNameField;
     private GuiTextField customDescriptionField;
     private GuiTextField templateSearchField;
+    private GuiTextField identityNameField;
+    private GuiTextField identityDescriptionField;
     private boolean showFilterPanel;
     private boolean filterBuiltIn = true;
     private boolean filterCustom = true;
@@ -474,6 +476,14 @@ public class GuiSettingsOverlays extends GuiScreen {
             templateSearchField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
             templateSearchField.setMaxStringLength(64);
         }
+        if (identityNameField == null) {
+            identityNameField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
+            identityNameField.setMaxStringLength(48);
+        }
+        if (identityDescriptionField == null) {
+            identityDescriptionField = new GuiTextField(this.fontRendererObj, 0, 0, 1, 1);
+            identityDescriptionField.setMaxStringLength(120);
+        }
         layoutTextFields();
     }
 
@@ -501,6 +511,18 @@ public class GuiSettingsOverlays extends GuiScreen {
             templateSearchField.yPosition = scaleHelper.scaledY(35);
             templateSearchField.width = scaleHelper.scaledSize(96);
             templateSearchField.height = scaleHelper.scaledSize(15);
+        }
+        if (identityNameField != null) {
+            identityNameField.xPosition = scaleHelper.scaledX(118);
+            identityNameField.yPosition = scaleHelper.scaledY(72);
+            identityNameField.width = scaleHelper.scaledSize(106);
+            identityNameField.height = scaleHelper.scaledSize(15);
+        }
+        if (identityDescriptionField != null) {
+            identityDescriptionField.xPosition = scaleHelper.scaledX(118);
+            identityDescriptionField.yPosition = scaleHelper.scaledY(101);
+            identityDescriptionField.width = scaleHelper.scaledSize(106);
+            identityDescriptionField.height = scaleHelper.scaledSize(15);
         }
     }
 
