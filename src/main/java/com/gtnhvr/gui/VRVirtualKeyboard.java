@@ -1383,7 +1383,7 @@ public final class VRVirtualKeyboard {
         float overlayUMax = (float) (KB_PIXEL_W * RENDER_SCALE) / (float) TEX_W;
         float overlayVMax = (float) (KB_PIXEL_H * RENDER_SCALE) / (float) TEX_H;
         VRCustomOverlayRenderer.renderFromCurrentHead(VROverlayConfig.KEYBOARD, 0,
-                textureId, TEX_W, TEX_H, kbWidth, overlayUMax, overlayVMax, true);
+                textureId, KB_PIXEL_W, KB_PIXEL_H, 1.05F, overlayUMax, overlayVMax, true);
     }
 
     public void destroy() {
