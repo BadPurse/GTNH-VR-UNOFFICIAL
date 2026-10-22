@@ -241,6 +241,9 @@ public final class VRPresetManager {
                 writer.write("worldAttacksWhileBlocking=" + VRClientSettings.worldAttacksWhileBlocking); writer.newLine();
                 writer.write("worldRoomCrawling=" + VRClientSettings.worldRoomCrawling); writer.newLine();
                 writer.write("worldRoomClimbing=" + VRClientSettings.worldRoomClimbing); writer.newLine();
+                writer.write("worldSupportedMovement=" + VRClientSettings.worldSupportedMovement); writer.newLine();
+                writer.write("worldSupportedHeightMode=" + VRClientSettings.worldSupportedHeightMode); writer.newLine();
+                writer.write("antiXrayVignette=" + VRClientSettings.antiXrayVignette); writer.newLine();
                 writer.write("controllerRightTriggerKeyCode=" + VRClientSettings.controllerRightTriggerKeyCode); writer.newLine();
                 writer.write("controllerLeftTriggerKeyCode=" + VRClientSettings.controllerLeftTriggerKeyCode); writer.newLine();
                 writer.write("controllerRightAKeyCode=" + VRClientSettings.controllerRightAKeyCode); writer.newLine();
@@ -572,6 +575,9 @@ public final class VRPresetManager {
                     case "worldAttacksWhileBlocking" -> VRClientSettings.worldAttacksWhileBlocking = Boolean.parseBoolean(v);
                     case "worldRoomCrawling" -> VRClientSettings.worldRoomCrawling = Boolean.parseBoolean(v);
                     case "worldRoomClimbing" -> VRClientSettings.worldRoomClimbing = Boolean.parseBoolean(v);
+                    case "worldSupportedMovement" -> VRClientSettings.worldSupportedMovement = Integer.parseInt(v);
+                    case "worldSupportedHeightMode" -> VRClientSettings.worldSupportedHeightMode = Integer.parseInt(v);
+                    case "antiXrayVignette" -> VRClientSettings.antiXrayVignette = Boolean.parseBoolean(v);
                     case "interactionDistance" -> VRClientSettings.interactionDistance = Float.parseFloat(v);
                     case "vrCrosshair" -> VRClientSettings.vrCrosshair = Boolean.parseBoolean(v);
                     case "hotbarMode" -> VRClientSettings.hotbarMode = Integer.parseInt(v);
