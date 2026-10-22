@@ -546,15 +546,17 @@ public final class VRHandRenderer {
      * This is render-only: the player's actual item-use state is restored immediately.
      */
     private static void gtnhvr$renderHeldStackWithBowTension(Minecraft mc, ItemStack stack, int pass) {
-        if (mc == null || mc.thePlayer == null || stack == null
-                || !(stack.getItem() instanceof ItemBow)) {
+        if (mc == null || mc.thePlayer == null || stack == null) return;
+
+        if (!(stack.getItem() instanceof ItemBow)) {
             RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
             return;
         }
 
         com.gtnhvr.gameplay.tasks.VRTaskBow bow = com.gtnhvr.gameplay.tasks.VRTaskBow.getInstance();
         if (!bow.isDrawing() || !bow.isBowHeld(mc)
-                || (bow.isBowInMainHand() ? mc.thePlayer.getHeldItem() : VRHotbarSelector.getInstance().getOffhandItemStack(mc)) != stack) {
+                || (bow.isBowInMainHand() ? mc.thePlayer.getHeldItem()
+                    : VRHotbarSelector.getInstance().getOffhandItemStack(mc)) != stack) {
             RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
             return;
         }
@@ -577,8 +579,11 @@ public final class VRHandRenderer {
             int drawTicks = Math.max(0, Math.min(20, Math.round(bow.getTension() * 20.0F)));
             gtnhvr$bowItemInUseField.set(mc.thePlayer, stack);
             gtnhvr$bowItemInUseCountField.setInt(mc.thePlayer, Math.max(0, maxUse - drawTicks));
-            RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
         } catch (Throwable ignored) {
+            // Fall back to the normal item icon when reflective use-state fields are unavailable.
+        }
+
+        try {
             RenderManager.instance.itemRenderer.renderItem(mc.thePlayer, stack, pass);
         } finally {
             if (saved) {
