@@ -21,6 +21,8 @@ public final class GuiHelper {
 
     private static long lastSlotClickTime = 0L;
     private static int lastSlotClickIndex = -1;
+    private static java.lang.ref.WeakReference<GuiScreen> lastSlotClickScreen =
+            new java.lang.ref.WeakReference<>(null);
 
     private GuiHelper() {}
 
@@ -532,16 +534,30 @@ public final class GuiHelper {
     }
 
     private static void handleClickGuiSlot(GuiScreen screen, int mouseX, int mouseY, int button) {
-        if (button != 0) return; // Primary trigger click only
+        long now = System.currentTimeMillis();
+        if (button != 0) {
+            // Any other mouse button breaks the primary-click sequence.
+            lastSlotClickIndex = -1;
+            lastSlotClickTime = now;
+            lastSlotClickScreen = new java.lang.ref.WeakReference<>(null);
+            return;
+        }
+
         List<GuiSlot> slots = findGuiSlots(screen);
+        boolean clickedSlot = false;
         for (GuiSlot slot : slots) {
             try {
                 int slotIndex = slot.func_148124_c(mouseX, mouseY);
                 if (slotIndex >= 0) {
-                    long now = System.currentTimeMillis();
-                    boolean doubleClick = (slotIndex == lastSlotClickIndex && (now - lastSlotClickTime) < 400L);
+                    clickedSlot = true;
+                    GuiScreen previousScreen = lastSlotClickScreen.get();
+                    boolean doubleClick = previousScreen == screen
+                            && slotIndex == lastSlotClickIndex
+                            && now - lastSlotClickTime >= 0L
+                            && now - lastSlotClickTime < 250L;
                     lastSlotClickTime = now;
                     lastSlotClickIndex = slotIndex;
+                    lastSlotClickScreen = new java.lang.ref.WeakReference<>(screen);
 
                     Method m = findElementClickedMethod(slot.getClass());
                     if (m != null) {
@@ -570,6 +586,14 @@ public final class GuiHelper {
             } catch (Throwable t) {
                 GTNHVRLog.warn("Failed to invoke GuiSlot.elementClicked: %s", t);
             }
+        }
+
+        // Clicking a button or empty area breaks the double-click sequence. Keep the prior
+        // screen only when a slot actually received this primary click.
+        if (!clickedSlot) {
+            lastSlotClickTime = now;
+            lastSlotClickIndex = -1;
+            lastSlotClickScreen = new java.lang.ref.WeakReference<>(null);
         }
     }
 
