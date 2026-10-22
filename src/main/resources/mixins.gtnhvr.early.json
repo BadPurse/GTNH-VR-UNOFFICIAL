@@ -10,6 +10,7 @@
   "client": [
     "MixinEntity",
     "MixinEntityRenderer",
+    "MixinItemBowAim",
     "MixinGui",
     "MixinGuiContainerCreative",
     "MixinGuiIngame",
