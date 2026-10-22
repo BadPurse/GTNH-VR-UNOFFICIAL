@@ -176,8 +176,6 @@ public final class VRCustomOverlayRenderer {
             pose.rotation.set(handRotation);
             pose.position.set(handPosition).add(handRotation.transform(
                     new Vector3f(config.offsetX, config.offsetY, -config.distance), new Vector3f()));
-        } else if ("WORLD".equals(config.anchor) && pose.initialized) {
-            // A world-anchored preview only moves when one of its position settings changes.
         } else {
             pose.rotation.set(hmdRotation);
             pose.position.set(hmdPosition).add(hmdRotation.transform(
