@@ -749,14 +749,29 @@ public class GuiSettingsOverlays extends GuiScreen {
             drawString(this.fontRendererObj, "\u00a7b< " + selectedGroup, detailX,
                     detailY + scaleHelper.scaledSize(2), 0xFFFFFFFF);
             if (GROUP_GENERAL.equals(selectedGroup)) {
-                drawString(this.fontRendererObj, "\u00a77ID: \u00a7f" + current.id, detailX,
-                        detailY + scaleHelper.scaledSize(26), 0xFFFFFFFF);
-                drawString(this.fontRendererObj, "\u00a77Type: \u00a7f" + (current.custom ? "Custom copy" : "Built-in"),
-                        detailX, detailY + scaleHelper.scaledSize(42), 0xFFFFFFFF);
-                drawString(this.fontRendererObj, "\u00a77Template: \u00a7f" + nameOf(current.custom ? current.template : current.id),
-                        detailX, detailY + scaleHelper.scaledSize(58), 0xFFFFFFFF);
-                this.fontRendererObj.drawSplitString(current.description, detailX,
-                        detailY + scaleHelper.scaledSize(78), detailW, 0xAAAAAA);
+                if (current.custom) {
+                    drawString(this.fontRendererObj, "\u00a77Display name", detailX,
+                            detailY + scaleHelper.scaledSize(23), 0xFFAAAAAA);
+                    if (identityNameField != null) identityNameField.drawTextBox();
+                    drawString(this.fontRendererObj, "\u00a77Description", detailX,
+                            detailY + scaleHelper.scaledSize(52), 0xFFAAAAAA);
+                    if (identityDescriptionField != null) identityDescriptionField.drawTextBox();
+                    drawString(this.fontRendererObj, "\u00a77ID: \u00a7f" + current.id, detailX,
+                            detailY + scaleHelper.scaledSize(83), 0xFFFFFFFF);
+                    drawString(this.fontRendererObj, "\u00a77Template: \u00a7f" + nameOf(current.template), detailX,
+                            detailY + scaleHelper.scaledSize(98), 0xFFFFFFFF);
+                    drawString(this.fontRendererObj, "\u00a78Applied when you press Save.", detailX,
+                            detailY + scaleHelper.scaledSize(119), 0xFF888888);
+                } else {
+                    drawString(this.fontRendererObj, "\u00a77ID: \u00a7f" + current.id, detailX,
+                            detailY + scaleHelper.scaledSize(26), 0xFFFFFFFF);
+                    drawString(this.fontRendererObj, "\u00a77Type: \u00a7fBuilt-in", detailX,
+                            detailY + scaleHelper.scaledSize(42), 0xFFFFFFFF);
+                    drawString(this.fontRendererObj, "\u00a77Template: \u00a7f" + nameOf(current.id), detailX,
+                            detailY + scaleHelper.scaledSize(58), 0xFFFFFFFF);
+                    this.fontRendererObj.drawSplitString(current.description, detailX,
+                            detailY + scaleHelper.scaledSize(78), detailW, 0xAAAAAA);
+                }
             } else {
                 String[] rows = rowsForGroup(current.id, selectedGroup);
                 int curY = detailY + scaleHelper.scaledSize(25) - overlayDetailScroll;
