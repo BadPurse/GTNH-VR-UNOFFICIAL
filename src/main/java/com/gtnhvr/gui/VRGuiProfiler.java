@@ -25,6 +25,9 @@ public final class VRGuiProfiler {
     private static final ArrayDeque<TimedCall> RESOLUTION_CALLS = new ArrayDeque<TimedCall>();
     private static final ArrayDeque<TimedCall> INIT_CALLS = new ArrayDeque<TimedCall>();
     private static final ArrayDeque<GpuSample> PENDING_GPU = new ArrayDeque<GpuSample>();
+    private static final ArrayDeque<GpuTimestampSample> PENDING_GPU_TIMESTAMPS = new ArrayDeque<GpuTimestampSample>();
+    private static final long SLOT_TIMESTAMP_SAMPLE_PERIOD = 128L;
+    private static long slotTimestampSampleCounter;
     private static long lastReportNanos = System.nanoTime();
     private static boolean gpuQueryActive;
     private static boolean reporting;
@@ -132,8 +135,50 @@ public final class VRGuiProfiler {
         maybeReport();
     }
 
+    /**
+     * Samples one slot in every 128 drawSlot calls. GL_TIMESTAMP is asynchronous and can
+     * coexist with the enclosing GUI-capture GL_TIME_ELAPSED query, so it isolates GPU work
+     * without synchronizing the CPU or issuing glFinish().
+     */
+    public static int beginSampledGpuTimestamp() {
+        if (!ENABLED || (++slotTimestampSampleCounter % SLOT_TIMESTAMP_SAMPLE_PERIOD) != 0L) return -1;
+        int query = 0;
+        try {
+            if (!GL.getCapabilities().OpenGL33) return -1;
+            query = GL15.glGenQueries();
+            GL33.glQueryCounter(query, GL33.GL_TIMESTAMP);
+            return query;
+        } catch (Throwable ignored) {
+            if (query != 0) {
+                try { GL15.glDeleteQueries(query); } catch (Throwable ignoredAgain) {}
+            }
+            return -1;
+        }
+    }
+
+    public static void endSampledGpuTimestamp(int startQuery, String label) {
+        if (!ENABLED || startQuery < 0) return;
+        int endQuery = 0;
+        try {
+            if (!GL.getCapabilities().OpenGL33) {
+                GL15.glDeleteQueries(startQuery);
+                return;
+            }
+            endQuery = GL15.glGenQueries();
+            GL33.glQueryCounter(endQuery, GL33.GL_TIMESTAMP);
+            PENDING_GPU_TIMESTAMPS.add(new GpuTimestampSample(startQuery, endQuery, label));
+        } catch (Throwable ignored) {
+            try { GL15.glDeleteQueries(startQuery); } catch (Throwable ignoredAgain) {}
+            if (endQuery != 0) {
+                try { GL15.glDeleteQueries(endQuery); } catch (Throwable ignoredAgain) {}
+            }
+        }
+        pollGpuQueries();
+        maybeReport();
+    }
+
     private static void pollGpuQueries() {
-        if (!ENABLED || PENDING_GPU.isEmpty()) return;
+        if (!ENABLED || (PENDING_GPU.isEmpty() && PENDING_GPU_TIMESTAMPS.isEmpty())) return;
         try {
             Iterator<GpuSample> it = PENDING_GPU.iterator();
             while (it.hasNext()) {
@@ -143,6 +188,21 @@ public final class VRGuiProfiler {
                 it.remove();
                 GL15.glDeleteQueries(sample.query);
                 addSample("gpu/" + sample.label, Math.max(0L, elapsedNanos));
+            }
+
+            Iterator<GpuTimestampSample> timestamps = PENDING_GPU_TIMESTAMPS.iterator();
+            while (timestamps.hasNext()) {
+                GpuTimestampSample sample = timestamps.next();
+                if (GL15.glGetQueryObjecti(sample.startQuery, GL15.GL_QUERY_RESULT_AVAILABLE) == 0
+                        || GL15.glGetQueryObjecti(sample.endQuery, GL15.GL_QUERY_RESULT_AVAILABLE) == 0) continue;
+                long startNanos = GL33.glGetQueryObjectui64(sample.startQuery, GL15.GL_QUERY_RESULT);
+                long endNanos = GL33.glGetQueryObjectui64(sample.endQuery, GL15.GL_QUERY_RESULT);
+                timestamps.remove();
+                GL15.glDeleteQueries(sample.startQuery);
+                GL15.glDeleteQueries(sample.endQuery);
+                if (endNanos >= startNanos) {
+                    addSample("gpu/" + sample.label, endNanos - startNanos);
+                }
             }
         } catch (Throwable ignored) {
             // Keep CPU measurements available if timer queries are not supported by the driver.
@@ -208,6 +268,17 @@ public final class VRGuiProfiler {
         private final String label;
         private GpuSample(int query, String label) {
             this.query = query;
+            this.label = label;
+        }
+    }
+
+    private static final class GpuTimestampSample {
+        private final int startQuery;
+        private final int endQuery;
+        private final String label;
+        private GpuTimestampSample(int startQuery, int endQuery, String label) {
+            this.startQuery = startQuery;
+            this.endQuery = endQuery;
             this.label = label;
         }
     }
