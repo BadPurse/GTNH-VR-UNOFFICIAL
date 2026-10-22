@@ -7,12 +7,14 @@ import com.gtnhvr.settings.VROverlayConfig;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 1:1 Visor Overlays Configuration Screen (VROverlaySettings).
@@ -45,8 +47,10 @@ public class GuiSettingsOverlays extends GuiScreen {
 
     public static class OverlayEntry {
         public final String id;
-        public final String name;
-        public final String description;
+        public String name;
+        public String description;
+        public boolean custom;
+        public String template = VROverlayConfig.HUD;
         public String anchor;
         public boolean visible;
         public float scale;
@@ -76,6 +80,29 @@ public class GuiSettingsOverlays extends GuiScreen {
     private int overlayListScroll = 0;
     private int overlayDetailScroll = 0;
 
+    private GuiTextField overlaySearchField;
+    private GuiTextField customNameField;
+    private GuiTextField customDescriptionField;
+    private boolean showFilterPanel;
+    private boolean filterBuiltIn = true;
+    private boolean filterCustom = true;
+    private boolean filterHasOptions = true;
+    private boolean filterNoOptions = true;
+    private String selectedGroup;
+    private boolean confirmRemove;
+    private VROverlayConfig.Entry copiedOptions;
+    private String copiedGroup;
+
+    private static final String GROUP_GENERAL = "General";
+    private static final String GROUP_VISIBILITY = "Visibility";
+    private static final String GROUP_POSE = "Pose";
+    private static final String GROUP_RESIZING = "Resizing";
+    private static final String GROUP_REGION = "Screen Region";
+    private static final String GROUP_MISC = "Misc";
+
+    private static final String[] TEMPLATES = {"HUD", "Game Screen", "Virtual Keyboard"};
+    private static final String[] TEMPLATE_IDS = {VROverlayConfig.HUD, VROverlayConfig.GAME_SCREEN, VROverlayConfig.KEYBOARD};
+
     private int getMaxListScroll() {
         int itemH = scaleHelper.scaledSize(26);
         int totalH = overlays.size() * itemH;
@@ -101,7 +128,6 @@ public class GuiSettingsOverlays extends GuiScreen {
 
     // Create tab state
     private int selectedTemplate = 0;
-    private static final String[] TEMPLATES = {"HUD", "Chat", "Button", "Texture"};
 
     public GuiSettingsOverlays(GuiScreen parent) {
         this.parentScreen = parent;
