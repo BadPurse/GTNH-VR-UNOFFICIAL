@@ -119,9 +119,15 @@ public final class VRGuiRenderer {
             boolean targetSizeChanged = logicalWidth != lastLogicalGuiWidth
                     || logicalHeight != lastLogicalGuiHeight;
 
-            // Reinitialize only on screen/target changes, never repeatedly just because a modded
-            // screen writes different dimensions while rendering its own content.
-            if ((newScreen || targetSizeChanged)
+            // Container screens (including AE2/GTNH machine GUIs) are initialized by
+            // Minecraft.displayGuiScreen while MixinMinecraft scopes the logical VR canvas.
+            // Re-running setWorldAndResolution here, from inside drawScreen(), can rebuild an
+            // entire AE2 screen during rendering: it flashes a loading/world frame and can
+            // collapse FPS while the container is open. Preserve the live screen instance and
+            // its widget/layout state during capture; the physical window dimensions are already
+            // restored by end() and raw input is mapped separately.
+            if (!(mc.currentScreen instanceof net.minecraft.client.gui.inventory.GuiContainer)
+                    && (newScreen || targetSizeChanged)
                     && (mc.currentScreen.width != logicalWidth || mc.currentScreen.height != logicalHeight)) {
                 mc.currentScreen.setWorldAndResolution(mc, logicalWidth, logicalHeight);
             }
