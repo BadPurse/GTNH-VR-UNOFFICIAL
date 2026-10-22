@@ -290,7 +290,7 @@ public final class VRHudRenderer {
 
             GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, cfg.opacity);
 
             // Correct orientation: (0,0) is bottom-left, (1,1) is top-right (matching Visor RenderHelper & VRVirtualScreen)
             if (VRClientSettings.curvedHud) {
