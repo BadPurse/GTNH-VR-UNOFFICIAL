@@ -372,7 +372,12 @@ public final class VRHandRenderer {
                 : VRHotbarSelector.getInstance().getOffhandItemStack(mc));
         boolean skipArm = isThaumometer(heldItem);
 
-        if (!skipArm) {
+        // "Hands Only" keeps held items attached to tracked controllers while hiding the
+        // long player-skin forearms. Previously this choice rendered exactly like Steve.
+        boolean handsOnly = VRClientSettings.vrBodyModel != null
+                && (VRClientSettings.vrBodyModel.equalsIgnoreCase("Hands Only")
+                    || VRClientSettings.vrBodyModel.equalsIgnoreCase("hands_only"));
+        if (!skipArm && !handsOnly) {
             int texH = GLStateManager.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
             boolean is64x64 = (texH >= 64);
 
