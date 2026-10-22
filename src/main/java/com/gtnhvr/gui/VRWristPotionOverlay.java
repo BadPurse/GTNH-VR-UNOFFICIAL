@@ -173,7 +173,7 @@ public final class VRWristPotionOverlay {
             // Clean 100% transparent background (NO BLUE, NO BORDER)
             GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, hudTex);
-            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, cfg.opacity);
 
             GLStateManager.glBegin(GL11.GL_QUADS);
             GLStateManager.glTexCoord2f(u0, v0);
