@@ -42,6 +42,13 @@ public final class VRGuiRenderer {
     private static int savedScaledGuiWidth = -1;
     private static int savedScaledGuiHeight = -1;
 
+    // Remember the last screen initialized for the logical canvas. Some third-party screens
+    // mutate their width/height during draw; re-running initGui every capture frame causes
+    // expensive AE2/NEI reinitialization and transient blank/loading-looking frames.
+    private static net.minecraft.client.gui.GuiScreen lastLogicalGuiScreen = null;
+    private static int lastLogicalGuiWidth = -1;
+    private static int lastLogicalGuiHeight = -1;
+
     // Some modded tooltip renderers read raw Mouse coordinates rather than drawScreen arguments.
     // Keep those pixels in the same virtual coordinate space as the active GUI canvas.
     private static java.lang.reflect.Field[] mouseCoordinateFields;
@@ -106,10 +113,25 @@ public final class VRGuiRenderer {
         if (mc.currentScreen != null) {
             net.minecraft.client.gui.ScaledResolution scaled =
                     new net.minecraft.client.gui.ScaledResolution(mc, width, height);
-            if (mc.currentScreen.width != scaled.getScaledWidth()
-                    || mc.currentScreen.height != scaled.getScaledHeight()) {
-                mc.currentScreen.setWorldAndResolution(mc, scaled.getScaledWidth(), scaled.getScaledHeight());
+            int logicalWidth = scaled.getScaledWidth();
+            int logicalHeight = scaled.getScaledHeight();
+            boolean newScreen = mc.currentScreen != lastLogicalGuiScreen;
+            boolean targetSizeChanged = logicalWidth != lastLogicalGuiWidth
+                    || logicalHeight != lastLogicalGuiHeight;
+
+            // Reinitialize only on screen/target changes, never repeatedly just because a modded
+            // screen writes different dimensions while rendering its own content.
+            if ((newScreen || targetSizeChanged)
+                    && (mc.currentScreen.width != logicalWidth || mc.currentScreen.height != logicalHeight)) {
+                mc.currentScreen.setWorldAndResolution(mc, logicalWidth, logicalHeight);
             }
+            lastLogicalGuiScreen = mc.currentScreen;
+            lastLogicalGuiWidth = logicalWidth;
+            lastLogicalGuiHeight = logicalHeight;
+        } else {
+            lastLogicalGuiScreen = null;
+            lastLogicalGuiWidth = -1;
+            lastLogicalGuiHeight = -1;
         }
     }
 
