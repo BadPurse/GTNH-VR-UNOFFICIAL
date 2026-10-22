@@ -476,13 +476,13 @@ public class GuiSettingsOverlays extends GuiScreen {
         if (customNameField != null) {
             customNameField.xPosition = scaleHelper.scaledX(119);
             customNameField.yPosition = scaleHelper.scaledY(72);
-            customNameField.width = scaleHelper.scaledSize(126);
+            customNameField.width = scaleHelper.scaledSize(108);
             customNameField.height = scaleHelper.scaledSize(15);
         }
         if (customDescriptionField != null) {
             customDescriptionField.xPosition = scaleHelper.scaledX(119);
             customDescriptionField.yPosition = scaleHelper.scaledY(100);
-            customDescriptionField.width = scaleHelper.scaledSize(126);
+            customDescriptionField.width = scaleHelper.scaledSize(108);
             customDescriptionField.height = scaleHelper.scaledSize(15);
         }
         if (templateSearchField != null) {
@@ -742,7 +742,7 @@ public class GuiSettingsOverlays extends GuiScreen {
                             break;
                         case "ANCHOR":
                             drawRect(detailX, curY, detailX + detailW, curY + ctrlH, hover ? 0xFF404040 : 0xFF282828);
-                            drawCenteredString(this.fontRendererObj, "Anchor: \u00a7b" + current.anchor,
+                            drawCenteredString(this.fontRendererObj, anchorLabel(current),
                                     detailX + detailW / 2, curY + (ctrlH - 8) / 2, 0xFFFFFF);
                             break;
                         case "SCALE":
@@ -1240,7 +1240,22 @@ public class GuiSettingsOverlays extends GuiScreen {
                 new ResourceLocation("gui.button.press"), 1.0F));
     }
 
+    private static boolean isHandOnlyAnchorOverlay(String id) {
+        return VROverlayConfig.STATUS.equals(id) || VROverlayConfig.MAP.equals(id)
+                || VROverlayConfig.INFO.equals(id) || VROverlayConfig.POTIONS.equals(id);
+    }
+
+    private static String anchorLabel(OverlayEntry overlay) {
+        return (isHandOnlyAnchorOverlay(overlay.id) ? "Hand: \u00a7b" : "Anchor: \u00a7b") + overlay.anchor;
+    }
+
     private void cycleAnchor(OverlayEntry cur) {
+        // These wrist panels have only two real placements in their renderers.
+        // Do not offer HMD/WORLD states that would look selectable but do nothing.
+        if (isHandOnlyAnchorOverlay(cur.id)) {
+            cur.anchor = "MAIN_HAND".equals(cur.anchor) ? "OFFHAND" : "MAIN_HAND";
+            return;
+        }
         switch (cur.anchor) {
             case "HMD": cur.anchor = "MAIN_HAND"; break;
             case "MAIN_HAND": cur.anchor = "OFFHAND"; break;
