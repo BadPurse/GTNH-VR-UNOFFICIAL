@@ -87,6 +87,15 @@ public class VRTaskBow {
         return tension;
     }
 
+    /**
+     * A short one-shot launch window. The ItemBow mixin temporarily applies the controller
+     * direction while vanilla constructs the projectile, then restores the player's view angles.
+     */
+    public boolean hasRecentLaunchAim() {
+        long age = System.currentTimeMillis() - releasedAtMs;
+        return !drawing && releasedAtMs > 0L && age >= 0L && age < 500L && tension > 0.05F;
+    }
+
     /** True while the hands decide where the player aims (drawing and a moment after the release). */
     public boolean hasAim() {
         return drawing || (System.currentTimeMillis() - releasedAtMs) < AIM_HOLD_MS;
@@ -151,14 +160,14 @@ public class VRTaskBow {
             // Vanilla 1.7.10 ItemBow creates EntityArrow at the player's eye position,
             // offset slightly behind the look direction. Match that origin and speed so
             // the preview predicts the projectile rather than starting at the controller.
-            float yawRad = (float) Math.toRadians(mc.thePlayer.rotationYaw);
+            Vector3f worldAim = handler.roomDirectionToWorld(new Vector3f(aimRoomDir)).normalize();
+            float launchYawRad = (float) Math.atan2(-worldAim.x, worldAim.z);
+            // Vanilla EntityArrow(world, player, speed) spawns at this eye-height origin,
+            // offset by 0.16 blocks using the same yaw that sets the launch direction.
             net.minecraft.util.Vec3 curWorld = net.minecraft.util.Vec3.createVectorHelper(
-                    mc.thePlayer.posX - Math.cos(yawRad) * 0.16D,
+                    mc.thePlayer.posX - Math.cos(launchYawRad) * 0.16D,
                     mc.thePlayer.posY + mc.thePlayer.getEyeHeight() - 0.1D,
-                    mc.thePlayer.posZ - Math.sin(yawRad) * 0.16D);
-            net.minecraft.util.Vec3 playerLook = mc.thePlayer.getLook(1.0F);
-            Vector3f worldAim = new Vector3f((float) playerLook.xCoord,
-                    (float) playerLook.yCoord, (float) playerLook.zCoord).normalize();
+                    mc.thePlayer.posZ - Math.sin(launchYawRad) * 0.16D);
 
             double vx = worldAim.x * speed;
             double vy = worldAim.y * speed;
