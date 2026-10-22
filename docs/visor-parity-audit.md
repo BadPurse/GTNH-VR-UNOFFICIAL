@@ -6,6 +6,12 @@ Audit baseline:
 - Upstream add-on: `VisorModStudio/VisorEssentials`, branch `dev`.
 - This is a behavior-parity audit, not a claim that current upstream sources can be copied verbatim into Minecraft 1.7.10. Upstream targets modern Minecraft releases (1.20.1 through 26.3 in its current build matrix), so loader APIs, rendering APIs, mixins, networking and GUI classes differ substantially.
 
+## Java compatibility clarification
+
+The port is **not built for a Java 8 runtime**. The repository's runtime documentation states Java 17, 21, or 25, and the reported in-game testing includes Java 25. The current `gradle.properties` setting is `enableModernJavaSyntax = modern`, which means native modern Java bytecode is selected. The values `downgradeTargetVersion = 8` and `jvmDowngraderMultiReleaseVersions = 21,25` are settings for the JVM Downgrader path; that path is not selected while `enableModernJavaSyntax = modern`. They must not be read as the project's runtime requirement.
+
+The upstream Visor build matrix also varies by Minecraft version (Java 17 for early 1.20.x targets, Java 21 for 1.20.5–1.21.x, and Java 25 for 26.x). That upstream matrix does not override the target runtime of this 1.7.10/lwjgl3ify port. Keep Java 25 as a tested runtime; do not change the build to Java 8 based on a misreading of the inactive downgrade settings.
+
 ## Confirmed defects fixed on the parity branch
 
 1. **Early mixin loader did not register every mixin declared in its JSON.** The loader omitted `MixinItemBowAim`, `MixinGuiIngameForge`, `MixinGuiContainerMouseInput`, `MixinAEBaseGuiMouseInput` and `MixinLWJGLXMouse`. These entries are now included in `GTNHVRCoremod.getMixins`.
