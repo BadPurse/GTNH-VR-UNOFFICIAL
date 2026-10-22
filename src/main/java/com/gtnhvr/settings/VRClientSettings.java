@@ -323,6 +323,7 @@ public final class VRClientSettings {
             hitIndicatorEnabled = config.getBoolean("hitIndicatorEnabled", "effects", hitIndicatorEnabled, "Eye flash when taking damage");
             freezeEffectEnabled = config.getBoolean("freezeEffectEnabled", "effects", freezeEffectEnabled, "Eye frost vignette in powdered snow");
             pumpkinEffectEnabled = config.getBoolean("pumpkinEffectEnabled", "effects", pumpkinEffectEnabled, "Wearable pumpkin overlay in VR");
+            antiXrayVignette = config.getBoolean("antiXrayVignette", "effects", antiXrayVignette, "Show the VR anti-Xray vignette");
 
             // Third Person & Mixed Reality
             thirdPersonFov = (float) config.get("thirdperson", "fov", (double) thirdPersonFov, "Third person camera FOV").getDouble();
@@ -334,10 +335,12 @@ public final class VRClientSettings {
             mixedRealityWithFirstPerson = config.getBoolean("mixedRealityWithFirstPerson", "mixedreality", mixedRealityWithFirstPerson, "MR includes first person");
             mixedRealityAlphaMask = config.getBoolean("mixedRealityAlphaMask", "mixedreality", mixedRealityAlphaMask, "Render MR alpha mask");
             mixedRealityFov = (float) config.get("mixedreality", "fov", (double) mixedRealityFov, "MR camera FOV").getDouble();
+            mixedRealityAspectRatio = (float) config.get("mixedreality", "aspectRatio", (double) mixedRealityAspectRatio, "Mixed Reality aspect ratio (16:9 or 4:3)").getDouble();
 
             // Controls
             leftHanded = config.getBoolean("leftHanded", "controls", leftHanded, "Left-handed mode");
             hapticsEnabled = config.getBoolean("hapticsEnabled", "controls", hapticsEnabled, "Controller vibration feedback");
+            hapticStrength = (float) config.get("hapticStrength", "controls", (double) hapticStrength, "Controller/body haptic strength", 0.0D, 1.0D).getDouble();
 
             // Movement
             String mModeStr = config.getString("movementMode", "movement", movementMode.name(), "Movement locomotion mode");
@@ -348,6 +351,7 @@ public final class VRClientSettings {
 
             String rfModeStr = config.getString("rotationFlyMode", "movement", rotationFlyMode.name(), "Flight rotation mode");
             rotationFlyMode = RotationMode.parse(rfModeStr, RotationMode.OFFHAND);
+            seated = config.getBoolean("seated", "movement", seated, "Use seated VR height/origin behavior");
 
             worldRotationStep = (float) config.get("movement", "worldRotationStep", (double) worldRotationStep, "Snap turn angle: 0 for smooth, 10-90 for snap").getDouble();
             worldRotationSmoothSensitivity = (float) config.get("movement", "worldRotationSmoothSensitivity", (double) worldRotationSmoothSensitivity, "Smooth turn speed").getDouble();
@@ -582,6 +586,7 @@ public final class VRClientSettings {
             config.get("effects", "hitIndicatorEnabled", true).set(hitIndicatorEnabled);
             config.get("effects", "freezeEffectEnabled", true).set(freezeEffectEnabled);
             config.get("effects", "pumpkinEffectEnabled", true).set(pumpkinEffectEnabled);
+            config.get("effects", "antiXrayVignette", true).set(antiXrayVignette);
 
             // Third Person & Mixed Reality
             config.get("thirdperson", "fov", 40.0).set((double) thirdPersonFov);
@@ -593,15 +598,18 @@ public final class VRClientSettings {
             config.get("mixedreality", "mixedRealityWithFirstPerson", true).set(mixedRealityWithFirstPerson);
             config.get("mixedreality", "mixedRealityAlphaMask", false).set(mixedRealityAlphaMask);
             config.get("mixedreality", "fov", 40.0).set((double) mixedRealityFov);
+            config.get("mixedreality", "aspectRatio", 16.0 / 9.0).set((double) mixedRealityAspectRatio);
 
             // Controls
             config.get("controls", "leftHanded", false).set(leftHanded);
             config.get("controls", "hapticsEnabled", true).set(hapticsEnabled);
+            config.get("controls", "hapticStrength", 0.5).set((double) hapticStrength);
 
             // Movement
             config.get("movement", "movementMode", "CONTROLLER").set(movementMode.name());
             config.get("movement", "rotationMode", "HMD").set(rotationMode.name());
             config.get("movement", "rotationFlyMode", "OFFHAND").set(rotationFlyMode.name());
+            config.get("movement", "seated", false).set(seated);
             config.get("movement", "worldRotationStep", 45.0).set((double) worldRotationStep);
             config.get("movement", "worldRotationSmoothSensitivity", 0.06).set((double) worldRotationSmoothSensitivity);
             config.get("movement", "walkUpEnabled", true).set(walkUpEnabled);
