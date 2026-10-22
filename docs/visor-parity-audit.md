@@ -14,9 +14,10 @@ Audit baseline:
 4. **The body type and the skin-arm style were conflated.** The `defaultVrBody` body-type key and the `vrBodyModel` skin-arm choice are now persisted separately. Old configs that stored a skin selector in `defaultVrBody` are migrated.
 5. **“Hands Only” did not hide the arm geometry.** The renderer now skips player-skin arm boxes for that selection while still rendering held items.
 6. **Linux OpenXR native payload was missing despite documented Monado support.** The build now shades the LWJGL OpenXR Linux native alongside Windows native libraries.
-7. **Custom presets were dropping multiple settings.** Preset serialization/application now covers the body selector and calibration, more immersion/world options, treadmill/look settings, and additional GUI options; the filename parser also handles `.txt` presets consistently.
+7. **Custom presets were dropping multiple settings.** Preset serialization/application now covers render effects, third-person and Mixed Reality values, body selection/calibration, immersion/world settings, treadmill/look settings, controller remappings, 14 per-hand item-offset groups, and all configurable overlay fields. Built-in presets also reset overlay defaults. The filename parser handles `.cfg`, `.txt` and `.yml` names consistently.
+8. **Several menu settings appeared to save but were not persisted.** Mixed Reality aspect ratio, haptic strength, seated mode, and the anti-Xray vignette now round-trip through the Forge config; anti-Xray vignette is reset by the Defaults preset too.
 
-The relevant fixes are in the branch commits and source files linked below. These are source-level corrections; they have not yet been validated by a Gradle build or a runtime session.
+The relevant fixes are in the branch commits and source files linked below. Static source consistency checks confirm the early/late mixin lists match their JSON configs and all literal keys emitted by custom presets have matching apply cases. The branch has not yet passed a Gradle build or runtime session, so compile/runtime correctness remains unverified.
 
 ## Behavior mapping and remaining parity work
 
