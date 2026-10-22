@@ -212,7 +212,7 @@ public final class VRWristMapOverlay {
             // Clean authentic JourneyMap minimap texture (100% transparent, NO BLUE BACKGROUND)
             GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, hudTex);
-            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, cfg.opacity);
 
             GLStateManager.glBegin(GL11.GL_QUADS);
             GLStateManager.glTexCoord2f(u0, v0);
