@@ -423,8 +423,8 @@ public final class GuiHelper {
     public static void keyTyped(GuiScreen screen, char character, int keyCode) {
         if (screen == null) return;
 
-        // Keep LWJGL3ify's buffer and queued key event in sync, including delete/enter events.
-        queueKeyboardEvent(character, keyCode);
+        // Dispatch directly first. Queueing an LWJGL event before calling keyTyped
+        // can insert the same character twice in widgets that support both paths.
 
         // Check text field state before invoking screen.keyTyped to detect if it was handled
         net.minecraft.client.gui.GuiTextField focused = getFocusedTextField();
@@ -481,8 +481,13 @@ public final class GuiHelper {
             // Mod text field fallback: use the widget's own handler and supported deletion APIs.
             Object modTf = getAnyFocusedTextFieldObject(screen);
             if (modTf != null) {
-                dispatchKeyToTextFieldObject(modTf, character, keyCode);
-                clearTextBuffer();
+                boolean handled = dispatchKeyToTextFieldObject(modTf, character, keyCode);
+                if (handled) {
+                    clearTextBuffer();
+                } else {
+                    // Some NEI/third-party fields only consume LWJGL's event queue.
+                    queueKeyboardEvent(character, keyCode);
+                }
             }
         }
     }
