@@ -866,6 +866,8 @@ public final class VRWristInventory {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc == null) return;
 
+        VROverlayConfig.Entry overlayConfig = VROverlayConfig.get(VROverlayConfig.WRIST);
+
         float halfWidth = CANVAS_W * pixelMeters * 0.5F;
         float halfHeight = CANVAS_H * pixelMeters * 0.5F;
         Vector3f r = new Vector3f(right).mul(halfWidth);
@@ -883,7 +885,7 @@ public final class VRWristInventory {
                     GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
             GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, overlayConfig.opacity);
 
             // 1. Draw Wrist Inventory Panel Quad
             GLStateManager.glBegin(GL11.GL_QUADS);
