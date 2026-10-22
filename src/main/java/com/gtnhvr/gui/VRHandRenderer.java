@@ -777,7 +777,11 @@ public final class VRHandRenderer {
                         float bowTension = bowTask.isBowInMainHand() == isRight
                                 ? bowTask.getTension() : 0.0F;
                         GLStateManager.glTranslatef(0.0F, 0.0F, 0.06F * bowTension);
-                        float bowScale = 0.18F * Math.max(0.0F, offset.scale / 0.28F);
+                        // GTNH 1.7.10's item renderer uses a much larger native 2D bow quad than
+                        // the newer Visor target. Keep the default bow compact and clamp legacy
+                        // saved offsets so an older config cannot turn the VR bow into a giant prop.
+                        float bowScaleFactor = Math.max(0.5F, Math.min(2.0F, offset.scale / 0.28F));
+                        float bowScale = 0.12F * bowScaleFactor;
                         GLStateManager.glScalef(bowScale, bowScale, bowScale);
                         break;
                     }
