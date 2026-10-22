@@ -743,6 +743,7 @@ public final class VRClientSettings {
         hitIndicatorEnabled = true;
         freezeEffectEnabled = true;
         pumpkinEffectEnabled = true;
+        antiXrayVignette = true;
 
         thirdPersonFov = 40.0f;
         thirdPersonCameraPosX = -1.0f;
