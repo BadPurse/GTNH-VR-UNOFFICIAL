@@ -253,6 +253,8 @@ public class GuiSettingsOverlays extends GuiScreen {
     }
 
     private static String nameOf(String id) {
+        VROverlayConfig.Entry entry = VROverlayConfig.get(id);
+        if (entry.custom && entry.name != null && !entry.name.trim().isEmpty()) return entry.name;
         switch (id) {
             case VROverlayConfig.HUD: return "HUD";
             case VROverlayConfig.HOTBAR_MAIN: return "Hotbar Main";
@@ -265,48 +267,43 @@ public class GuiSettingsOverlays extends GuiScreen {
             case VROverlayConfig.MAP: return "Wrist Map (JourneyMap)";
             case VROverlayConfig.INFO: return "Wrist Info (Top-Left)";
             case VROverlayConfig.POTIONS: return "Wrist Potions (Bottom-Right)";
-            default: return "Overlay";
+            default: return id;
         }
     }
 
     private static String descriptionOf(String id) {
+        VROverlayConfig.Entry entry = VROverlayConfig.get(id);
+        if (entry.custom) {
+            if (entry.description != null && !entry.description.trim().isEmpty()) return entry.description;
+            return "Custom copy of the " + nameOf(entry.template) + " overlay template.";
+        }
         switch (id) {
-            case VROverlayConfig.HUD:
-                return "Vanilla HUD with chat, effects and notifications floating in front of you.";
-            case VROverlayConfig.HOTBAR_MAIN:
-                return "Radial 3x3 hotbar opened with the main hand grip.";
-            case VROverlayConfig.HOTBAR_OFFHAND:
-                return "Radial 3x3 hotbar opened with the off hand grip.";
-            case VROverlayConfig.GAME_SCREEN:
-                return "Floating screen for inventories, chests, crafting and menus.";
-            case VROverlayConfig.KEYBOARD:
-                return "Virtual keyboard for chat, signs and search fields.";
-            case VROverlayConfig.CROSSHAIR:
-                return "3D '+' crosshair and laser. Anchor: MAIN_HAND or OFFHAND shows one hand, others show both.";
-            case VROverlayConfig.STATUS:
-                return "Health, hunger, armor, air and experience status HUD attached to the left wrist / forearm.";
-            case VROverlayConfig.MAP:
-                return "Real-time JourneyMap minimap attached to the right wrist / forearm.";
-            case VROverlayConfig.INFO:
-                return "Coordinates, biome, time, light level and FPS from top-left HUD attached to your arm.";
-            case VROverlayConfig.POTIONS:
-                return "Active potion effects, icons and duration countdowns from bottom-right HUD attached to your arm.";
-            default:
-                return "Inventory on the back of the off hand (Visor Essentials): turn the wrist towards your face. Trigger = click, A = right click, off hand trigger = shift click.";
+            case VROverlayConfig.HUD: return "Vanilla HUD with chat, effects and notifications floating in front of you.";
+            case VROverlayConfig.HOTBAR_MAIN: return "Radial 3x3 hotbar opened with the main hand grip.";
+            case VROverlayConfig.HOTBAR_OFFHAND: return "Radial 3x3 hotbar opened with the off hand grip.";
+            case VROverlayConfig.GAME_SCREEN: return "Floating screen for inventories, chests, crafting and menus.";
+            case VROverlayConfig.KEYBOARD: return "Virtual keyboard for chat, signs and search fields.";
+            case VROverlayConfig.CROSSHAIR: return "3D '+' crosshair and laser. Anchor: MAIN_HAND or OFFHAND shows one hand, others show both.";
+            case VROverlayConfig.STATUS: return "Health, hunger, armor, air and experience status HUD attached to the left wrist / forearm.";
+            case VROverlayConfig.MAP: return "Real-time JourneyMap minimap attached to the right wrist / forearm.";
+            case VROverlayConfig.INFO: return "Coordinates, biome, time, light level and FPS from top-left HUD attached to your arm.";
+            case VROverlayConfig.POTIONS: return "Active potion effects, icons and duration countdowns from bottom-right HUD attached to your arm.";
+            default: return "Inventory on the back of the off hand: turn the wrist towards your face. Trigger = click, A = right click, off hand trigger = shift click.";
         }
     }
 
     /** Controls shown for an overlay, in order. */
     private static String[] rowsFor(String id) {
+        VROverlayConfig.Entry entry = VROverlayConfig.get(id);
+        if (entry.custom) id = entry.template;
         switch (id) {
             case VROverlayConfig.HUD:
             case VROverlayConfig.HOTBAR_MAIN:
             case VROverlayConfig.HOTBAR_OFFHAND:
                 return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY", "FLAG"};
             case VROverlayConfig.GAME_SCREEN:
-                return new String[] {"ANCHOR", "SCALE", "DIST", "OFFX", "OFFY"};
+                return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "OFFX", "OFFY"};
             case VROverlayConfig.KEYBOARD:
-                // Auto-open is a keyboard behavior setting, not an overlay visibility flag.
                 return new String[] {"VIS", "SCALE", "DIST"};
             case VROverlayConfig.CROSSHAIR:
                 return new String[] {"VIS", "ANCHOR", "SCALE", "DIST", "FLAG"};
@@ -321,6 +318,8 @@ public class GuiSettingsOverlays extends GuiScreen {
     }
 
     private static String flagLabelOf(String id) {
+        VROverlayConfig.Entry entry = VROverlayConfig.get(id);
+        if (entry.custom) id = entry.template;
         switch (id) {
             case VROverlayConfig.HUD: return "Curved HUD";
             case VROverlayConfig.CROSSHAIR: return "Laser Beam";
