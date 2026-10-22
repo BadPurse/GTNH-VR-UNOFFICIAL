@@ -3,7 +3,11 @@ package com.gtnhvr.settings;
 import net.minecraftforge.common.config.Configuration;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -38,6 +42,11 @@ public final class VROverlayConfig {
         public float offsetX = 0.0F;
         public float offsetY = 0.0F;
         public boolean flag = false;
+        /** True for user-created copies of a supported overlay template. */
+        public boolean custom = false;
+        public String name = "";
+        public String description = "";
+        public String template = HUD;
 
         public void set(Entry other) {
             visible = other.visible;
@@ -47,10 +56,15 @@ public final class VROverlayConfig {
             offsetX = other.offsetX;
             offsetY = other.offsetY;
             flag = other.flag;
+            custom = other.custom;
+            name = other.name;
+            description = other.description;
+            template = other.template;
         }
     }
 
     private static final Map<String, Entry> ENTRIES = new LinkedHashMap<>();
+    private static final Map<String, Entry> CUSTOM_ENTRIES = new LinkedHashMap<>();
     private static Configuration config;
 
     static {
@@ -60,6 +74,84 @@ public final class VROverlayConfig {
     }
 
     private VROverlayConfig() {}
+
+    /** All built-in overlays followed by saved user-created overlay copies. */
+    public static String[] getAllIds() {
+        List<String> ids = new ArrayList<>();
+        Collections.addAll(ids, IDS);
+        ids.addAll(CUSTOM_ENTRIES.keySet());
+        return ids.toArray(new String[0]);
+    }
+
+    public static String[] getCustomIds(String template) {
+        String normalized = normalizeTemplate(template);
+        List<String> ids = new ArrayList<>();
+        for (Map.Entry<String, Entry> item : CUSTOM_ENTRIES.entrySet()) {
+            if (normalized.equals(item.getValue().template)) ids.add(item.getKey());
+        }
+        return ids.toArray(new String[0]);
+    }
+
+    public static boolean isBuiltIn(String id) {
+        for (String candidate : IDS) if (candidate.equals(id)) return true;
+        return false;
+    }
+
+    /** Creates a persistent clone. Rendering is provided by the matching template renderer. */
+    public static String createCustom(String name, String description, String template) {
+        String cleanName = name == null ? "" : name.trim();
+        if (cleanName.isEmpty()) return null;
+        String normalizedTemplate = normalizeTemplate(template);
+        if (!HUD.equals(normalizedTemplate) && !GAME_SCREEN.equals(normalizedTemplate)
+                && !KEYBOARD.equals(normalizedTemplate)) return null;
+
+        String base = cleanName.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
+        if (base.isEmpty()) base = "overlay";
+        if (base.length() > 38) base = base.substring(0, 38);
+        String id = "custom_" + base;
+        int suffix = 2;
+        while (isBuiltIn(id) || CUSTOM_ENTRIES.containsKey(id)) {
+            id = "custom_" + base + "_" + suffix++;
+        }
+
+        Entry entry = defaults(normalizedTemplate);
+        entry.custom = true;
+        entry.name = cleanName;
+        entry.description = description == null ? "" : description.trim();
+        entry.template = normalizedTemplate;
+        CUSTOM_ENTRIES.put(id, entry);
+        ENTRIES.put(id, entry);
+        save();
+        return id;
+    }
+
+    public static boolean removeCustom(String id) {
+        Entry removed = CUSTOM_ENTRIES.remove(id);
+        if (removed == null) return false;
+        ENTRIES.remove(id);
+        if (config != null) {
+            String overlayCategory = "overlay_" + id;
+            String customCategory = "custom_overlay_" + id;
+            if (config.getCategoryNames().contains(overlayCategory)) config.removeCategory(config.getCategory(overlayCategory));
+            if (config.getCategoryNames().contains(customCategory)) config.removeCategory(config.getCategory(customCategory));
+            config.save();
+        }
+        return true;
+    }
+
+    private static String normalizeTemplate(String value) {
+        if (value == null) return HUD;
+        String id = value.trim().toLowerCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+        if ("gamescreen".equals(id)) id = GAME_SCREEN;
+        if ("virtual_keyboard".equals(id)) id = KEYBOARD;
+        if (HUD.equals(id) || GAME_SCREEN.equals(id) || KEYBOARD.equals(id)
+                || CROSSHAIR.equals(id) || HOTBAR_MAIN.equals(id) || HOTBAR_OFFHAND.equals(id)
+                || WRIST.equals(id) || STATUS.equals(id) || MAP.equals(id) || INFO.equals(id) || POTIONS.equals(id)) {
+            return id;
+        }
+        return HUD;
+    }
 
     public static Entry defaults(String id) {
         Entry e = new Entry();
@@ -139,9 +231,39 @@ public final class VROverlayConfig {
         if (config == null) return;
         try {
             config.load();
+            // Rebuild the dynamic list from the persisted metadata categories. This avoids
+            // losing custom overlays when the config is reloaded or the game restarts.
+            for (String oldId : new ArrayList<>(CUSTOM_ENTRIES.keySet())) ENTRIES.remove(oldId);
+            CUSTOM_ENTRIES.clear();
+            for (String category : new ArrayList<>(config.getCategoryNames())) {
+                if (!category.startsWith("custom_overlay_")) continue;
+                String id = category.substring("custom_overlay_".length());
+                if (id.isEmpty() || isBuiltIn(id)) continue;
+                String template = normalizeTemplate(config.get(category, "template", HUD).getString());
+                Entry custom = defaults(template);
+                custom.custom = true;
+                custom.template = template;
+                custom.name = config.get(category, "name", id).getString();
+                custom.description = config.get(category, "description", "").getString();
+                CUSTOM_ENTRIES.put(id, custom);
+                ENTRIES.put(id, custom);
+            }
             for (String id : IDS) {
                 Entry d = defaults(id);
                 Entry e = get(id);
+                String cat = "overlay_" + id;
+                e.visible = config.get(cat, "visible", d.visible).getBoolean();
+                e.anchor = normalizeAnchor(config.get(cat, "anchor", d.anchor).getString(), d.anchor);
+                e.scale = clamp((float) config.get(cat, "scale", (double) d.scale).getDouble(), 0.2F, 3.0F);
+                e.distance = clamp((float) config.get(cat, "distance", (double) d.distance).getDouble(), 0.1F, 6.0F);
+                e.offsetX = clamp((float) config.get(cat, "offsetX", (double) d.offsetX).getDouble(), -1.0F, 1.0F);
+                e.offsetY = clamp((float) config.get(cat, "offsetY", (double) d.offsetY).getDouble(), -1.0F, 1.0F);
+                e.flag = config.get(cat, "flag", d.flag).getBoolean();
+            }
+            for (Map.Entry<String, Entry> item : CUSTOM_ENTRIES.entrySet()) {
+                String id = item.getKey();
+                Entry e = item.getValue();
+                Entry d = defaults(e.template);
                 String cat = "overlay_" + id;
                 e.visible = config.get(cat, "visible", d.visible).getBoolean();
                 e.anchor = normalizeAnchor(config.get(cat, "anchor", d.anchor).getString(), d.anchor);
@@ -160,18 +282,28 @@ public final class VROverlayConfig {
 
     public static void save() {
         if (config == null) return;
-        for (String id : IDS) {
-            Entry e = get(id);
-            String cat = "overlay_" + id;
-            config.get(cat, "visible", true).set(e.visible);
-            config.get(cat, "anchor", "HMD").set(e.anchor);
-            config.get(cat, "scale", 1.0D).set((double) e.scale);
-            config.get(cat, "distance", 1.0D).set((double) e.distance);
-            config.get(cat, "offsetX", 0.0D).set((double) e.offsetX);
-            config.get(cat, "offsetY", 0.0D).set((double) e.offsetY);
-            config.get(cat, "flag", false).set(e.flag);
+        for (String id : IDS) saveEntry(id, get(id), defaults(id));
+        for (Map.Entry<String, Entry> item : CUSTOM_ENTRIES.entrySet()) {
+            String id = item.getKey();
+            Entry entry = item.getValue();
+            saveEntry(id, entry, defaults(entry.template));
+            String category = "custom_overlay_" + id;
+            config.get(category, "name", entry.name).set(entry.name);
+            config.get(category, "description", entry.description).set(entry.description);
+            config.get(category, "template", entry.template).set(entry.template);
         }
         config.save();
+    }
+
+    private static void saveEntry(String id, Entry entry, Entry defaults) {
+        String category = "overlay_" + id;
+        config.get(category, "visible", defaults.visible).set(entry.visible);
+        config.get(category, "anchor", defaults.anchor).set(entry.anchor);
+        config.get(category, "scale", (double) defaults.scale).set((double) entry.scale);
+        config.get(category, "distance", (double) defaults.distance).set((double) entry.distance);
+        config.get(category, "offsetX", (double) defaults.offsetX).set((double) entry.offsetX);
+        config.get(category, "offsetY", (double) defaults.offsetY).set((double) entry.offsetY);
+        config.get(category, "flag", defaults.flag).set(entry.flag);
     }
 
     private static String normalizeAnchor(String value, String fallback) {
