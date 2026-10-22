@@ -184,6 +184,25 @@ public final class VRPresetManager {
                 writer.write("treadmillEnabled=" + VRClientSettings.treadmillEnabled); writer.newLine();
                 writer.write("treadmillSpeedScale=" + VRClientSettings.treadmillSpeedScale); writer.newLine();
                 writer.write("rotationFlyMode=" + VRClientSettings.rotationFlyMode.name()); writer.newLine();
+                writer.write("dhMirrorPasses=" + VRClientSettings.dhMirrorPasses); writer.newLine();
+                writer.write("shaderPerEyePipelines=" + VRClientSettings.shaderPerEyePipelines); writer.newLine();
+                writer.write("shaderSharedShadows=" + VRClientSettings.shaderSharedShadows); writer.newLine();
+                writer.write("shaderSharedSsbo=" + VRClientSettings.shaderSharedSsbo); writer.newLine();
+                writer.write("selfShadowEnabled=" + VRClientSettings.selfShadowEnabled); writer.newLine();
+                writer.write("lowHealthIndicatorEnabled=" + VRClientSettings.lowHealthIndicatorEnabled); writer.newLine();
+                writer.write("hitIndicatorEnabled=" + VRClientSettings.hitIndicatorEnabled); writer.newLine();
+                writer.write("freezeEffectEnabled=" + VRClientSettings.freezeEffectEnabled); writer.newLine();
+                writer.write("pumpkinEffectEnabled=" + VRClientSettings.pumpkinEffectEnabled); writer.newLine();
+                writer.write("thirdPersonFov=" + VRClientSettings.thirdPersonFov); writer.newLine();
+                writer.write("thirdPersonCameraPosX=" + VRClientSettings.thirdPersonCameraPosX); writer.newLine();
+                writer.write("thirdPersonCameraPosY=" + VRClientSettings.thirdPersonCameraPosY); writer.newLine();
+                writer.write("thirdPersonCameraPosZ=" + VRClientSettings.thirdPersonCameraPosZ); writer.newLine();
+                writer.write("mixedRealityRenderHands=" + VRClientSettings.mixedRealityRenderHands); writer.newLine();
+                writer.write("mixedRealityAsGrid2x2=" + VRClientSettings.mixedRealityAsGrid2x2); writer.newLine();
+                writer.write("mixedRealityWithFirstPerson=" + VRClientSettings.mixedRealityWithFirstPerson); writer.newLine();
+                writer.write("mixedRealityAlphaMask=" + VRClientSettings.mixedRealityAlphaMask); writer.newLine();
+                writer.write("mixedRealityFov=" + VRClientSettings.mixedRealityFov); writer.newLine();
+                writer.write("mixedRealityAspectRatio=" + VRClientSettings.mixedRealityAspectRatio); writer.newLine();
             }
             if (controls) {
                 writer.write("leftHanded=" + VRClientSettings.leftHanded); writer.newLine();
@@ -238,6 +257,21 @@ public final class VRPresetManager {
                 writer.write("keyboardAutoLayout=" + VRClientSettings.keyboardAutoLayout); writer.newLine();
                 writer.write("keyboardLayouts=" + VRClientSettings.keyboardLayouts); writer.newLine();
                 writer.write("hudDisableHotbar=" + VRClientSettings.hudDisableHotbar); writer.newLine();
+                writer.write("activeKeyboardLayout=" + VRClientSettings.activeKeyboardLayout); writer.newLine();
+                for (String overlayId : VROverlayConfig.IDS) {
+                    VROverlayConfig.Entry overlay = VROverlayConfig.get(overlayId);
+                    String prefix = "overlay." + overlayId + ".";
+                    writer.write(prefix + "visible=" + overlay.visible); writer.newLine();
+                    writer.write(prefix + "anchor=" + overlay.anchor); writer.newLine();
+                    writer.write(prefix + "scale=" + overlay.scale); writer.newLine();
+                    writer.write(prefix + "distance=" + overlay.distance); writer.newLine();
+                    writer.write(prefix + "offsetX=" + overlay.offsetX); writer.newLine();
+                    writer.write(prefix + "offsetY=" + overlay.offsetY); writer.newLine();
+                    writer.write(prefix + "flag=" + overlay.flag); writer.newLine();
+                }
+                for (String offsetKey : offsetKeys()) {
+                    writeOffset(writer, offsetKey, getOffset(offsetKey));
+                }
             }
         } catch (Throwable t) {
             GTNHVRLog.warn("Failed to save custom preset %s: %s", target.getName(), t);
