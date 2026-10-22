@@ -443,6 +443,8 @@ public final class VRControllerHandler {
 
         } catch (Throwable t) {
             GTNHVRLog.warn("Controller update error: %s", t);
+            // A failed poll must not leave previously synthesized keys held indefinitely.
+            releaseControllerInputAfterSyncFailure();
         }
     }
 
