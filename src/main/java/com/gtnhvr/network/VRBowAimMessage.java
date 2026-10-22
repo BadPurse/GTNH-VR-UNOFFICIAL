@@ -47,9 +47,11 @@ public final class VRBowAimMessage implements IMessage {
             if (message.tension < 0.0F || message.tension > 1.0F
                     || message.yaw < -180.0F || message.yaw > 180.0F
                     || message.pitch < -90.0F || message.pitch > 90.0F) return null;
-            // A launch sample is only accepted while using an item, with a bow available in the
-            // hotbar (offhand VR bows temporarily swap their selected slot for the use action).
-            if (!player.isUsingItem() || !hasBowInHotbar(player)) return null;
+            // Require the server's current use-item stack to actually be a bow. Offhand VR bows
+            // temporarily swap their selected slot before beginning the normal use-item action.
+            ItemStack using = player.getItemInUse();
+            if (!player.isUsingItem() || using == null || !(using.getItem() instanceof ItemBow)
+                    || !hasBowInHotbar(player)) return null;
             VRBowServerState.set(player, message.tension, message.yaw, message.pitch);
             return null;
         }
