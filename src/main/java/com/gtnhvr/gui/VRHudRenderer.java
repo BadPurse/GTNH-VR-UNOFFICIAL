@@ -255,6 +255,15 @@ public final class VRHudRenderer {
         }
 
         Minecraft mc = Minecraft.getMinecraft();
+        Quaternionf hudRenderRot;
+        if ("HMD".equals(cfg.rotationAnchor)) {
+            hudRenderRot = new Quaternionf(currentHudRot).mul(new Quaternionf().rotationXYZ(
+                    (float) Math.toRadians(cfg.rotationX),
+                    (float) Math.toRadians(cfg.rotationY),
+                    (float) Math.toRadians(cfg.rotationZ))).normalize();
+        } else {
+            hudRenderRot = VRCustomOverlayRenderer.getConfiguredRotation(cfg, hmdRot);
+        }
         float aspect = (float) height / (float) width;
         float hudWidth = 1.35F * ((VRClientSettings.hudScale > 0.1F) ? VRClientSettings.hudScale : 1.0F); // meters wide
         float halfW = hudWidth * 0.5F;
@@ -275,10 +284,10 @@ public final class VRHudRenderer {
 
             // Translate and apply smooth full 3D orientation
             GLStateManager.glTranslatef(currentHudPos.x, currentHudPos.y, currentHudPos.z);
-            float qw = currentHudRot.w;
-            float qx = currentHudRot.x;
-            float qy = currentHudRot.y;
-            float qz = currentHudRot.z;
+            float qw = hudRenderRot.w;
+            float qx = hudRenderRot.x;
+            float qy = hudRenderRot.y;
+            float qz = hudRenderRot.z;
             if (qw < 0.0F) {
                 qw = -qw; qx = -qx; qy = -qy; qz = -qz;
             }
