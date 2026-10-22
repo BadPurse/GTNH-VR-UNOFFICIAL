@@ -481,6 +481,10 @@ public final class VRVirtualScreen {
             GLStateManager.glPopMatrix();
             GLStateManager.glPopAttrib();
         }
+
+        // A custom game-screen overlay uses the same live GUI texture but its own saved pose/scale.
+        VRCustomOverlayRenderer.renderFromCurrentHead(VROverlayConfig.GAME_SCREEN, eyeIndex,
+                fboTextureId, texW, texH, 1.75F, 1.0F, 1.0F, false);
     }
 
     public boolean raycastCheck(Vector3f rayOrigin, Vector3f rayDir, org.joml.Vector2f outUV, Vector3f outHitPoint) {
