@@ -639,7 +639,7 @@ public final class VRHandRenderer {
                         float bowTension = bowTask.isBowInMainHand() == isRight
                                 ? bowTask.getTension() : 0.0F;
                         GLStateManager.glTranslatef(0.0F, 0.0F, 0.12F * bowTension);
-                        float bowScale = 0.68F * Math.max(0.0F, offset.scale / 0.28F);
+                        float bowScale = 0.30F * Math.max(0.0F, offset.scale / 0.28F);
                         GLStateManager.glScalef(bowScale, bowScale, bowScale);
                         break;
                     }
