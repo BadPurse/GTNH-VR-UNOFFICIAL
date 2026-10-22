@@ -91,6 +91,7 @@ public class GuiSettingsOverlays extends GuiScreen {
     private boolean filterNoOptions = true;
     private String selectedGroup;
     private boolean confirmRemove;
+    private boolean changesNotSaved;
     private VROverlayConfig.Entry copiedOptions;
     private String copiedGroup;
 
@@ -220,6 +221,7 @@ public class GuiSettingsOverlays extends GuiScreen {
             cur.offsetX = copiedOptions.offsetX;
             cur.offsetY = copiedOptions.offsetY;
         } else if (GROUP_MISC.equals(selectedGroup)) cur.extraFlag = copiedOptions.flag;
+        changesNotSaved = true;
         saveMessage = "Pasted " + selectedGroup;
         saveMessageTime = System.currentTimeMillis();
     }
@@ -228,6 +230,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         String selectedId = selectedIndex >= 0 && selectedIndex < overlays.size()
                 ? overlays.get(selectedIndex).id : null;
         VROverlayConfig.load();
+        VRClientSettings.load();
         loadOverlayData();
         selectedIndex = 0;
         if (selectedId != null) {
@@ -237,6 +240,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         }
         selectedGroup = null;
         confirmRemove = false;
+        changesNotSaved = false;
         VRCustomOverlayRenderer.resetPoses();
         saveMessage = "Reloaded saved overlay settings";
         saveMessageTime = System.currentTimeMillis();
@@ -366,6 +370,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         selectedIndex = overlays.isEmpty() ? -1 : Math.max(0, Math.min(selectedIndex, overlays.size() - 1));
         overlayListScroll = Math.max(0, overlayListScroll);
         overlayDetailScroll = Math.max(0, overlayDetailScroll);
+        changesNotSaved = false;
     }
 
     private void applyOverlayData() {
@@ -406,6 +411,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         }
         VROverlayConfig.save();
         VRClientSettings.save();
+        changesNotSaved = false;
 
         // Pose caches are reset only after Save, just like Visor applies saved option groups.
         VRHudRenderer.resetSmoothing();
@@ -428,6 +434,7 @@ public class GuiSettingsOverlays extends GuiScreen {
         overlay.offsetX = defaults.offsetX;
         overlay.offsetY = defaults.offsetY;
         overlay.extraFlag = defaults.flag;
+        changesNotSaved = true;
         if (VROverlayConfig.HOTBAR_MAIN.equals(overlay.id)
                 || VROverlayConfig.HOTBAR_OFFHAND.equals(overlay.id)) {
             overlay.extraFlag = false;
@@ -597,7 +604,13 @@ public class GuiSettingsOverlays extends GuiScreen {
                 listX, listY - scaleHelper.scaledSize(7), 0xAAAAAA);
 
         // Search and filter entry point mirror Visor's searchable overlay list.
-        if (overlaySearchField != null) overlaySearchField.drawTextBox();
+        if (overlaySearchField != null) {
+            overlaySearchField.drawTextBox();
+            if (overlaySearchField.getText().isEmpty() && !overlaySearchField.isFocused()) {
+                drawString(this.fontRendererObj, "Find overlays", overlaySearchField.xPosition + scaleHelper.scaledSize(3),
+                        overlaySearchField.yPosition + scaleHelper.scaledSize(4), 0xFF777777);
+            }
+        }
         int filterX = listX + scaleHelper.scaledSize(77);
         int filterW = scaleHelper.scaledSize(19);
         int filterH = scaleHelper.scaledSize(15);
@@ -792,9 +805,13 @@ public class GuiSettingsOverlays extends GuiScreen {
             drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays.load_defaults"),
                     detailX + halfW / 2, btnY + (btnH - 8) / 2, defaultsHover ? 0xFFFFA0 : 0xFFDDDDDD);
             boolean saveHover = isHovered(mouseX, mouseY, saveX, btnY, halfW, btnH);
-            drawRect(saveX, btnY, saveX + halfW, btnY + btnH, saveHover ? 0xFF306030 : 0xFF204020);
-            drawCenteredString(this.fontRendererObj, I18n.format("visor.overlay.options.overlays.save"),
-                    saveX + halfW / 2, btnY + (btnH - 8) / 2, saveHover ? 0xFFA0FFA0 : 0xFF88EE88);
+            int saveColor = changesNotSaved ? (saveHover ? 0xFF8A651A : 0xFF624711)
+                    : (saveHover ? 0xFF306030 : 0xFF204020);
+            drawRect(saveX, btnY, saveX + halfW, btnY + btnH, saveColor);
+            String saveLabel = changesNotSaved ? "* Save" : I18n.format("visor.overlay.options.overlays.save");
+            drawCenteredString(this.fontRendererObj, saveLabel,
+                    saveX + halfW / 2, btnY + (btnH - 8) / 2,
+                    changesNotSaved ? 0xFFFFD780 : (saveHover ? 0xFFA0FFA0 : 0xFF88EE88));
         }
 
         if (current.custom) {
@@ -829,7 +846,13 @@ public class GuiSettingsOverlays extends GuiScreen {
 
         drawString(this.fontRendererObj, "\u00a77SELECT TEMPLATE", listX,
                 listY - scaleHelper.scaledSize(7), 0xAAAAAA);
-        if (templateSearchField != null) templateSearchField.drawTextBox();
+        if (templateSearchField != null) {
+            templateSearchField.drawTextBox();
+            if (templateSearchField.getText().isEmpty() && !templateSearchField.isFocused()) {
+                drawString(this.fontRendererObj, "Find templates", templateSearchField.xPosition + scaleHelper.scaledSize(3),
+                        templateSearchField.yPosition + scaleHelper.scaledSize(4), 0xFF777777);
+            }
+        }
 
         String query = templateSearchField == null ? "" : templateSearchField.getText().trim().toLowerCase(Locale.ROOT);
         for (int i = 0; i < TEMPLATES.length; i++) {
@@ -1065,30 +1088,37 @@ public class GuiSettingsOverlays extends GuiScreen {
                         switch (row) {
                             case "VIS":
                                 current.visible = !current.visible;
+                                changesNotSaved = true;
                                 playClickSound();
                                 break;
                             case "ANCHOR":
                                 cycleAnchor(current);
+                                changesNotSaved = true;
                                 playClickSound();
                                 break;
                             case "SCALE":
                                 activeSlider = 0;
                                 updateSliderFromMouse(mouseX, detailX, detailW, current, 0);
+                                changesNotSaved = true;
                                 break;
                             case "DIST":
                                 activeSlider = 1;
                                 updateSliderFromMouse(mouseX, detailX, detailW, current, 1);
+                                changesNotSaved = true;
                                 break;
                             case "OFFX":
                                 activeSlider = 2;
                                 updateSliderFromMouse(mouseX, detailX, detailW, current, 2);
+                                changesNotSaved = true;
                                 break;
                             case "OFFY":
                                 activeSlider = 3;
                                 updateSliderFromMouse(mouseX, detailX, detailW, current, 3);
+                                changesNotSaved = true;
                                 break;
                             default:
                                 current.extraFlag = !current.extraFlag;
+                                changesNotSaved = true;
                                 playClickSound();
                                 break;
                         }
