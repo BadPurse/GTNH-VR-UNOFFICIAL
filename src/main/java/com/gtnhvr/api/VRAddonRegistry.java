@@ -176,18 +176,28 @@ public final class VRAddonRegistry {
             int previousFramebuffer = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
             int previousProgram = GLStateManager.glGetInteger(GL20.GL_CURRENT_PROGRAM);
             int previousActiveTexture = GLStateManager.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+            int previousMatrixMode = GLStateManager.glGetInteger(GL11.GL_MATRIX_MODE);
             GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            // Push both matrix stacks explicitly: callbacks may legitimately switch between
+            // projection and model-view while drawing a custom overlay.
+            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
+            GLStateManager.glPushMatrix();
+            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
             GLStateManager.glPushMatrix();
             try {
                 callback.listener.onWorldRender(mc, eyeIndex, partialTicks, guiOpen);
             } catch (Throwable t) {
                 GTNHVRLog.warn("VR add-on %s failed in world render callback: %s", callback.addonId, t);
             } finally {
+                GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
+                GLStateManager.glPopMatrix();
+                GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
                 GLStateManager.glPopMatrix();
                 GLStateManager.glPopAttrib();
                 GLStateManager.glActiveTexture(previousActiveTexture);
                 GLStateManager.glUseProgram(previousProgram);
                 GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFramebuffer);
+                GLStateManager.glMatrixMode(previousMatrixMode);
             }
         }
     }
