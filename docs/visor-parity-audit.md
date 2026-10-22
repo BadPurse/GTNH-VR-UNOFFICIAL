@@ -42,6 +42,8 @@ The branch has passed GitHub Actions compile and post-build checks on code commi
 
 ## Next verification gates
 
+Local Windows verification command (run from the repository root in PowerShell): `git fetch origin; git switch feature/visor-parity-2.9.0-rc2; git pull --ff-only origin feature/visor-parity-2.9.0-rc2; .\\gradlew.bat clean build`. Current source-level safeguards still require in-game testing with AE2 crafting screens and GTNH machine GUIs.
+
 1. Build the new branch with the exact Java/Gradle/JVM arguments used by the GTNH 2.9.0-RC-2 client.
 2. Check that all configured early mixins exactly match the early-loader list, and that all late mixins are actually enabled by the intended mod-presence conditions.
 3. Run in-game checks for each settings toggle and preset: change the value, save, restart, and verify both behavior and config persistence.
