@@ -449,8 +449,12 @@ public final class VRGuiRenderer {
 
         capturing = false;
         GLStateManager.glColorMask(true, true, true, true);
-        GLStateManager.glFlush();
 
+        // Do not force a GL flush at the end of every GUI capture. GUI rendering and the
+        // later VR screen sampling use the same GL context, so command ordering is already
+        // guaranteed. Angelica deliberately skips its ordinary end-of-frame glFlush because
+        // the presentation path flushes later; forcing one here can submit work early and
+        // add avoidable back-pressure on inventory screens with many item draws.
         Minecraft mc = Minecraft.getMinecraft();
         if (mc != null && savedMinecraftFramebuffer != null) {
             OpenXRRuntime.setMinecraftFramebuffer(mc, savedMinecraftFramebuffer);
