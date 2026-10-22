@@ -1378,6 +1378,12 @@ public final class VRVirtualKeyboard {
             GLStateManager.glPopMatrix();
             GLStateManager.glPopAttrib();
         }
+
+        // Keep the keyboard clone tied to the keyboard texture, with independent placement and size.
+        float overlayUMax = (float) (KB_PIXEL_W * RENDER_SCALE) / (float) TEX_W;
+        float overlayVMax = (float) (KB_PIXEL_H * RENDER_SCALE) / (float) TEX_H;
+        VRCustomOverlayRenderer.renderFromCurrentHead(VROverlayConfig.KEYBOARD, 0,
+                textureId, TEX_W, TEX_H, kbWidth, overlayUMax, overlayVMax, true);
     }
 
     public void destroy() {
