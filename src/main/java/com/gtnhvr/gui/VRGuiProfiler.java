@@ -15,6 +15,7 @@ import java.util.Map;
  * Opt-in GUI performance diagnostics. Enable with -Dgtnhvr.gui.profiler=true.
  * CPU timings never force GPU synchronization. GPU timings use asynchronous OpenGL timer
  * queries and are only read after GL_QUERY_RESULT_AVAILABLE reports completion.
+ * Ten-second log summaries include count, average duration, and worst observed duration per stage.
  */
 public final class VRGuiProfiler {
     private static final boolean ENABLED = Boolean.getBoolean("gtnhvr.gui.profiler");
