@@ -178,7 +178,7 @@ public final class VRVirtualScreen {
                 float pitch = (float) Math.toDegrees(Math.asin(Math.max(-0.999f, Math.min(0.999f, dir.y / Math.max(0.1F, dist)))));
                 screenYaw = (float) Math.toDegrees(yawRad);
                 screenPitch = pitch;
-                screenRot.identity().rotateY(yawRad).rotateX((float) Math.toRadians(pitch));
+                screenRot.set(VRCustomOverlayRenderer.getConfiguredRotation(cfg, hmdRot));
                 return;
             }
         }
@@ -204,7 +204,7 @@ public final class VRVirtualScreen {
             float yawRad = (float) Math.PI + (float) Math.atan2(forward.x, forward.z);
             screenYaw = (float) Math.toDegrees(yawRad);
             screenPitch = pitch;
-            screenRot.identity().rotateY(yawRad).rotateX((float) Math.toRadians(screenPitch));
+            screenRot.set(VRCustomOverlayRenderer.getConfiguredRotation(cfg, hmdRot));
 
             screenWidth = 1.75F * cfg.scale;
             screenHeight = 1.25F * cfg.scale;
@@ -248,7 +248,7 @@ public final class VRVirtualScreen {
         screenPos.set(pos);
         screenYaw = (float) Math.toDegrees(yawRad);
         screenPitch = isChat ? -4.0F : -8.0F;
-        screenRot.identity().rotateY(yawRad).rotateX((float) Math.toRadians(screenPitch));
+        screenRot.set(VRCustomOverlayRenderer.getConfiguredRotation(cfg, hmdRot));
         screenWidth = 1.75F * cfg.scale;
         screenHeight = 1.25F * cfg.scale;
         orientationInitialized = true;
