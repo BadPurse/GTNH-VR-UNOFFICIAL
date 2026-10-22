@@ -280,7 +280,8 @@ public final class VRVirtualKeyboard {
         float kbDistance = VROverlayConfig.get(VROverlayConfig.KEYBOARD).distance;
         kbPos.set(hx + forward.x * kbDistance, hy - 0.52F, hz + forward.z * kbDistance);
         float yawRad = (float) Math.PI + (float) Math.atan2(forward.x, forward.z);
-        kbRot.identity().rotateY(yawRad).rotateX((float) Math.toRadians(-25.0F));
+        kbRot.set(VRCustomOverlayRenderer.getConfiguredRotation(
+                VROverlayConfig.get(VROverlayConfig.KEYBOARD), hmdRot));
         needsRedraw = true;
     }
 
@@ -539,7 +540,8 @@ public final class VRVirtualKeyboard {
 
         kbPos.set(hmdPos.x + forward.x * 0.95F, hmdPos.y - 0.55F, hmdPos.z + forward.z * 0.95F);
         float yawRad = (float) Math.PI + (float) Math.atan2(forward.x, forward.z);
-        kbRot.identity().rotateY(yawRad).rotateX((float) Math.toRadians(-32.0F));
+        kbRot.set(VRCustomOverlayRenderer.getConfiguredRotation(
+                VROverlayConfig.get(VROverlayConfig.KEYBOARD), hmdRot));
         kbWidth = 1.05F;
         kbHeight = 0.416F;
     }
