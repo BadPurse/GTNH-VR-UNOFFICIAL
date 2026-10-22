@@ -1270,7 +1270,7 @@ public final class VRVirtualKeyboard {
             // 1. Textured Keyboard Quad
             GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
             GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
-            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, VROverlayConfig.get(VROverlayConfig.KEYBOARD).opacity);
 
             float uMax = (float) (KB_PIXEL_W * RENDER_SCALE) / (float) TEX_W;
             float vMax = (float) (KB_PIXEL_H * RENDER_SCALE) / (float) TEX_H;
