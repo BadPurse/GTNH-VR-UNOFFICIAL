@@ -1215,11 +1215,19 @@ public final class VRVirtualKeyboard {
     }
 
     public void render(Minecraft mc) {
-        if (!visible || mc == null) return;
+        if (mc == null) return;
+        boolean hasCustomKeyboardCopies = VROverlayConfig.getCustomIds(VROverlayConfig.KEYBOARD).length > 0;
+        if (!visible && !hasCustomKeyboardCopies) return;
         checkFbo();
         if (textureId == 0) return;
         if (needsRedraw) {
             renderToFbo(mc, lastMouseX, lastMouseY);
+        }
+        // A custom keyboard template is its own overlay. It must remain renderable while
+        // the source keyboard is hidden; its FBO is maintained solely for these copies.
+        if (!visible) {
+            renderCustomKeyboardCopies();
+            return;
         }
 
         float halfW = kbWidth * 0.5F;
@@ -1379,7 +1387,11 @@ public final class VRVirtualKeyboard {
             GLStateManager.glPopAttrib();
         }
 
-        // Keep the keyboard clone tied to the keyboard texture, with independent placement and size.
+        renderCustomKeyboardCopies();
+    }
+
+    private void renderCustomKeyboardCopies() {
+        if (textureId <= 0 || VROverlayConfig.getCustomIds(VROverlayConfig.KEYBOARD).length == 0) return;
         float overlayUMax = (float) (KB_PIXEL_W * RENDER_SCALE) / (float) TEX_W;
         float overlayVMax = (float) (KB_PIXEL_H * RENDER_SCALE) / (float) TEX_H;
         VRCustomOverlayRenderer.renderFromCurrentHead(VROverlayConfig.KEYBOARD, 0,
