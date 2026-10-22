@@ -63,6 +63,8 @@ public final class VRWristInfoOverlay {
 
         Vector3f wristPos = wristIsRight ? handler.getRightHandPos() : handler.getLeftHandPos();
         Quaternionf wristRot = wristIsRight ? handler.getRightHandRot() : handler.getLeftHandRot();
+        Quaternionf hmdRot = new Quaternionf(head.orientation().x(), head.orientation().y(),
+                head.orientation().z(), head.orientation().w());
 
         // Placed along forearm, naturally above minimap
         Vector3f posOffset = new Vector3f(
@@ -84,8 +86,6 @@ public final class VRWristInfoOverlay {
                 .add(new Vector3f(up).mul(cfg.offsetY));
 
         Vector3f hmdPos = new Vector3f(head.position$().x(), head.position$().y(), head.position$().z());
-        Quaternionf hmdRot = new Quaternionf(head.orientation().x(), head.orientation().y(),
-                head.orientation().z(), head.orientation().w());
         Vector3f hmdForward = hmdRot.transform(new Vector3f(0.0F, 0.0F, -1.0F), new Vector3f());
 
         Vector3f toHead = new Vector3f(hmdPos).sub(center);
