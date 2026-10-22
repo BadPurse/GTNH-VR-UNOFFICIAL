@@ -192,19 +192,29 @@ public final class VRCustomOverlayRenderer {
 
     private static void updatePreviewRotation(PreviewPoseState pose, VROverlayConfig.Entry config,
             Quaternionf hmdRotation) {
-        Quaternionf baseRotation = rotationForAnchor(config.rotationAnchor, hmdRotation);
-        Quaternionf offsetRotation = new Quaternionf().rotationXYZ(
+        pose.rotation.set(getConfiguredRotation(config, hmdRotation));
+    }
+
+    /**
+     * Resolves Visor-style independent rotation anchoring and local Euler offsets.
+     * Callers receive a fresh quaternion, so renderers can apply this each frame
+     * without accumulating a rotation on their existing transform.
+     */
+    public static Quaternionf getConfiguredRotation(VROverlayConfig.Entry config, Quaternionf hmdRotation) {
+        if (config == null) return new Quaternionf();
+        Quaternionf base = rotationForAnchor(config.rotationAnchor, hmdRotation);
+        Quaternionf offset = new Quaternionf().rotationXYZ(
                 (float) Math.toRadians(config.rotationX),
                 (float) Math.toRadians(config.rotationY),
                 (float) Math.toRadians(config.rotationZ));
-        pose.rotation.set(baseRotation).mul(offsetRotation).normalize();
+        return base.mul(offset).normalize();
     }
 
     private static Quaternionf rotationForAnchor(String anchor, Quaternionf hmdRotation) {
         if ("MAIN_HAND".equals(anchor)) return new Quaternionf(VRControllerHandler.getInstance().getRightHandRot());
         if ("OFFHAND".equals(anchor)) return new Quaternionf(VRControllerHandler.getInstance().getLeftHandRot());
         if ("WORLD".equals(anchor)) return new Quaternionf().identity();
-        return new Quaternionf(hmdRotation);
+        return hmdRotation == null ? new Quaternionf() : new Quaternionf(hmdRotation);
     }
 
     public static void resetPoses() {
@@ -340,12 +350,7 @@ public final class VRCustomOverlayRenderer {
             pose.positionSignature = positionSignature;
         }
 
-        Quaternionf baseRotation = rotationForAnchor(config.rotationAnchor, hmdRotation);
-        Quaternionf offsetRotation = new Quaternionf().rotationXYZ(
-                (float) Math.toRadians(config.rotationX),
-                (float) Math.toRadians(config.rotationY),
-                (float) Math.toRadians(config.rotationZ));
-        pose.rotation.set(baseRotation).mul(offsetRotation).normalize();
+        pose.rotation.set(getConfiguredRotation(config, hmdRotation));
         pose.initialized = true;
     }
 }
