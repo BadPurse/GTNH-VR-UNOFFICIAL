@@ -195,27 +195,32 @@ public final class VROverlayConfig {
                 break;
             case WRIST:
                 e.anchor = "OFFHAND";
+                e.rotationAnchor = "OFFHAND";
                 e.scale = 0.5F;
                 e.distance = 0.14F;
                 break;
             case STATUS:
                 e.anchor = "OFFHAND";
+                e.rotationAnchor = "OFFHAND";
                 e.scale = 0.45F;
                 e.distance = 0.14F;
                 break;
             case MAP:
                 e.anchor = "MAIN_HAND";
+                e.rotationAnchor = "MAIN_HAND";
                 e.scale = 0.50F;
                 e.distance = 0.14F;
                 break;
             case INFO:
                 e.anchor = "MAIN_HAND";
+                e.rotationAnchor = "MAIN_HAND";
                 e.scale = 0.50F;
                 e.distance = 0.14F;
                 e.offsetY = 0.11F;
                 break;
             case POTIONS:
                 e.anchor = "OFFHAND";
+                e.rotationAnchor = "OFFHAND";
                 e.scale = 0.50F;
                 e.distance = 0.14F;
                 e.offsetY = 0.065F;
@@ -223,7 +228,6 @@ public final class VROverlayConfig {
             default:
                 break;
         }
-        e.rotationAnchor = e.anchor;
         return e;
     }
 
