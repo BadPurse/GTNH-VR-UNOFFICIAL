@@ -292,7 +292,7 @@ public class GuiSettingsOverlays extends GuiScreen {
     }
 
     private void drawSelectedGroup(int mx, int my) {
-        drawPanel(115, 144, 132, 70, 0xCC15181D);
+        drawPanel(115, 144, 132, 73, 0xCC15181D);
         VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
         switch (group) {
             case GENERAL:
@@ -315,11 +315,11 @@ public class GuiSettingsOverlays extends GuiScreen {
                 drawString(fontRendererObj, "Position and anchor", 119, 146, 0xFFE8EDF2);
                 drawButton(119, 156, 123, 13, "Anchor: " + anchorLabel(entry.anchor), false,
                         hit(mx, my, 119, 156, 123, 13));
-                drawSlider(119, 174, 123, "Distance", entry.distance, 0.1F, 6.0F,
+                drawSlider(119, 166, 123, "Distance", entry.distance, 0.1F, 6.0F,
                         String.format(Locale.ROOT, "%.2f m", entry.distance), 0, mx, my);
-                drawSlider(119, 193, 123, "Horizontal", entry.offsetX, -1.0F, 1.0F,
+                drawSlider(119, 183, 123, "Horizontal", entry.offsetX, -1.0F, 1.0F,
                         String.format(Locale.ROOT, "%.2f m", entry.offsetX), 1, mx, my);
-                drawSlider(119, 212, 123, "Vertical", entry.offsetY, -1.0F, 1.0F,
+                drawSlider(119, 200, 123, "Vertical", entry.offsetY, -1.0F, 1.0F,
                         String.format(Locale.ROOT, "%.2f m", entry.offsetY), 2, mx, my);
                 break;
             case RESIZING:
@@ -845,6 +845,17 @@ public class GuiSettingsOverlays extends GuiScreen {
         }
         if (selectedId == null) return;
         VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
+        if (group == Group.POSE) {
+            if (hit(mx, my, 120, 174, 119, 8)) { activeSlider = 0; updateSliderFromLogicalMouse(mx); return; }
+            if (hit(mx, my, 120, 191, 119, 8)) { activeSlider = 1; updateSliderFromLogicalMouse(mx); return; }
+            if (hit(mx, my, 120, 208, 119, 8)) { activeSlider = 2; updateSliderFromLogicalMouse(mx); return; }
+        }
+        if (group == Group.RESIZING && hit(mx, my, 120, 178, 119, 8)) {
+            activeSlider = 3; updateSliderFromLogicalMouse(mx); return;
+        }
+        if (group == Group.MISC && hit(mx, my, 120, 178, 119, 8)) {
+            activeSlider = 4; updateSliderFromLogicalMouse(mx); return;
+        }
         if (group == Group.VISIBILITY && hit(mx, my, 119, 165, 123, 18)) {
             entry.visible = !entry.visible; onValueChanged(); return;
         }
@@ -874,44 +885,26 @@ public class GuiSettingsOverlays extends GuiScreen {
         }
     }
 
-    @Override
-    protected void mouseClickMove(int mouseX, int mouseY, int clickedMouseButton, long timeSinceLastClick) {
-        if (clickedMouseButton != 0 || activeSlider < 0 || selectedId == null) return;
-        int mx = toLogicalX(mouseX);
+    private void updateSliderFromLogicalMouse(int mx) {
+        if (activeSlider < 0 || selectedId == null) return;
         VROverlayConfig.Entry entry = VROverlayConfig.get(selectedId);
-        float pct;
-        float value;
-        int x = 120;
-        int w = 121;
-        int trackX = x + 1;
-        int trackW = w - 2;
-        // The track starts ten logical pixels below its label.
-        pct = Math.max(0.0F, Math.min(1.0F, (float) (mx - trackX) / trackW));
+        float pct = Math.max(0.0F, Math.min(1.0F, (float) (mx - 120) / 119.0F));
         switch (activeSlider) {
-            case 0:
-                value = 0.1F + pct * 5.9F;
-                entry.distance = value;
-                break;
-            case 1:
-                value = -1.0F + pct * 2.0F;
-                entry.offsetX = value;
-                break;
-            case 2:
-                value = -1.0F + pct * 2.0F;
-                entry.offsetY = value;
-                break;
-            case 3:
-                value = 0.2F + pct * 2.8F;
-                entry.scale = value;
-                break;
-            case 4:
-                value = 0.05F + pct * 0.95F;
-                entry.opacity = value;
-                break;
-            default:
-                return;
+            case 0: entry.distance = 0.1F + pct * 5.9F; break;
+            case 1: entry.offsetX = -1.0F + pct * 2.0F; break;
+            case 2: entry.offsetY = -1.0F + pct * 2.0F; break;
+            case 3: entry.scale = 0.2F + pct * 2.8F; break;
+            case 4: entry.opacity = 0.05F + pct * 0.95F; break;
+            default: return;
         }
         onValueChanged();
+    }
+
+    @Override
+    protected void mouseClickMove(int mouseX, int mouseY, int clickedMouseButton, long timeSinceLastClick) {
+        if (clickedMouseButton == 0 && activeSlider >= 0) {
+            updateSliderFromLogicalMouse(toLogicalX(mouseX));
+        }
     }
 
     @Override
