@@ -1145,10 +1145,11 @@ public class GuiSettingsOverlays extends GuiScreen {
             if (confirmRemove && current.custom) {
                 String removedId = current.id;
                 VROverlayConfig.removeCustom(removedId);
-                loadOverlayData();
+                overlays.remove(selectedIndex);
+                selectedIndex = overlays.isEmpty() ? -1 : Math.max(0, Math.min(selectedIndex, overlays.size() - 1));
                 selectedGroup = null;
                 confirmRemove = false;
-                selectedIndex = Math.max(0, Math.min(selectedIndex, overlays.size() - 1));
+                VRCustomOverlayRenderer.resetPoses();
                 playClickSound();
             } else {
                 resetOverlayDefaults();
@@ -1203,11 +1204,15 @@ public class GuiSettingsOverlays extends GuiScreen {
                 saveMessageTime = System.currentTimeMillis();
                 return;
             }
-            loadOverlayData();
-            selectedIndex = 0;
-            for (int i = 0; i < overlays.size(); i++) {
-                if (id.equals(overlays.get(i).id)) { selectedIndex = i; break; }
-            }
+            VROverlayConfig.Entry created = VROverlayConfig.get(id);
+            OverlayEntry createdRow = new OverlayEntry(id, name, description, created.anchor,
+                    created.visible, created.scale, created.distance, 1.0F, created.flag);
+            createdRow.offsetX = created.offsetX;
+            createdRow.offsetY = created.offsetY;
+            createdRow.custom = true;
+            createdRow.template = created.template;
+            overlays.add(createdRow);
+            selectedIndex = overlays.size() - 1;
             if (overlaySearchField != null) overlaySearchField.setText("");
             filterBuiltIn = true;
             filterCustom = true;
