@@ -12,6 +12,8 @@ import net.minecraft.entity.player.EntityPlayerMP;
 public final class VRNetwork {
     private static volatile SimpleNetworkWrapper channel;
     private static volatile boolean serverSupportsBowAim;
+    private static volatile boolean serverSupportsPoseSync;
+    private static volatile boolean clientCapabilitiesSent;
 
     private VRNetwork() {}
 
@@ -20,6 +22,9 @@ public final class VRNetwork {
         SimpleNetworkWrapper created = NetworkRegistry.INSTANCE.newSimpleChannel("gtnhvr");
         created.registerMessage(VRBowAimMessage.Handler.class, VRBowAimMessage.class, 0, Side.SERVER);
         created.registerMessage(VRBowNetworkHandshake.Handler.class, VRBowNetworkHandshake.class, 1, Side.CLIENT);
+        created.registerMessage(VRClientCapabilitiesMessage.Handler.class, VRClientCapabilitiesMessage.class, 2, Side.SERVER);
+        created.registerMessage(VRPoseUploadMessage.Handler.class, VRPoseUploadMessage.class, 3, Side.SERVER);
+        created.registerMessage(VRRemotePoseMessage.Handler.class, VRRemotePoseMessage.class, 4, Side.CLIENT);
         channel = created;
     }
 
@@ -35,12 +40,51 @@ public final class VRNetwork {
         if (current != null && player != null) current.sendTo(new VRBowNetworkHandshake(), player);
     }
 
-    public static void markServerSupportsBowAim() {
+    /** Protocol v1 supports legacy bow packets; v2 adds opt-in remote pose relay. */
+    public static void markServerSupportsBowAim(int handshakeVersion) {
         serverSupportsBowAim = true;
+        serverSupportsPoseSync = handshakeVersion >= 2;
+        if (serverSupportsPoseSync && !clientCapabilitiesSent) {
+            SimpleNetworkWrapper current = channel;
+            if (current != null) {
+                clientCapabilitiesSent = true;
+                current.sendToServer(new VRClientCapabilitiesMessage(VRClientCapabilitiesMessage.POSE_PROTOCOL_VERSION));
+            }
+        }
+    }
+
+    public static boolean serverSupportsPoseSync() {
+        return serverSupportsPoseSync;
+    }
+
+    public static void sendPose(VRPoseData pose) {
+        SimpleNetworkWrapper current = channel;
+        if (current == null || !serverSupportsPoseSync || pose == null || !pose.isWellFormed()) return;
+        current.sendToServer(new VRPoseUploadMessage(pose));
+    }
+
+    public static void sendRemotePoseToPlayer(EntityPlayerMP subject, VRPoseData pose, EntityPlayerMP recipient) {
+        SimpleNetworkWrapper current = channel;
+        if (current == null || subject == null || recipient == null || pose == null
+                || !VRRemotePoseServerState.hasClient(recipient)) return;
+        current.sendTo(new VRRemotePoseMessage(subject.getUniqueID(), pose), recipient);
+    }
+
+    public static void broadcastRemotePose(EntityPlayerMP subject, VRPoseData pose) {
+        if (subject == null || subject.worldObj == null || subject.worldObj.isRemote || pose == null) return;
+        for (Object value : subject.worldObj.playerEntities) {
+            if (!(value instanceof EntityPlayerMP)) continue;
+            EntityPlayerMP recipient = (EntityPlayerMP) value;
+            if (recipient != subject && VRRemotePoseServerState.hasClient(recipient)) {
+                sendRemotePoseToPlayer(subject, pose, recipient);
+            }
+        }
     }
 
     public static void clearServerSupport() {
         serverSupportsBowAim = false;
+        serverSupportsPoseSync = false;
+        clientCapabilitiesSent = false;
     }
 
     private static boolean finite(float value) {

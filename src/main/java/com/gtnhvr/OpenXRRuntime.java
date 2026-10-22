@@ -311,6 +311,7 @@ public final class OpenXRRuntime {
             }
 
             VRControllerHandler.getInstance().update(session, localSpace, frameState.predictedDisplayTime());
+            com.gtnhvr.network.VRPoseSyncClient.tick();
             return true;
         } catch (Throwable t) {
             GTNHVRLog.warn("OpenXR prepareFrame error: %s", t);

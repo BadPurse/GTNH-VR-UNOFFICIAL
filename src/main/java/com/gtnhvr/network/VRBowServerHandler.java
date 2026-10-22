@@ -36,5 +36,8 @@ public final class VRBowServerHandler {
     @SubscribeEvent
     public void onPlayerLoggedOut(PlayerLoggedOutEvent event) {
         VRBowServerState.clear(event.player);
+        if (event.player instanceof EntityPlayerMP) {
+            VRRemotePoseServerState.clearPlayer((EntityPlayerMP) event.player);
+        }
     }
 }

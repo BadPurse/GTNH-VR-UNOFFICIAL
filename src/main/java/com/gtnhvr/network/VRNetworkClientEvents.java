@@ -12,10 +12,14 @@ public final class VRNetworkClientEvents {
     @SubscribeEvent
     public void onConnected(FMLNetworkEvent.ClientConnectedToServerEvent event) {
         VRNetwork.clearServerSupport();
+        VRRemotePoseClientState.clear();
+        VRPoseSyncClient.reset();
     }
 
     @SubscribeEvent
     public void onDisconnected(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
         VRNetwork.clearServerSupport();
+        VRRemotePoseClientState.clear();
+        VRPoseSyncClient.reset();
     }
 }

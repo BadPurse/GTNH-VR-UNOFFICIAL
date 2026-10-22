@@ -8,18 +8,29 @@ import io.netty.buffer.ByteBuf;
 
 /** Server-to-client acknowledgement that gates custom bow packets on the client. */
 public final class VRBowNetworkHandshake implements IMessage {
+    private int protocolVersion = 2;
+
     public VRBowNetworkHandshake() {}
 
-    @Override
-    public void fromBytes(ByteBuf buffer) {}
+    public int getProtocolVersion() {
+        return protocolVersion;
+    }
 
     @Override
-    public void toBytes(ByteBuf buffer) {}
+    public void fromBytes(ByteBuf buffer) {
+        // Pre-v2 servers send an empty handshake, which still enables their legacy bow packet.
+        protocolVersion = buffer.readableBytes() >= 4 ? buffer.readInt() : 1;
+    }
+
+    @Override
+    public void toBytes(ByteBuf buffer) {
+        buffer.writeInt(protocolVersion);
+    }
 
     public static final class Handler implements IMessageHandler<VRBowNetworkHandshake, IMessage> {
         @Override
         public IMessage onMessage(VRBowNetworkHandshake message, MessageContext context) {
-            if (context.side == Side.CLIENT) VRNetwork.markServerSupportsBowAim();
+            if (context.side == Side.CLIENT) VRNetwork.markServerSupportsBowAim(message.getProtocolVersion());
             return null;
         }
     }

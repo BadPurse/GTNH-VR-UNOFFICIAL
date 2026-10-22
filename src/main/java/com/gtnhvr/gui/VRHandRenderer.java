@@ -402,6 +402,46 @@ public final class VRHandRenderer {
         renderHeldItem(pos, rot, isRight, mc);
     }
 
+    /**
+     * Draws only a remote player's skin forearm. Remote held items remain handled by vanilla rendering.
+     */
+    public static void renderRemoteArm(Vector3f pos, Quaternionf rot, ResourceLocation skin,
+                                       boolean isRight, Minecraft mc, boolean isSlim) {
+        if (mc == null || pos == null || rot == null || skin == null) return;
+        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushMatrix();
+        try {
+            GLStateManager.glEnable(GL11.GL_DEPTH_TEST);
+            GLStateManager.glDepthFunc(GL11.GL_LEQUAL);
+            GLStateManager.glTranslatef(pos.x, pos.y, pos.z);
+            applyQuaternionRotation(rot);
+            GLStateManager.glRotatef(-90.0F, 1.0F, 0.0F, 0.0F);
+            GLStateManager.glScalef(0.025F, 0.025F, 0.025F);
+            float handFactor = isRight ? 1.0F : -1.0F;
+            GLStateManager.glTranslatef(-0.20F * handFactor, 0.0F, 0.0F);
+            GLStateManager.glDisable(GL11.GL_LIGHTING);
+            GLStateManager.glDisable(GL11.GL_BLEND);
+            GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
+            GLStateManager.glEnable(GL11.GL_TEXTURE_2D);
+            GLStateManager.glDisable(GL11.GL_CULL_FACE);
+            mc.getTextureManager().bindTexture(skin);
+            GLStateManager.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+            int textureHeight = GLStateManager.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+            boolean is64x64 = textureHeight >= 64;
+            drawTexturedArmBox(isRight, isSlim, is64x64, false);
+            if (is64x64) {
+                GLStateManager.glEnable(GL11.GL_BLEND);
+                GLStateManager.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                GLStateManager.glEnable(GL11.GL_ALPHA_TEST);
+                GLStateManager.glAlphaFunc(GL11.GL_GREATER, 0.1F);
+                drawTexturedArmBox(isRight, isSlim, true, true);
+            }
+        } finally {
+            GLStateManager.glPopMatrix();
+            GLStateManager.glPopAttrib();
+        }
+    }
+
     public static boolean isThaumometer(ItemStack stack) {
         if (stack == null || stack.getItem() == null) return false;
         Item item = stack.getItem();
