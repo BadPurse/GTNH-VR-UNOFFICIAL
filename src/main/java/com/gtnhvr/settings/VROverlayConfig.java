@@ -120,6 +120,8 @@ public final class VROverlayConfig {
         entry.name = cleanName;
         entry.description = description == null ? "" : description.trim();
         entry.template = normalizedTemplate;
+        // Start copies slightly beside the source so users can see and grab the new overlay immediately.
+        entry.offsetX = 0.32F;
         CUSTOM_ENTRIES.put(id, entry);
         ENTRIES.put(id, entry);
         save();
