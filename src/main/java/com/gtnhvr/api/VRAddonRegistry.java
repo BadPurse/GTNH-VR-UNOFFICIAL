@@ -9,6 +9,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -21,12 +24,14 @@ import java.util.Map;
  * Register listeners from an add-on's client proxy after GTNHVR has initialized.
  * Listener failures are isolated so a broken third-party extension cannot stop the VR frame.
  * This API targets Forge/Minecraft 1.7.10 instead of exposing incompatible modern Visor classes.
+ *
+ * This class is client-only; do not reference it from common code that can load on a dedicated server.
  */
 @SideOnly(Side.CLIENT)
 public final class VRAddonRegistry {
-    private static final Map<String, ClientTickListener> TICK_LISTENERS = new LinkedHashMap<>();
-    private static final Map<String, WorldRenderListener> WORLD_RENDER_LISTENERS = new LinkedHashMap<>();
-    private static final Map<String, HandItemPoseProvider> HAND_POSE_PROVIDERS = new LinkedHashMap<>();
+    private static final Map<String, List<ClientTickListener>> TICK_LISTENERS = new LinkedHashMap<>();
+    private static final Map<String, List<WorldRenderListener>> WORLD_RENDER_LISTENERS = new LinkedHashMap<>();
+    private static final Map<String, List<HandItemPoseProvider>> HAND_POSE_PROVIDERS = new LinkedHashMap<>();
 
     private VRAddonRegistry() {}
 
@@ -92,6 +97,16 @@ public final class VRAddonRegistry {
         }
     }
 
+    private static final class Callback<T> {
+        private final String addonId;
+        private final T listener;
+
+        private Callback(String addonId, T listener) {
+            this.addonId = addonId;
+            this.listener = listener;
+        }
+    }
+
     public static synchronized void registerClientTickListener(String addonId, ClientTickListener listener) {
         register(TICK_LISTENERS, addonId, listener);
     }
@@ -112,12 +127,16 @@ public final class VRAddonRegistry {
         HAND_POSE_PROVIDERS.remove(id);
     }
 
-    private static <T> void register(Map<String, T> registry, String addonId, T listener) {
+    private static <T> void register(Map<String, List<T>> registry, String addonId, T listener) {
         String id = normalizeId(addonId);
         if (listener == null) {
             throw new IllegalArgumentException("VR add-on listener cannot be null");
         }
-        registry.put(id, listener);
+        List<T> listeners = registry.computeIfAbsent(id, ignored -> new ArrayList<>());
+        // Avoid accidentally dispatching the same listener twice if an add-on re-registers on reload.
+        if (!listeners.contains(listener)) {
+            listeners.add(listener);
+        }
     }
 
     private static String normalizeId(String addonId) {
@@ -127,53 +146,66 @@ public final class VRAddonRegistry {
         return addonId.trim();
     }
 
-    private static <T> List<Map.Entry<String, T>> snapshot(Map<String, T> registry) {
+    private static <T> List<Callback<T>> snapshot(Map<String, List<T>> registry) {
         synchronized (VRAddonRegistry.class) {
-            return new ArrayList<>(registry.entrySet());
+            List<Callback<T>> callbacks = new ArrayList<>();
+            for (Map.Entry<String, List<T>> entry : registry.entrySet()) {
+                for (T listener : entry.getValue()) {
+                    callbacks.add(new Callback<>(entry.getKey(), listener));
+                }
+            }
+            return callbacks;
         }
     }
 
     public static void dispatchClientTick(Minecraft mc) {
         if (mc == null) return;
         VRControllerHandler controllers = VRControllerHandler.getInstance();
-        for (Map.Entry<String, ClientTickListener> entry : snapshot(TICK_LISTENERS)) {
+        for (Callback<ClientTickListener> callback : snapshot(TICK_LISTENERS)) {
             try {
-                entry.getValue().onClientTick(mc, controllers);
+                callback.listener.onClientTick(mc, controllers);
             } catch (Throwable t) {
-                GTNHVRLog.warn("VR add-on %s failed in client tick callback: %s", entry.getKey(), t);
+                GTNHVRLog.warn("VR add-on %s failed in client tick callback: %s", callback.addonId, t);
             }
         }
     }
 
     public static void dispatchWorldRender(Minecraft mc, int eyeIndex, float partialTicks, boolean guiOpen) {
         if (mc == null) return;
-        for (Map.Entry<String, WorldRenderListener> entry : snapshot(WORLD_RENDER_LISTENERS)) {
+        for (Callback<WorldRenderListener> callback : snapshot(WORLD_RENDER_LISTENERS)) {
+            int previousFramebuffer = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+            int previousProgram = GLStateManager.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+            int previousActiveTexture = GLStateManager.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
             GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             GLStateManager.glPushMatrix();
             try {
-                entry.getValue().onWorldRender(mc, eyeIndex, partialTicks, guiOpen);
+                callback.listener.onWorldRender(mc, eyeIndex, partialTicks, guiOpen);
             } catch (Throwable t) {
-                GTNHVRLog.warn("VR add-on %s failed in world render callback: %s", entry.getKey(), t);
+                GTNHVRLog.warn("VR add-on %s failed in world render callback: %s", callback.addonId, t);
             } finally {
                 GLStateManager.glPopMatrix();
                 GLStateManager.glPopAttrib();
+                GLStateManager.glActiveTexture(previousActiveTexture);
+                GLStateManager.glUseProgram(previousProgram);
+                GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFramebuffer);
             }
         }
     }
 
+    /** Returns the first finite custom pose supplied by a registered provider, or null. */
     public static HandItemTransform findHandItemPose(Minecraft mc, EntityPlayer player, ItemStack stack,
                                                       boolean rightHand) {
         if (mc == null || player == null || stack == null) return null;
         VRControllerHandler controllers = VRControllerHandler.getInstance();
-        for (Map.Entry<String, HandItemPoseProvider> entry : snapshot(HAND_POSE_PROVIDERS)) {
+        for (Callback<HandItemPoseProvider> callback : snapshot(HAND_POSE_PROVIDERS)) {
             HandItemTransform candidate = new HandItemTransform();
             try {
-                if (entry.getValue().getPose(mc, player, stack, rightHand, controllers, candidate)) {
+                if (callback.listener.getPose(mc, player, stack, rightHand, controllers, candidate)) {
                     if (candidate.isFinite()) return candidate;
-                    GTNHVRLog.warn("VR add-on %s returned a non-finite hand item pose; ignoring it", entry.getKey());
+                    GTNHVRLog.warn("VR add-on %s returned a non-finite hand item pose; ignoring it", callback.addonId);
                 }
             } catch (Throwable t) {
-                GTNHVRLog.warn("VR add-on %s failed in hand item pose callback: %s", entry.getKey(), t);
+                GTNHVRLog.warn("VR add-on %s failed in hand item pose callback: %s", callback.addonId, t);
             }
         }
         return null;
