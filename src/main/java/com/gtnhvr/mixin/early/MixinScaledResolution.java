@@ -25,7 +25,7 @@ public abstract class MixinScaledResolution {
             argsOnly = true,
             ordinal = 0,
             require = 0)
-    private int gtnhvr$useVirtualGuiWidth(int originalWidth) {
+    private static int gtnhvr$useVirtualGuiWidth(int originalWidth) {
         if (!OpenXRRuntime.isSessionRunning()) return originalWidth;
         return VRGuiRenderer.getCaptureWidth();
     }
@@ -36,7 +36,7 @@ public abstract class MixinScaledResolution {
             argsOnly = true,
             ordinal = 1,
             require = 0)
-    private int gtnhvr$useVirtualGuiHeight(int originalHeight) {
+    private static int gtnhvr$useVirtualGuiHeight(int originalHeight) {
         if (!OpenXRRuntime.isSessionRunning()) return originalHeight;
         return VRGuiRenderer.getCaptureHeight();
     }
