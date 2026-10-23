@@ -1102,13 +1102,10 @@ public final class VRControllerHandler {
             screen.setCursorUV(screenUV.x, screenUV.y, true);
             screen.setLastHitPoint(screenHitPoint);
 
-            // Convert normalized screen UV directly to the window's mouse-event pixel
-            // coordinates. GuiScreen.handleMouseInput then maps those pixels into its own
-            // width/height. Do not apply ScaledResolution here: that would scale the pointer
-            // a second time when the virtual GUI resolution differs from the desktop window.
-            // The queued cursor position is expressed in physical pixels. The mouse-event
-            // mixin converts it to the virtual canvas during capture; using mc.displayWidth
-            // here could feed virtual pixels into that conversion and double-scale clicks.
+            // Keep the controller cursor in physical window pixels. Minecraft's normal
+            // mouse-event calculation maps those pixels into the virtual GUI coordinates because
+            // ScaledResolution is virtualized centrally; applying another transform here would
+            // double-scale clicks and break inventories or machine widgets.
             int cursorW = com.gtnhvr.gui.VRGuiRenderer.getPhysicalWindowWidth();
             int cursorH = com.gtnhvr.gui.VRGuiRenderer.getPhysicalWindowHeight();
             float curU = Math.max(0.0F, Math.min(1.0F, screenUV.x));
