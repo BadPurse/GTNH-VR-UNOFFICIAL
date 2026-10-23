@@ -27,6 +27,7 @@
     "MixinLWJGLXGL11Alpha",
     "MixinLWJGLXGL14Alpha",
     "MixinMinecraft",
+    "MixinScaledResolution",
     "MixinMovementInputFromOptions",
     "MixinPlayerControllerMP",
     "MixinRenderItem",
