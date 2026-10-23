@@ -6,48 +6,27 @@ import net.minecraft.client.shader.Framebuffer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArgs;
+import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Minecraft.class)
 public abstract class MixinMinecraft {
 
-    // Keep GUI initialization on the same logical 1920x1080 canvas used for VR capture.
-    // Without this scope, the first captured frame calls setWorldAndResolution() from inside
-    // drawScreen(), re-running complex AE2/NEI init code during rendering.
-    private static int gtnhvr$screenResolutionScopeDepth = 0;
-    private static int gtnhvr$savedScreenDisplayWidth = -1;
-    private static int gtnhvr$savedScreenDisplayHeight = -1;
-
-    @Inject(method = {"displayGuiScreen", "func_147108_a"}, at = @At("HEAD"), require = 0)
-    private void gtnhvr$beginVirtualGuiScreenInit(net.minecraft.client.gui.GuiScreen newScreen, CallbackInfo ci) {
+    /**
+     * Visor-style GUI sizing: keep Minecraft.displayWidth/Height as the real window size.
+     * Only the screen's logical dimensions are changed to the fixed VR canvas. This avoids
+     * exposing virtual framebuffer dimensions to Angelica, lwjgl3ify, and third-party GUIs.
+     */
+    @ModifyArgs(method = {"displayGuiScreen", "func_147108_a"},
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/GuiScreen;setWorldAndResolution(Lnet/minecraft/client/Minecraft;II)V"),
+            require = 0)
+    private void gtnhvr$useVirtualGuiDimensions(Args args) {
         if (!OpenXRRuntime.isSessionRunning()) return;
-
-        Minecraft mc = (Minecraft) (Object) this;
-        if (gtnhvr$screenResolutionScopeDepth++ == 0) {
-            gtnhvr$savedScreenDisplayWidth = mc.displayWidth;
-            gtnhvr$savedScreenDisplayHeight = mc.displayHeight;
-        }
-
-        // Nested screen changes also need the virtual dimensions while the new screen initializes.
-        if (newScreen != null) {
-            mc.displayWidth = com.gtnhvr.gui.VRGuiRenderer.getCaptureWidth();
-            mc.displayHeight = com.gtnhvr.gui.VRGuiRenderer.getCaptureHeight();
-        }
-    }
-
-    @Inject(method = {"displayGuiScreen", "func_147108_a"}, at = @At("RETURN"), require = 0)
-    private void gtnhvr$endVirtualGuiScreenInit(net.minecraft.client.gui.GuiScreen newScreen, CallbackInfo ci) {
-        if (gtnhvr$screenResolutionScopeDepth <= 0) return;
-        if (--gtnhvr$screenResolutionScopeDepth != 0) return;
-
-        Minecraft mc = (Minecraft) (Object) this;
-        if (gtnhvr$savedScreenDisplayWidth > 0 && gtnhvr$savedScreenDisplayHeight > 0) {
-            mc.displayWidth = gtnhvr$savedScreenDisplayWidth;
-            mc.displayHeight = gtnhvr$savedScreenDisplayHeight;
-        }
-        gtnhvr$savedScreenDisplayWidth = -1;
-        gtnhvr$savedScreenDisplayHeight = -1;
+        args.set(1, com.gtnhvr.gui.VRGuiRenderer.getLogicalGuiWidth());
+        args.set(2, com.gtnhvr.gui.VRGuiRenderer.getLogicalGuiHeight());
     }
 
     @Inject(method = {"setIngameFocus", "func_71381_h"}, at = @At("HEAD"), require = 0)
