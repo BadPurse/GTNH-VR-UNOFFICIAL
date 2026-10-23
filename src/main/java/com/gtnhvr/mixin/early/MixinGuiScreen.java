@@ -3,6 +3,8 @@ package com.gtnhvr.mixin.early;
 import com.gtnhvr.OpenXRRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.item.ItemStack;
+import java.util.List;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,6 +18,37 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(GuiScreen.class)
 public abstract class MixinGuiScreen {
+
+    @Unique
+    private long gtnhvr$itemTooltipStartNanos;
+
+    @Unique
+    private long gtnhvr$tooltipPaintStartNanos;
+
+    // renderToolTip is declared on GuiScreen and inherited by GuiContainerCreative.
+    // Instrument the declaring class; injecting into GuiContainerCreative misses this path.
+    @Inject(method = {"renderToolTip", "func_146285_a"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$profileItemTooltipStart(ItemStack stack, int x, int y, CallbackInfo ci) {
+        gtnhvr$itemTooltipStartNanos = com.gtnhvr.gui.VRGuiProfiler.startCpu();
+    }
+
+    @Inject(method = {"renderToolTip", "func_146285_a"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$profileItemTooltipEnd(ItemStack stack, int x, int y, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endCpu("item-tooltip-total", gtnhvr$itemTooltipStartNanos);
+        gtnhvr$itemTooltipStartNanos = 0L;
+    }
+
+    // Separate text/box painting from ItemStack.getTooltip() and Forge ItemTooltipEvent work.
+    @Inject(method = {"drawHoveringText", "func_146283_a"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$profileTooltipPaintStart(List<String> textLines, int x, int y, CallbackInfo ci) {
+        gtnhvr$tooltipPaintStartNanos = com.gtnhvr.gui.VRGuiProfiler.startCpu();
+    }
+
+    @Inject(method = {"drawHoveringText", "func_146283_a"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$profileTooltipPaintEnd(List<String> textLines, int x, int y, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endCpu("tooltip-paint", gtnhvr$tooltipPaintStartNanos);
+        gtnhvr$tooltipPaintStartNanos = 0L;
+    }
 
     @Unique
     private long gtnhvr$baseScreenDrawStartNanos;
