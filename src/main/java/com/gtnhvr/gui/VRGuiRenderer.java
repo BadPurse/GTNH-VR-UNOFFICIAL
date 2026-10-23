@@ -1,13 +1,9 @@
 package com.gtnhvr.gui;
 
-import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.OpenXRRuntime;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.shader.Framebuffer;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL12;
-import org.lwjgl.opengl.GL30;
 
 /**
  * Dedicated GUI capture framebuffer for Minecraft 1.7.10.
@@ -177,46 +173,14 @@ public final class VRGuiRenderer {
         if (w <= 0) w = 854;
         if (h <= 0) h = 480;
         if (capturing && (width != w || height != h)) end();
-        if (fbo == 0 || width != w || height != h) {
-            int oldFbo = fbo;
-            int oldTexture = texture;
-            int oldDepthRb = depthRb;
-            int restoreFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-            int restoreTexture = GLStateManager.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-            int restoreRenderbuffer = GLStateManager.glGetInteger(GL30.GL_RENDERBUFFER_BINDING);
 
-            destroy();
-            width = w;
-            height = h;
-
-            fbo = GLStateManager.glGenFramebuffers();
-            texture = GLStateManager.glGenTextures();
-            depthRb = GLStateManager.glGenRenderbuffers();
-
-            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-            GLStateManager.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
-
-            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
-            GLStateManager.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH24_STENCIL8, width, height);
-
-            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-            GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
-            GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
-
-            if (guiFramebuffer == null) guiFramebuffer = new VRGuiFramebuffer(width, height);
-            guiFramebuffer.update(fbo, texture, depthRb, width, height);
-
-            // Resource allocation must not unbind another renderer's framebuffer or leave deleted attachments bound.
-            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, restoreFbo == oldFbo ? 0 : restoreFbo);
-            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, restoreRenderbuffer == oldDepthRb ? 0 : restoreRenderbuffer);
-            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, restoreTexture == oldTexture ? 0 : restoreTexture);
-        }
-        if (guiFramebuffer == null) guiFramebuffer = new VRGuiFramebuffer(width, height);
-        guiFramebuffer.update(fbo, texture, depthRb, width, height);
+        VRGuiRenderPipeline.ensureTarget(VRGuiRenderPipeline.Pass.SCREEN, w, h);
+        fbo = VRGuiRenderPipeline.getFramebufferId(VRGuiRenderPipeline.Pass.SCREEN);
+        texture = VRGuiRenderPipeline.getTextureId(VRGuiRenderPipeline.Pass.SCREEN);
+        depthRb = VRGuiRenderPipeline.getDepthBufferId(VRGuiRenderPipeline.Pass.SCREEN);
+        width = VRGuiRenderPipeline.getWidth(VRGuiRenderPipeline.Pass.SCREEN);
+        height = VRGuiRenderPipeline.getHeight(VRGuiRenderPipeline.Pass.SCREEN);
+        guiFramebuffer = VRGuiRenderPipeline.getTargetFramebuffer(VRGuiRenderPipeline.Pass.SCREEN);
     }
 
     public static void begin(int w, int h, boolean inMainMenu) {
@@ -229,8 +193,7 @@ public final class VRGuiRenderer {
         if (guiFramebuffer == null) guiFramebuffer = new VRGuiFramebuffer(width, height);
         guiFramebuffer.update(fbo, texture, depthRb, width, height);
 
-        boolean began = VRGuiRenderPipeline.begin(VRGuiRenderPipeline.Pass.SCREEN,
-                fbo, width, height, inMainMenu, guiFramebuffer);
+        boolean began = VRGuiRenderPipeline.begin(VRGuiRenderPipeline.Pass.SCREEN, inMainMenu);
         if (!began) return;
 
         capturing = true;
@@ -268,23 +231,13 @@ public final class VRGuiRenderer {
 
     public static void destroy() {
         if (capturing) end();
-        if (fbo != 0) {
-            GLStateManager.glDeleteFramebuffers(fbo);
-            fbo = 0;
-        }
-        if (texture != 0) {
-            GLStateManager.glDeleteTextures(texture);
-            texture = 0;
-        }
-        if (depthRb != 0) {
-            GLStateManager.glDeleteRenderbuffers(depthRb);
-            depthRb = 0;
-        }
-        if (guiFramebuffer != null) {
-            guiFramebuffer = null;
-        }
+        VRGuiRenderPipeline.destroyTarget(VRGuiRenderPipeline.Pass.SCREEN);
+        fbo = 0;
+        texture = 0;
+        depthRb = 0;
         width = 0;
         height = 0;
+        guiFramebuffer = null;
         capturing = false;
         Minecraft mc = Minecraft.getMinecraft();
         if (!OpenXRRuntime.isSessionRunning()) restoreDesktopGuiResolution(mc);
