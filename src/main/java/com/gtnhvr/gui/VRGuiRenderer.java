@@ -49,9 +49,6 @@ public final class VRGuiRenderer {
     private static int lastLogicalGuiWidth = -1;
     private static int lastLogicalGuiHeight = -1;
 
-    // Some mod GUIs (notably scrollable option screens) consume Mouse.next() from inside
-    // drawScreen(). Their event coordinates are window pixels, so input handling must see
-    // the original window dimensions even while the surrounding GUI is rendered to 1920x1080.
     // Same fixed GUI target as Visor's VRGuiManagerImpl. The screen canvas must not
     // inherit the desktop aspect ratio or the custom 2388x1668 default, which is not 16:9.
     private static final int VR_GUI_WIDTH = 1920;
@@ -70,9 +67,8 @@ public final class VRGuiRenderer {
     }
 
     /**
-     * Physical window dimensions for synthesizing controller mouse events. During GUI capture,
-     * Minecraft.displayWidth/Height temporarily contain the virtual canvas size; using those
-     * values here and then mapping the queued Mouse event would scale the pointer twice.
+     * Physical window dimensions used by controller mouse events. These remain the real
+     * lwjgl3ify window dimensions for the entire capture lifetime.
      */
     public static int getPhysicalWindowWidth() {
         if (savedDisplayWidth > 0) return savedDisplayWidth;
@@ -160,7 +156,7 @@ public final class VRGuiRenderer {
         logicalGuiResolutionActive = false;
     }
 
-    /** Used by the separate HUD capture to share the same scoped Display dimensions. */
+    /** Used by the separate HUD capture to indicate the active logical GUI pass. */
     public static void setLogicalGuiResolutionActive(boolean active) {
         logicalGuiResolutionActive = active;
     }
@@ -180,12 +176,6 @@ public final class VRGuiRenderer {
         return Math.round(mouseY * (logicalHeight / (float) savedScaledGuiHeight));
     }
 
-    /**
-     * Convert raw LWJGL event pixels to the virtual GUI pixel canvas. Some third-party
-     * containers/options screens poll Mouse.next() directly and bypass our scoped
-     * GuiScreen.handleMouseInput wrapper, so their getEventX/getEventY values must be
-     * expressed in the same pixel space as Minecraft.displayWidth/displayHeight.
-     */
     /**
      * Raw LWJGL events remain in physical-window pixels. GuiContainer/GuiScreen convert
      * them using screen.width/height and the real display dimensions. Never mutate
