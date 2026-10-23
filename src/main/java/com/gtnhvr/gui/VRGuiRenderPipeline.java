@@ -107,12 +107,14 @@ public final class VRGuiRenderPipeline {
         if (pass == null || activePass != null || width <= 0 || height <= 0) return false;
 
         Minecraft mc = Minecraft.getMinecraft();
-        activePass = pass;
         previousFramebufferId = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
         previousMatrixMode = GLStateManager.glGetInteger(GL11.GL_MATRIX_MODE);
         hadMinecraftInstance = mc != null;
+        // Read the old pointer before marking a pass active so MixinMinecraft cannot return the
+        // target we are about to bind as though it were the old Minecraft framebuffer.
         previousMinecraftFramebuffer = mc == null ? null : OpenXRRuntime.getMinecraftFramebuffer(mc);
         previousLogicalResolutionActive = VRGuiRenderer.isLogicalGuiResolutionActive();
+        activePass = pass;
 
         try {
             GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
