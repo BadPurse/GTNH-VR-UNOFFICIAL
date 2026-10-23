@@ -1,5 +1,7 @@
 package com.gtnhvr.mixin.early;
 
+import com.gtnhvr.OpenXRRuntime;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -21,8 +23,8 @@ public abstract class MixinGuiScreen {
 
     @Inject(method = {"drawWorldBackground", "func_146270_b"}, at = @At("HEAD"), cancellable = true)
     private void gtnhvr$cancelWorldBackground(int tint, CallbackInfo ci) {
-        if (com.gtnhvr.OpenXRRuntime.isSessionRunning()
-                && net.minecraft.client.Minecraft.getMinecraft().theWorld != null) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (OpenXRRuntime.isSessionRunning() && mc != null && mc.theWorld != null) {
             ci.cancel();
         }
     }
