@@ -133,6 +133,33 @@ public final class VRGuiRenderer {
         }
     }
 
+    /**
+     * If VR was stopped while a screen was open, return that screen to the real desktop
+     * dimensions before its next desktop draw. Visor's logical GUI size must never leak into
+     * a non-VR launch/session.
+     */
+    public static void restoreDesktopGuiResolution(Minecraft mc) {
+        if (mc == null || mc.currentScreen == null) {
+            lastLogicalGuiScreen = null;
+            lastLogicalGuiWidth = -1;
+            lastLogicalGuiHeight = -1;
+            return;
+        }
+
+        if (lastLogicalGuiScreen == mc.currentScreen) {
+            net.minecraft.client.gui.ScaledResolution physical =
+                    new net.minecraft.client.gui.ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+            int physicalWidth = physical.getScaledWidth();
+            int physicalHeight = physical.getScaledHeight();
+            if (mc.currentScreen.width != physicalWidth || mc.currentScreen.height != physicalHeight) {
+                mc.currentScreen.setWorldAndResolution(mc, physicalWidth, physicalHeight);
+            }
+        }
+        lastLogicalGuiScreen = null;
+        lastLogicalGuiWidth = -1;
+        lastLogicalGuiHeight = -1;
+    }
+
     private static void setupLogicalGuiProjection(Minecraft mc) {
         if (mc == null) return;
         net.minecraft.client.gui.ScaledResolution scaled =
