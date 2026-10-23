@@ -8,6 +8,8 @@
   "mixins": [
   ],
   "client": [
+    "MixinGLStateManagerAlpha",
+    "MixinBatchingFontRendererAlpha",
     "MixinEntity",
     "MixinEntityRenderer",
     "MixinItemBowAim",

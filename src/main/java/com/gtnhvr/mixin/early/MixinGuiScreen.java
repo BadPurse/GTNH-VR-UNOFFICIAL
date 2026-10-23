@@ -3,7 +3,10 @@ package com.gtnhvr.mixin.early;
 import com.gtnhvr.OpenXRRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.item.ItemStack;
+import java.util.List;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -16,9 +19,72 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GuiScreen.class)
 public abstract class MixinGuiScreen {
 
+    @Unique
+    private long gtnhvr$itemTooltipStartNanos;
+
+    @Unique
+    private long gtnhvr$tooltipPaintStartNanos;
+
+    // renderToolTip is declared on GuiScreen and inherited by GuiContainerCreative.
+    // Instrument the declaring class; injecting into GuiContainerCreative misses this path.
+    @Inject(method = {"renderToolTip", "func_146285_a"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$profileItemTooltipStart(ItemStack stack, int x, int y, CallbackInfo ci) {
+        gtnhvr$itemTooltipStartNanos = com.gtnhvr.gui.VRGuiProfiler.startCpu();
+    }
+
+    @Inject(method = {"renderToolTip", "func_146285_a"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$profileItemTooltipEnd(ItemStack stack, int x, int y, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endCpu("item-tooltip-total", gtnhvr$itemTooltipStartNanos);
+        gtnhvr$itemTooltipStartNanos = 0L;
+    }
+
+    // Separate text/box painting from ItemStack.getTooltip() and Forge ItemTooltipEvent work.
+    @Inject(method = {"drawHoveringText", "func_146283_a"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$profileTooltipPaintStart(List<String> textLines, int x, int y, CallbackInfo ci) {
+        gtnhvr$tooltipPaintStartNanos = com.gtnhvr.gui.VRGuiProfiler.startCpu();
+    }
+
+    @Inject(method = {"drawHoveringText", "func_146283_a"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$profileTooltipPaintEnd(List<String> textLines, int x, int y, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endCpu("tooltip-paint", gtnhvr$tooltipPaintStartNanos);
+        gtnhvr$tooltipPaintStartNanos = 0L;
+    }
+
+    @Unique
+    private long gtnhvr$baseScreenDrawStartNanos;
+
+    @Inject(method = {"drawScreen", "func_73863_a"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$profileBaseScreenDrawStart(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+        gtnhvr$baseScreenDrawStartNanos = com.gtnhvr.gui.VRGuiProfiler.startCpu();
+    }
+
+    @Inject(method = {"drawScreen", "func_73863_a"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$profileBaseScreenDrawEnd(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endCpu(
+                "gui-screen-base-draw/" + ((GuiScreen) (Object) this).getClass().getName(),
+                gtnhvr$baseScreenDrawStartNanos);
+        gtnhvr$baseScreenDrawStartNanos = 0L;
+    }
+
+    @Inject(method = {"setWorldAndResolution", "func_146280_a"}, at = @At("HEAD"), require = 0)
+    private void gtnhvr$profileResolutionInit(Minecraft mc, int width, int height, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.beginScreenResolution((GuiScreen) (Object) this);
+    }
+
+    @Inject(method = {"setWorldAndResolution", "func_146280_a"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$finishResolutionInit(Minecraft mc, int width, int height, CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endScreenResolution((GuiScreen) (Object) this);
+    }
+
     @Inject(method = {"initGui", "func_73866_w_"}, at = @At("HEAD"))
     private void gtnhvr$closeKeyboardForUnrelatedScreen(CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.beginInitGui((GuiScreen) (Object) this);
         com.gtnhvr.gui.VRVirtualKeyboard.getInstance().onGuiOpen((GuiScreen) (Object) this);
+    }
+
+    @Inject(method = {"initGui", "func_73866_w_"}, at = @At("RETURN"), require = 0)
+    private void gtnhvr$profileInitGuiEnd(CallbackInfo ci) {
+        com.gtnhvr.gui.VRGuiProfiler.endInitGui((GuiScreen) (Object) this);
     }
 
     @Inject(method = {"handleMouseInput", "func_146274_d"}, at = @At("HEAD"))

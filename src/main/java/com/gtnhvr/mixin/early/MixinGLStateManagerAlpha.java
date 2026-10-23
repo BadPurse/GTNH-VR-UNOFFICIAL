@@ -1,4 +1,4 @@
-package com.gtnhvr.mixin.late;
+package com.gtnhvr.mixin.early;
 
 import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.gui.VRGuiRenderer;

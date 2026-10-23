@@ -23,6 +23,7 @@ public abstract class MixinMinecraft {
     private void gtnhvr$beginVirtualGuiScreenInit(net.minecraft.client.gui.GuiScreen newScreen, CallbackInfo ci) {
         if (!OpenXRRuntime.isSessionRunning()) return;
 
+        com.gtnhvr.gui.VRGuiProfiler.pushResolutionReason("screen-open");
         Minecraft mc = (Minecraft) (Object) this;
         if (gtnhvr$screenResolutionScopeDepth++ == 0) {
             gtnhvr$savedScreenDisplayWidth = mc.displayWidth;
@@ -38,6 +39,9 @@ public abstract class MixinMinecraft {
 
     @Inject(method = {"displayGuiScreen", "func_147108_a"}, at = @At("RETURN"), require = 0)
     private void gtnhvr$endVirtualGuiScreenInit(net.minecraft.client.gui.GuiScreen newScreen, CallbackInfo ci) {
+        if (OpenXRRuntime.isSessionRunning()) {
+            com.gtnhvr.gui.VRGuiProfiler.popResolutionReason();
+        }
         if (gtnhvr$screenResolutionScopeDepth <= 0) return;
         if (--gtnhvr$screenResolutionScopeDepth != 0) return;
 

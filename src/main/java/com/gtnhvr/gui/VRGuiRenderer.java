@@ -61,6 +61,8 @@ public final class VRGuiRenderer {
     private static int mouseInputScopeDepth = 0;
     private static int mouseInputSavedDisplayWidth = -1;
     private static int mouseInputSavedDisplayHeight = -1;
+    private static long gtnhvr$captureCpuStartNanos;
+    private static int gtnhvr$captureGpuQuery = -1;
 
     // Same fixed GUI target as Visor's VRGuiManagerImpl. The screen canvas must not
     // inherit the desktop aspect ratio or the custom 2388x1668 default, which is not 16:9.
@@ -123,7 +125,12 @@ public final class VRGuiRenderer {
             // screen writes different dimensions while rendering its own content.
             if ((newScreen || targetSizeChanged)
                     && (mc.currentScreen.width != logicalWidth || mc.currentScreen.height != logicalHeight)) {
-                mc.currentScreen.setWorldAndResolution(mc, logicalWidth, logicalHeight);
+                VRGuiProfiler.pushResolutionReason("logical-resolution-change");
+                try {
+                    mc.currentScreen.setWorldAndResolution(mc, logicalWidth, logicalHeight);
+                } finally {
+                    VRGuiProfiler.popResolutionReason();
+                }
             }
             lastLogicalGuiScreen = mc.currentScreen;
             lastLogicalGuiWidth = logicalWidth;
@@ -368,6 +375,7 @@ public final class VRGuiRenderer {
         Minecraft mc = Minecraft.getMinecraft();
         boolean startingCapture = !capturing;
         if (startingCapture) {
+            gtnhvr$captureCpuStartNanos = VRGuiProfiler.startCpu();
             previousFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
             previousMatrixMode = GLStateManager.glGetInteger(GL11.GL_MATRIX_MODE);
             GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
@@ -412,6 +420,9 @@ public final class VRGuiRenderer {
         GLStateManager.glEnable(GL11.GL_BLEND);
         GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
                 GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        if (startingCapture) {
+            gtnhvr$captureGpuQuery = VRGuiProfiler.beginGpuTimer("gui-capture");
+        }
     }
 
     public static void end() {
@@ -429,10 +440,21 @@ public final class VRGuiRenderer {
             mouseInputSavedDisplayHeight = -1;
         }
 
+        if (gtnhvr$captureGpuQuery >= 0) {
+            VRGuiProfiler.endGpuTimer(gtnhvr$captureGpuQuery, "gui-capture");
+            gtnhvr$captureGpuQuery = -1;
+        }
+        VRGuiProfiler.endCpu("gui-capture", gtnhvr$captureCpuStartNanos);
+        gtnhvr$captureCpuStartNanos = 0L;
+
         capturing = false;
         GLStateManager.glColorMask(true, true, true, true);
-        GLStateManager.glFlush();
 
+        // Do not force a GL flush at the end of every GUI capture. GUI rendering and the
+        // later VR screen sampling use the same GL context, so command ordering is already
+        // guaranteed. Angelica deliberately skips its ordinary end-of-frame glFlush because
+        // the presentation path flushes later; forcing one here can submit work early and
+        // add avoidable back-pressure on inventory screens with many item draws.
         Minecraft mc = Minecraft.getMinecraft();
         if (mc != null && savedMinecraftFramebuffer != null) {
             OpenXRRuntime.setMinecraftFramebuffer(mc, savedMinecraftFramebuffer);
