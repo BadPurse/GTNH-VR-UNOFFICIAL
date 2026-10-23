@@ -176,26 +176,6 @@ public final class VRGuiRenderer {
         return Math.round(mouseY * (logicalHeight / (float) savedScaledGuiHeight));
     }
 
-    /**
-     * Raw LWJGL events remain in physical-window pixels. GuiContainer/GuiScreen convert
-     * them using screen.width/height and the real display dimensions. Never mutate
-     * lwjgl3ify's private Mouse state or pre-scale events before vanilla converts them.
-     */
-    public static int mapPhysicalMouseEventXToLogicalCanvas(int eventX) {
-        return eventX;
-    }
-
-    public static int mapPhysicalMouseEventYToLogicalCanvas(int eventY) {
-        return eventY;
-    }
-
-    /** Input scopes are retained as compatibility hooks; the physical window is never spoofed. */
-    public static void beginMouseInputScope() {
-    }
-
-    public static void endMouseInputScope() {
-    }
-
     /** Called once at the start of every render tick; allows exactly one clear per frame. */
     public static void newFrame() {
         frameId++;
