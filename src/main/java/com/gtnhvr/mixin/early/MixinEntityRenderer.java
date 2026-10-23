@@ -100,10 +100,8 @@ public abstract class MixinEntityRenderer {
             VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), mainMenu);
         }
 
-        if (OpenXRRuntime.isSessionRunning() && VRGuiRenderer.isCapturing() && screen != null) {
-            mouseX = VRGuiRenderer.mapMouseXToLogicalScreen(mouseX, screen.width);
-            mouseY = VRGuiRenderer.mapMouseYToLogicalScreen(mouseY, screen.height);
-        }
+        // ScaledResolution already uses the logical VR canvas during the session.
+        // Rescaling these coordinates here would apply the transform twice.
         screen.drawScreen(mouseX, mouseY, partialTicks);
     }
 
