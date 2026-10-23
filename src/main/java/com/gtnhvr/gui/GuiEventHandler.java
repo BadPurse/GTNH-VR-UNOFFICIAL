@@ -16,6 +16,7 @@ import java.util.List;
 public final class GuiEventHandler {
     private static final GuiEventHandler INSTANCE = new GuiEventHandler();
     private static boolean registered;
+    private static boolean vrSessionWasRunning;
 
     public static final int BUTTON_ID_OPTIONS = 99901;
     public static final int BUTTON_ID_INGAME = 99902;
@@ -45,9 +46,24 @@ public final class GuiEventHandler {
     }
 
     @SubscribeEvent
+    public void onClientTick(cpw.mods.fml.common.gameevent.TickEvent.ClientTickEvent event) {
+        if (event.phase != cpw.mods.fml.common.gameevent.TickEvent.Phase.END) return;
+
+        boolean sessionRunning = com.gtnhvr.OpenXRRuntime.isSessionRunning();
+        if (vrSessionWasRunning && !sessionRunning) {
+            // A session can end while a screen remains open. Close any owned render scope and
+            // restore that screen once, using the physical window resolution again.
+            VRGuiRenderer.end();
+            VRHudRenderer.end();
+            VRGuiRenderer.restoreDesktopGuiResolution(Minecraft.getMinecraft());
+        }
+        vrSessionWasRunning = sessionRunning;
+    }
+
+    @SubscribeEvent
     public void onGuiOpen(net.minecraftforge.client.event.GuiOpenEvent event) {
         // The vanilla pause screen can receive multiple InitGui events: once at the actual
-        // window resolution, then again when VRGuiRenderer switches it to the fixed canvas.
+        // window resolution and during session startup; logical sizing is now handled centrally.
         // Keep the exception only while this exact screen remains the requested screen.
         if (bypassVanillaRedirectTarget != null && event.gui != bypassVanillaRedirectTarget) {
             bypassVanillaRedirectTarget = null;
