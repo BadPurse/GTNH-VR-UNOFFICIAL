@@ -1,5 +1,6 @@
 package com.gtnhvr.gui;
 
+import com.gtnhvr.OpenXRRuntime;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -9,20 +10,20 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Avoids rebuilding expensive modded item tooltips on every GUI frame.
+ * Avoids rebuilding expensive modded item tooltips on every VR GUI frame.
  *
- * <p>GTNH items can run a substantial amount of mod integration code while building their
- * tooltip. GuiScreen normally asks for that tooltip again for every frame while the cursor
- * rests over a slot. Entries are invalidated when the stack, damage, count, NBT, player,
- * world or advanced-tooltip option changes and expire after a short interval so dynamic
- * third-party tooltips are refreshed too.</p>
+ * <p>GTNH items can run substantial mod integration code while building a tooltip. Vanilla asks
+ * for that tooltip every frame while the cursor rests over a slot. Entries are keyed by the
+ * tooltip-relevant stack state rather than ItemStack identity/count, so taking, splitting,
+ * moving or merging an otherwise identical stack can reuse the existing tooltip. Damage and
+ * NBT changes invalidate the entry. A small TTL refreshes third-party tooltips that depend on
+ * context not represented by the stack.</p>
  *
- * <p>The cache is deliberately small: the same few slots are normally hovered repeatedly,
- * and it must not become another owner of the entire creative item registry.</p>
+ * <p>The cache is only used in VR; desktop GUI behavior stays unchanged.</p>
  */
 public final class VRGuiTooltipCache {
     private static final int MAX_ENTRIES = 96;
-    private static final long MAX_AGE_NANOS = 1_500_000_000L;
+    private static final long MAX_AGE_NANOS = 30_000_000_000L;
     private static final List<Entry> CACHE = new ArrayList<>();
 
     private VRGuiTooltipCache() {}
@@ -31,6 +32,9 @@ public final class VRGuiTooltipCache {
     public static synchronized List getTooltip(ItemStack stack, EntityPlayer player, boolean advanced) {
         if (stack == null) {
             return Collections.emptyList();
+        }
+        if (!OpenXRRuntime.isSessionRunning()) {
+            return stack.getTooltip(player, advanced);
         }
 
         NBTTagCompound tag = stack.getTagCompound();
@@ -41,28 +45,20 @@ public final class VRGuiTooltipCache {
 
         for (int i = CACHE.size() - 1; i >= 0; i--) {
             Entry entry = CACHE.get(i);
-            if (entry.stack != stack) {
-                continue;
-            }
-
-            if (entry.matches(item, stack.stackSize, stack.getItemDamage(), tag, tagHash,
+            if (entry.matches(item, stack.getItemDamage(), tag, tagHash,
                     player, world, advanced) && now - entry.createdAt < MAX_AGE_NANOS) {
-                // Move to the end to maintain a tiny LRU without allocating a map/key per frame.
                 CACHE.remove(i);
                 CACHE.add(entry);
-                // Callers (notably GuiContainerCreative) may append screen-specific lines.
-                // Return a copy so cached base tooltip data can never accumulate those lines.
+                // GuiScreen may recolor lines; GuiContainerCreative may append a tab label.
+                // A copy prevents those per-screen edits from contaminating cached base data.
                 return new ArrayList(entry.tooltip);
             }
-
-            CACHE.remove(i);
-            break;
         }
 
         List generated = stack.getTooltip(player, advanced);
         List snapshot = generated == null ? Collections.emptyList() : new ArrayList(generated);
-        CACHE.add(new Entry(stack, item, stack.stackSize, stack.getItemDamage(), tag, tagHash,
-                player, world, advanced, now, snapshot));
+        CACHE.add(new Entry(item, stack.getItemDamage(), tag, tagHash, player, world,
+                advanced, now, snapshot));
         if (CACHE.size() > MAX_ENTRIES) {
             CACHE.remove(0);
         }
@@ -70,11 +66,10 @@ public final class VRGuiTooltipCache {
     }
 
     private static final class Entry {
-        private final ItemStack stack;
         private final Object item;
-        private final int stackSize;
         private final int damage;
-        private final NBTTagCompound tag;
+        private final NBTTagCompound tagReference;
+        private final NBTTagCompound tagSnapshot;
         private final int tagHash;
         private final EntityPlayer player;
         private final Object world;
@@ -82,14 +77,13 @@ public final class VRGuiTooltipCache {
         private final long createdAt;
         private final List tooltip;
 
-        private Entry(ItemStack stack, Object item, int stackSize, int damage,
-                      NBTTagCompound tag, int tagHash, EntityPlayer player, Object world,
-                      boolean advanced, long createdAt, List tooltip) {
-            this.stack = stack;
+        private Entry(Object item, int damage, NBTTagCompound tag, int tagHash,
+                      EntityPlayer player, Object world, boolean advanced,
+                      long createdAt, List tooltip) {
             this.item = item;
-            this.stackSize = stackSize;
             this.damage = damage;
-            this.tag = tag;
+            this.tagReference = tag;
+            this.tagSnapshot = tag == null ? null : (NBTTagCompound) tag.copy();
             this.tagHash = tagHash;
             this.player = player;
             this.world = world;
@@ -98,15 +92,17 @@ public final class VRGuiTooltipCache {
             this.tooltip = tooltip;
         }
 
-        private boolean matches(Object candidateItem, int candidateSize, int candidateDamage,
+        private boolean matches(Object candidateItem, int candidateDamage,
                                 NBTTagCompound candidateTag, int candidateTagHash,
                                 EntityPlayer candidatePlayer, Object candidateWorld,
                                 boolean candidateAdvanced) {
+            boolean sameTag = tagReference == candidateTag
+                    || (tagReference == null && candidateTag == null)
+                    || (candidateTag != null && tagSnapshot != null && candidateTag.equals(tagSnapshot));
             return item == candidateItem
-                    && stackSize == candidateSize
                     && damage == candidateDamage
-                    && tag == candidateTag
                     && tagHash == candidateTagHash
+                    && sameTag
                     && player == candidatePlayer
                     && world == candidateWorld
                     && advanced == candidateAdvanced;
