@@ -22,7 +22,7 @@ public abstract class MixinMinecraft {
     @ModifyArgs(method = {"displayGuiScreen", "func_147108_a"},
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/client/gui/GuiScreen;setWorldAndResolution(Lnet/minecraft/client/Minecraft;II)V"),
-            require = 0)
+            require = 1)
     private void gtnhvr$useVirtualGuiDimensions(Args args) {
         if (!OpenXRRuntime.isSessionRunning()) return;
         args.set(1, com.gtnhvr.gui.VRGuiRenderer.getLogicalGuiWidth());
