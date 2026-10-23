@@ -1685,13 +1685,15 @@ public final class VRControllerHandler {
      * provide distinct aim/grip orientations.
      */
     public float getControllerGunAngle(boolean isRight) {
-        boolean tracked = isRight
-                ? rightHandTracked && rightGripHandOrientationTracked
-                : leftHandTracked && leftGripHandOrientationTracked;
-        if (!tracked) return 60.0F;
+        if (!(isRight ? rightHandTracked : leftHandTracked)
+                || !isLogicalGripHandOrientationTracked(isRight)) {
+            return 60.0F;
+        }
 
+        // Aim poses have already been swapped into logical-hand order by applyHandedness().
+        // Grip poses stay physical, so select the matching physical controller explicitly.
         Quaternionf aimRotation = isRight ? rightHandRot : leftHandRot;
-        Quaternionf gripRotation = isRight ? rightGripHandRot : leftGripHandRot;
+        Quaternionf gripRotation = getLogicalGripHandRot(isRight);
         Quaternionf aimToGrip = new Quaternionf(aimRotation).conjugate().mul(gripRotation).normalize();
 
         float angle = 2.0F * (float) Math.acos(Math.min(1.0F, Math.abs(aimToGrip.w)));
@@ -1729,6 +1731,32 @@ public final class VRControllerHandler {
     /** Physical (not handedness-swapped) left controller grip position. */
     public Vector3f getLeftGripHandPos() {
         return leftGripHandPos;
+    }
+
+    /**
+     * Grip-pose accessors in the same logical-hand order as getRightHandPos()/getLeftHandPos().
+     * OpenXR aim poses are swapped by applyHandedness(); raw grip poses deliberately are not,
+     * because other features need the physical controller locations.
+     */
+    private boolean isPhysicalRightForLogicalHand(boolean logicalRight) {
+        return logicalRight != VRClientSettings.leftHanded;
+    }
+
+    public boolean isLogicalGripHandTracked(boolean logicalRight) {
+        return isPhysicalRightForLogicalHand(logicalRight) ? rightGripHandTracked : leftGripHandTracked;
+    }
+
+    public boolean isLogicalGripHandOrientationTracked(boolean logicalRight) {
+        return isPhysicalRightForLogicalHand(logicalRight)
+                ? rightGripHandOrientationTracked : leftGripHandOrientationTracked;
+    }
+
+    public Vector3f getLogicalGripHandPos(boolean logicalRight) {
+        return isPhysicalRightForLogicalHand(logicalRight) ? rightGripHandPos : leftGripHandPos;
+    }
+
+    public Quaternionf getLogicalGripHandRot(boolean logicalRight) {
+        return isPhysicalRightForLogicalHand(logicalRight) ? rightGripHandRot : leftGripHandRot;
     }
 
     public float getRightTriggerValue() { return VRClientSettings.controllerRightTriggerKeyCode > 0 ? 0.0F : rightTriggerValue; }
