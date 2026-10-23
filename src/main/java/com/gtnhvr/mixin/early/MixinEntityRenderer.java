@@ -10,7 +10,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.FloatBuffer;
@@ -78,31 +77,6 @@ public abstract class MixinEntityRenderer {
 
         // Run authentic dual-pass stereoscopic world render for Left and Right eyes
         OpenXRRuntime.renderVRStereoWorld((EntityRenderer) (Object) this, partialTicks, finishTimeNano);
-    }
-
-    /**
-     * Interpose on the actual screen draw so capture setup and mouse-coordinate conversion
-     * happen in a single ordered path, independent of the desktop window dimensions.
-     */
-    @Redirect(method = {"updateCameraAndRender", "func_78480_b"},
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;drawScreen(IIF)V"),
-            require = 0)
-    private void gtnhvr$drawVirtualGuiScreen(net.minecraft.client.gui.GuiScreen screen,
-                                               int mouseX, int mouseY, float partialTicks) {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (!OpenXRRuntime.isSessionRunning()) {
-            VRGuiRenderer.restoreDesktopGuiResolution(mc);
-        }
-        if (OpenXRRuntime.isSessionRunning() && mc != null && mc.currentScreen == screen
-                && !VRGuiRenderer.isCapturing()) {
-            // This catches GTNH's CustomMainMenu too; its implementation need not extend GuiMainMenu.
-            boolean mainMenu = mc.theWorld == null;
-            VRGuiRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight(), mainMenu);
-        }
-
-        // ScaledResolution already uses the logical VR canvas during the session.
-        // Rescaling these coordinates here would apply the transform twice.
-        screen.drawScreen(mouseX, mouseY, partialTicks);
     }
 
     // Keep the capture open until updateCameraAndRender TAIL: NEI and other Forge GUI listeners
