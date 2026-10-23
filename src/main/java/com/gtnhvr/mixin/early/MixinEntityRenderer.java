@@ -90,6 +90,9 @@ public abstract class MixinEntityRenderer {
     private void gtnhvr$drawVirtualGuiScreen(net.minecraft.client.gui.GuiScreen screen,
                                                int mouseX, int mouseY, float partialTicks) {
         Minecraft mc = Minecraft.getMinecraft();
+        if (!OpenXRRuntime.isSessionRunning()) {
+            VRGuiRenderer.restoreDesktopGuiResolution(mc);
+        }
         if (OpenXRRuntime.isSessionRunning() && mc != null && mc.currentScreen == screen
                 && !VRGuiRenderer.isCapturing()) {
             // This catches GTNH's CustomMainMenu too; its implementation need not extend GuiMainMenu.

@@ -21,16 +21,6 @@ public abstract class MixinGuiScreen {
         com.gtnhvr.gui.VRVirtualKeyboard.getInstance().onGuiOpen((GuiScreen) (Object) this);
     }
 
-    @Inject(method = {"handleMouseInput", "func_146274_d"}, at = @At("HEAD"))
-    private void gtnhvr$beginPhysicalMouseInput(CallbackInfo ci) {
-        com.gtnhvr.gui.VRGuiRenderer.beginMouseInputScope();
-    }
-
-    @Inject(method = {"handleMouseInput", "func_146274_d"}, at = @At("RETURN"))
-    private void gtnhvr$endPhysicalMouseInput(CallbackInfo ci) {
-        com.gtnhvr.gui.VRGuiRenderer.endMouseInputScope();
-    }
-
     @Inject(method = {"drawWorldBackground", "func_146270_b"}, at = @At("HEAD"), cancellable = true)
     private void gtnhvr$cancelWorldBackground(int tint, CallbackInfo ci) {
         Minecraft mc = Minecraft.getMinecraft();

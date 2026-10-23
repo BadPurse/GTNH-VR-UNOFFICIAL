@@ -49,19 +49,6 @@ public final class VRGuiRenderer {
     private static int lastLogicalGuiWidth = -1;
     private static int lastLogicalGuiHeight = -1;
 
-    // Some modded tooltip renderers read raw Mouse coordinates rather than drawScreen arguments.
-    // Keep those pixels in the same virtual coordinate space as the active GUI canvas.
-    private static java.lang.reflect.Field[] mouseCoordinateFields;
-    private static int[] savedMouseCoordinates;
-    private static boolean mouseCoordinatesAdjusted = false;
-
-    // Some mod GUIs (notably scrollable option screens) consume Mouse.next() from inside
-    // drawScreen(). Their event coordinates are window pixels, so input handling must see
-    // the original window dimensions even while the surrounding GUI is rendered to 1920x1080.
-    private static int mouseInputScopeDepth = 0;
-    private static int mouseInputSavedDisplayWidth = -1;
-    private static int mouseInputSavedDisplayHeight = -1;
-
     // Same fixed GUI target as Visor's VRGuiManagerImpl. The screen canvas must not
     // inherit the desktop aspect ratio or the custom 2388x1668 default, which is not 16:9.
     private static final int VR_GUI_WIDTH = 1920;
@@ -80,9 +67,8 @@ public final class VRGuiRenderer {
     }
 
     /**
-     * Physical window dimensions for synthesizing controller mouse events. During GUI capture,
-     * Minecraft.displayWidth/Height temporarily contain the virtual canvas size; using those
-     * values here and then mapping the queued Mouse event would scale the pointer twice.
+     * Physical window dimensions used by controller mouse events. These remain the real
+     * lwjgl3ify window dimensions for the entire capture lifetime.
      */
     public static int getPhysicalWindowWidth() {
         if (savedDisplayWidth > 0) return savedDisplayWidth;
@@ -94,6 +80,19 @@ public final class VRGuiRenderer {
         if (savedDisplayHeight > 0) return savedDisplayHeight;
         Minecraft mc = Minecraft.getMinecraft();
         return mc != null && mc.displayHeight > 0 ? mc.displayHeight : VR_GUI_HEIGHT;
+    }
+
+    /** Logical scaled dimensions for Minecraft 1.7.10 screens, matching Visor's fixed GUI canvas. */
+    public static int getLogicalGuiWidth() {
+        Minecraft mc = Minecraft.getMinecraft();
+        return mc == null ? VR_GUI_WIDTH
+                : new net.minecraft.client.gui.ScaledResolution(mc, VR_GUI_WIDTH, VR_GUI_HEIGHT).getScaledWidth();
+    }
+
+    public static int getLogicalGuiHeight() {
+        Minecraft mc = Minecraft.getMinecraft();
+        return mc == null ? VR_GUI_HEIGHT
+                : new net.minecraft.client.gui.ScaledResolution(mc, VR_GUI_WIDTH, VR_GUI_HEIGHT).getScaledHeight();
     }
 
     private static void useLogicalGuiResolution(Minecraft mc) {
@@ -108,8 +107,6 @@ public final class VRGuiRenderer {
             savedScaledGuiWidth = sourceScaled.getScaledWidth();
             savedScaledGuiHeight = sourceScaled.getScaledHeight();
         }
-        mc.displayWidth = width;
-        mc.displayHeight = height;
         if (mc.currentScreen != null) {
             net.minecraft.client.gui.ScaledResolution scaled =
                     new net.minecraft.client.gui.ScaledResolution(mc, width, height);
@@ -119,15 +116,10 @@ public final class VRGuiRenderer {
             boolean targetSizeChanged = logicalWidth != lastLogicalGuiWidth
                     || logicalHeight != lastLogicalGuiHeight;
 
-            // Container screens (including AE2/GTNH machine GUIs) are initialized by
-            // Minecraft.displayGuiScreen while MixinMinecraft scopes the logical VR canvas.
-            // Re-running setWorldAndResolution here, from inside drawScreen(), can rebuild an
-            // entire AE2 screen during rendering: it flashes a loading/world frame and can
-            // collapse FPS while the container is open. Preserve the live screen instance and
-            // its widget/layout state during capture; the physical window dimensions are already
-            // restored by end() and raw input is mapped separately.
-            if (!(mc.currentScreen instanceof net.minecraft.client.gui.inventory.GuiContainer)
-                    && (newScreen || targetSizeChanged)
+            // Initialize each screen once on the logical canvas. Unlike the previous
+            // implementation, do not spoof Minecraft.displayWidth/Height: input events,
+            // Angelica and third-party renderers continue to see the actual window size.
+            if ((newScreen || targetSizeChanged)
                     && (mc.currentScreen.width != logicalWidth || mc.currentScreen.height != logicalHeight)) {
                 mc.currentScreen.setWorldAndResolution(mc, logicalWidth, logicalHeight);
             }
@@ -139,6 +131,33 @@ public final class VRGuiRenderer {
             lastLogicalGuiWidth = -1;
             lastLogicalGuiHeight = -1;
         }
+    }
+
+    /**
+     * If VR was stopped while a screen was open, return that screen to the real desktop
+     * dimensions before its next desktop draw. Visor's logical GUI size must never leak into
+     * a non-VR launch/session.
+     */
+    public static void restoreDesktopGuiResolution(Minecraft mc) {
+        if (mc == null || mc.currentScreen == null) {
+            lastLogicalGuiScreen = null;
+            lastLogicalGuiWidth = -1;
+            lastLogicalGuiHeight = -1;
+            return;
+        }
+
+        if (lastLogicalGuiScreen == mc.currentScreen) {
+            net.minecraft.client.gui.ScaledResolution physical =
+                    new net.minecraft.client.gui.ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+            int physicalWidth = physical.getScaledWidth();
+            int physicalHeight = physical.getScaledHeight();
+            if (mc.currentScreen.width != physicalWidth || mc.currentScreen.height != physicalHeight) {
+                mc.currentScreen.setWorldAndResolution(mc, physicalWidth, physicalHeight);
+            }
+        }
+        lastLogicalGuiScreen = null;
+        lastLogicalGuiWidth = -1;
+        lastLogicalGuiHeight = -1;
     }
 
     private static void setupLogicalGuiProjection(Minecraft mc) {
@@ -157,10 +176,6 @@ public final class VRGuiRenderer {
     }
 
     private static void restoreWindowResolution(Minecraft mc) {
-        if (mc != null && savedDisplayWidth >= 0 && savedDisplayHeight >= 0) {
-            mc.displayWidth = savedDisplayWidth;
-            mc.displayHeight = savedDisplayHeight;
-        }
         savedDisplayWidth = -1;
         savedDisplayHeight = -1;
         savedScaledGuiWidth = -1;
@@ -168,7 +183,7 @@ public final class VRGuiRenderer {
         logicalGuiResolutionActive = false;
     }
 
-    /** Used by the separate HUD capture to share the same scoped Display dimensions. */
+    /** Used by the separate HUD capture to indicate the active logical GUI pass. */
     public static void setLogicalGuiResolutionActive(boolean active) {
         logicalGuiResolutionActive = active;
     }
@@ -186,132 +201,6 @@ public final class VRGuiRenderer {
     public static int mapMouseYToLogicalScreen(int mouseY, int logicalHeight) {
         if (!capturing || savedScaledGuiHeight <= 0 || logicalHeight <= 0) return mouseY;
         return Math.round(mouseY * (logicalHeight / (float) savedScaledGuiHeight));
-    }
-
-    /**
-     * Convert raw LWJGL event pixels to the virtual GUI pixel canvas. Some third-party
-     * containers/options screens poll Mouse.next() directly and bypass our scoped
-     * GuiScreen.handleMouseInput wrapper, so their getEventX/getEventY values must be
-     * expressed in the same pixel space as Minecraft.displayWidth/displayHeight.
-     */
-    public static int mapPhysicalMouseEventXToLogicalCanvas(int eventX) {
-        if (!capturing || !logicalGuiResolutionActive || mouseInputScopeDepth > 0
-                || savedDisplayWidth <= 0 || width <= 0) return eventX;
-        return Math.round(eventX * (width / (float) savedDisplayWidth));
-    }
-
-    public static int mapPhysicalMouseEventYToLogicalCanvas(int eventY) {
-        if (!capturing || !logicalGuiResolutionActive || mouseInputScopeDepth > 0
-                || savedDisplayHeight <= 0 || height <= 0) return eventY;
-        return Math.round(eventY * (height / (float) savedDisplayHeight));
-    }
-
-    private static void adjustMouseCoordinatesForVirtualCanvas() {
-        if (mouseCoordinatesAdjusted || savedDisplayWidth <= 0 || savedDisplayHeight <= 0
-                || width <= 0 || height <= 0) {
-            return;
-        }
-
-        try {
-            if (mouseCoordinateFields == null) {
-                Class<?> mouseClass = Class.forName("org.lwjglx.input.Mouse");
-                String[] names = {"x", "y", "latestX", "latestY", "lastEventX", "lastEventY"};
-                java.lang.reflect.Field[] fields = new java.lang.reflect.Field[names.length];
-                for (int i = 0; i < names.length; i++) {
-                    try {
-                        fields[i] = mouseClass.getDeclaredField(names[i]);
-                        fields[i].setAccessible(true);
-                    } catch (NoSuchFieldException ignored) {
-                        // lastEventX/Y are optional in some lwjgl3ify versions.
-                    }
-                }
-                if (fields[0] == null || fields[1] == null) return;
-                mouseCoordinateFields = fields;
-            }
-
-            int[] saved = new int[mouseCoordinateFields.length];
-            for (int i = 0; i < mouseCoordinateFields.length; i++) {
-                java.lang.reflect.Field field = mouseCoordinateFields[i];
-                if (field != null) saved[i] = field.getInt(null);
-            }
-
-            // Mark the snapshot before mutating fields so a partial reflection failure can roll back.
-            savedMouseCoordinates = saved;
-            mouseCoordinatesAdjusted = true;
-
-            float scaleX = width / (float) savedDisplayWidth;
-            float scaleY = height / (float) savedDisplayHeight;
-            for (int i = 0; i < mouseCoordinateFields.length; i++) {
-                java.lang.reflect.Field field = mouseCoordinateFields[i];
-                if (field != null) {
-                    field.setInt(null, Math.round(saved[i] * ((i % 2 == 0) ? scaleX : scaleY)));
-                }
-            }
-        } catch (Throwable ignored) {
-            restoreMouseCoordinates();
-        }
-    }
-
-    private static void restoreMouseCoordinates() {
-        if (!mouseCoordinatesAdjusted || mouseCoordinateFields == null || savedMouseCoordinates == null) {
-            return;
-        }
-        try {
-            for (int i = 0; i < mouseCoordinateFields.length; i++) {
-                java.lang.reflect.Field field = mouseCoordinateFields[i];
-                if (field != null) field.setInt(null, savedMouseCoordinates[i]);
-            }
-        } catch (Throwable ignored) {
-        } finally {
-            mouseCoordinatesAdjusted = false;
-            savedMouseCoordinates = null;
-        }
-    }
-
-    /**
-     * Temporarily restore the physical window coordinate space while a screen consumes
-     * queued mouse events from inside rendering. This is needed by custom GUIs that call
-     * handleMouseInput() during drawScreen(), rather than during Minecraft's normal tick.
-     */
-    public static void beginMouseInputScope() {
-        if (!capturing || savedDisplayWidth <= 0 || savedDisplayHeight <= 0) return;
-        if (mouseInputScopeDepth++ > 0) return;
-
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null) {
-            mouseInputScopeDepth = 0;
-            return;
-        }
-
-        mouseInputSavedDisplayWidth = mc.displayWidth;
-        mouseInputSavedDisplayHeight = mc.displayHeight;
-
-        // Restore the raw cursor fields too. Queued Mouse events are still stored in physical
-        // window pixels; leaving only the current x/y fields scaled would mix coordinate spaces.
-        restoreMouseCoordinates();
-        mc.displayWidth = savedDisplayWidth;
-        mc.displayHeight = savedDisplayHeight;
-        logicalGuiResolutionActive = false;
-    }
-
-    public static void endMouseInputScope() {
-        if (mouseInputScopeDepth <= 0) return;
-        if (--mouseInputScopeDepth > 0) return;
-
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc != null && mouseInputSavedDisplayWidth > 0 && mouseInputSavedDisplayHeight > 0) {
-            mc.displayWidth = mouseInputSavedDisplayWidth;
-            mc.displayHeight = mouseInputSavedDisplayHeight;
-        }
-        mouseInputSavedDisplayWidth = -1;
-        mouseInputSavedDisplayHeight = -1;
-
-        if (capturing) {
-            logicalGuiResolutionActive = true;
-            // Re-enter the logical render coordinate space and preserve the physical values
-            // for VRGuiRenderer.end(), which restores them after this screen is drawn.
-            adjustMouseCoordinatesForVirtualCanvas();
-        }
     }
 
     /** Called once at the start of every render tick; allows exactly one clear per frame. */
@@ -388,7 +277,6 @@ public final class VRGuiRenderer {
                 savedMinecraftFramebuffer = OpenXRRuntime.getMinecraftFramebuffer(mc);
                 OpenXRRuntime.setMinecraftFramebuffer(mc, guiFramebuffer);
                 useLogicalGuiResolution(mc);
-                adjustMouseCoordinatesForVirtualCanvas();
                 setupLogicalGuiProjection(mc);
             }
         }
@@ -423,18 +311,6 @@ public final class VRGuiRenderer {
     public static void end() {
         if (!capturing) return;
 
-        // Defensive recovery if a third-party screen threw while processing a nested input loop.
-        if (mouseInputScopeDepth > 0) {
-            mouseInputScopeDepth = 0;
-            Minecraft scopeMc = Minecraft.getMinecraft();
-            if (scopeMc != null && mouseInputSavedDisplayWidth > 0 && mouseInputSavedDisplayHeight > 0) {
-                scopeMc.displayWidth = mouseInputSavedDisplayWidth;
-                scopeMc.displayHeight = mouseInputSavedDisplayHeight;
-            }
-            mouseInputSavedDisplayWidth = -1;
-            mouseInputSavedDisplayHeight = -1;
-        }
-
         capturing = false;
         GLStateManager.glColorMask(true, true, true, true);
         GLStateManager.glFlush();
@@ -444,7 +320,6 @@ public final class VRGuiRenderer {
             OpenXRRuntime.setMinecraftFramebuffer(mc, savedMinecraftFramebuffer);
             savedMinecraftFramebuffer = null;
         }
-        restoreMouseCoordinates();
         restoreWindowResolution(mc);
 
         if (captureGlStatePushed) {
