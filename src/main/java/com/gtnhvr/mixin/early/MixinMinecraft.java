@@ -12,44 +12,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Minecraft.class)
 public abstract class MixinMinecraft {
 
-    // Keep GUI initialization on the same logical 1920x1080 canvas used for VR capture.
-    // Without this scope, the first captured frame calls setWorldAndResolution() from inside
-    // drawScreen(), re-running complex AE2/NEI init code during rendering.
-    private static int gtnhvr$screenResolutionScopeDepth = 0;
-    private static int gtnhvr$savedScreenDisplayWidth = -1;
-    private static int gtnhvr$savedScreenDisplayHeight = -1;
-
-    @Inject(method = {"displayGuiScreen", "func_147108_a"}, at = @At("HEAD"), require = 0)
-    private void gtnhvr$beginVirtualGuiScreenInit(net.minecraft.client.gui.GuiScreen newScreen, CallbackInfo ci) {
-        if (!OpenXRRuntime.isSessionRunning()) return;
-
-        Minecraft mc = (Minecraft) (Object) this;
-        if (gtnhvr$screenResolutionScopeDepth++ == 0) {
-            gtnhvr$savedScreenDisplayWidth = mc.displayWidth;
-            gtnhvr$savedScreenDisplayHeight = mc.displayHeight;
-        }
-
-        // Nested screen changes also need the virtual dimensions while the new screen initializes.
-        if (newScreen != null) {
-            mc.displayWidth = com.gtnhvr.gui.VRGuiRenderer.getCaptureWidth();
-            mc.displayHeight = com.gtnhvr.gui.VRGuiRenderer.getCaptureHeight();
-        }
-    }
-
-    @Inject(method = {"displayGuiScreen", "func_147108_a"}, at = @At("RETURN"), require = 0)
-    private void gtnhvr$endVirtualGuiScreenInit(net.minecraft.client.gui.GuiScreen newScreen, CallbackInfo ci) {
-        if (gtnhvr$screenResolutionScopeDepth <= 0) return;
-        if (--gtnhvr$screenResolutionScopeDepth != 0) return;
-
-        Minecraft mc = (Minecraft) (Object) this;
-        if (gtnhvr$savedScreenDisplayWidth > 0 && gtnhvr$savedScreenDisplayHeight > 0) {
-            mc.displayWidth = gtnhvr$savedScreenDisplayWidth;
-            mc.displayHeight = gtnhvr$savedScreenDisplayHeight;
-        }
-        gtnhvr$savedScreenDisplayWidth = -1;
-        gtnhvr$savedScreenDisplayHeight = -1;
-    }
-
     @Inject(method = {"setIngameFocus", "func_71381_h"}, at = @At("HEAD"), require = 0)
     private void gtnhvr$onSetIngameFocus(CallbackInfo ci) {
         if (OpenXRRuntime.isSessionRunning()) {
@@ -116,23 +78,6 @@ public abstract class MixinMinecraft {
     private void gtnhvr$noDisplaySyncInVR(CallbackInfoReturnable<Boolean> cir) {
         if (OpenXRRuntime.isSessionRunning()) {
             cir.setReturnValue(false);
-        }
-    }
-
-    @Inject(method = {"displayGuiScreen", "func_147108_a"}, at = @At("HEAD"))
-    private void gtnhvr$onDisplayGuiScreen(net.minecraft.client.gui.GuiScreen newScreen, CallbackInfo ci) {
-        if (!OpenXRRuntime.isSessionRunning()) return;
-        if (!com.gtnhvr.settings.VRClientSettings.keyboardAutoLayout) return;
-
-        if (newScreen == null) {
-            com.gtnhvr.gui.VRVirtualKeyboard.getInstance().hideAutoKeyboard();
-        } else if (newScreen instanceof net.minecraft.client.gui.GuiChat
-                || newScreen instanceof net.minecraft.client.gui.inventory.GuiEditSign
-                || newScreen instanceof net.minecraft.client.gui.GuiScreenBook
-                || newScreen instanceof net.minecraft.client.gui.GuiRepair) {
-            com.gtnhvr.gui.VRVirtualKeyboard.getInstance().showAutoKeyboard(newScreen);
-        } else {
-            com.gtnhvr.gui.VRVirtualKeyboard.getInstance().hideAutoKeyboard();
         }
     }
 
