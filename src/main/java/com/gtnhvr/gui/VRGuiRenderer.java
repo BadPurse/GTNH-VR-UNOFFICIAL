@@ -250,11 +250,6 @@ public final class VRGuiRenderer {
         return capturing;
     }
 
-    /** True while the shared pipeline owns a virtual 2D target. */
-    public static boolean isLogicalGuiResolutionActive() {
-        return logicalGuiResolutionActive;
-    }
-
     public static void destroy() {
         if (capturing) end();
         VRGuiRenderPipeline.destroyTarget(VRGuiRenderPipeline.Pass.SCREEN);
