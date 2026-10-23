@@ -28,19 +28,9 @@ public final class VRGuiRenderer {
     private static int height = 0;
     private static boolean capturing = false;
     private static boolean logicalGuiResolutionActive = false;
-    private static boolean captureGlStatePushed = false;
-    private static int previousMatrixMode = GL11.GL_MODELVIEW;
-    private static int previousFbo = 0;
     private static long frameId = 0L;
-    private static long clearedFrameId = -1L;
-    private static boolean clearedAsMenu = false;
 
     private static VRGuiFramebuffer guiFramebuffer = null;
-    private static Framebuffer savedMinecraftFramebuffer = null;
-    private static int savedDisplayWidth = -1;
-    private static int savedDisplayHeight = -1;
-    private static int savedScaledGuiWidth = -1;
-    private static int savedScaledGuiHeight = -1;
 
     // Remember the last screen initialized for the logical canvas. Some third-party screens
     // mutate their width/height during draw; re-running initGui every capture frame causes
@@ -224,8 +214,6 @@ public final class VRGuiRenderer {
             GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, restoreFbo == oldFbo ? 0 : restoreFbo);
             GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, restoreRenderbuffer == oldDepthRb ? 0 : restoreRenderbuffer);
             GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, restoreTexture == oldTexture ? 0 : restoreTexture);
-            clearedFrameId = -1L;
-            clearedAsMenu = false;
         }
         if (guiFramebuffer == null) guiFramebuffer = new VRGuiFramebuffer(width, height);
         guiFramebuffer.update(fbo, texture, depthRb, width, height);
@@ -246,8 +234,6 @@ public final class VRGuiRenderer {
         if (!began) return;
 
         capturing = true;
-        clearedFrameId = frameId;
-        clearedAsMenu = inMainMenu;
     }
 
     public static void end() {
@@ -256,8 +242,6 @@ public final class VRGuiRenderer {
             VRGuiRenderPipeline.end(VRGuiRenderPipeline.Pass.SCREEN);
         } finally {
             capturing = false;
-            previousFbo = 0;
-            captureGlStatePushed = false;
         }
     }
 
@@ -302,11 +286,9 @@ public final class VRGuiRenderer {
         width = 0;
         height = 0;
         capturing = false;
-        previousFbo = 0;
-        captureGlStatePushed = false;
         Minecraft mc = Minecraft.getMinecraft();
-        lastLogicalGuiScreen = null;
-        lastLogicalGuiWidth = -1;
-        lastLogicalGuiHeight = -1;
+        if (!OpenXRRuntime.isSessionRunning()) {
+            restoreDesktopGuiResolution(mc);
+        }
     }
 }
