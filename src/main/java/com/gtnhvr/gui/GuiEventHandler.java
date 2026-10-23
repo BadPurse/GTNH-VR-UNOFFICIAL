@@ -59,6 +59,10 @@ public final class GuiEventHandler {
         } else if (vrSessionWasRunning && !sessionRunning) {
             // A session can end while a screen remains open. Close any owned render scope and
             // restore that screen once, using the physical window resolution again.
+            // Recover even if an earlier render callback threw before its facade could close.
+            com.gtnhvr.gui.VRGuiRenderPipeline.Pass activePass =
+                    com.gtnhvr.gui.VRGuiRenderPipeline.getActivePass();
+            if (activePass != null) com.gtnhvr.gui.VRGuiRenderPipeline.end(activePass);
             VRGuiRenderer.end();
             VRHudRenderer.end();
             VRGuiRenderer.restoreDesktopGuiResolution(Minecraft.getMinecraft());

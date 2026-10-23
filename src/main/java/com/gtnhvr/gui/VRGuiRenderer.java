@@ -87,12 +87,20 @@ public final class VRGuiRenderer {
     public static void noteLogicalGuiScreen(net.minecraft.client.gui.GuiScreen screen) {
         if (!OpenXRRuntime.isSessionRunning()) return;
 
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null) return;
         if (screen == null) {
-            lastLogicalGuiScreen = null;
-            lastLogicalGuiWidth = -1;
-            lastLogicalGuiHeight = -1;
+            if (mc.currentScreen == null) {
+                lastLogicalGuiScreen = null;
+                lastLogicalGuiWidth = -1;
+                lastLogicalGuiHeight = -1;
+            }
             return;
         }
+
+        // Offscreen or replaced screens may finish initGui after a nested GuiOpen event. Only the
+        // currently active screen is allowed to replace this lifecycle marker.
+        if (mc.currentScreen != screen) return;
 
         int expectedWidth = getLogicalGuiWidth();
         int expectedHeight = getLogicalGuiHeight();

@@ -15,6 +15,7 @@ import org.lwjgl.opengl.GL30;
 @Lwjgl3Aware
 public class VRGuiFramebuffer extends Framebuffer implements IRenderTargetExt {
     private int colorVersion = 1;
+    private int depthVersion = 1;
 
     public VRGuiFramebuffer(int width, int height) {
         super(width, height, true);
@@ -25,9 +26,10 @@ public class VRGuiFramebuffer extends Framebuffer implements IRenderTargetExt {
     }
 
     public void update(int fboId, int textureId, int depthRbId, int w, int h) {
-        if (this.framebufferTexture != textureId) {
-            this.colorVersion++;
-        }
+        // update() is called only when the shared render-target manager allocates/reallocates
+        // storage, not every frame. Increment versions even if the driver reuses the same GL ID.
+        this.colorVersion++;
+        this.depthVersion++;
         this.framebufferObject = fboId;
         this.framebufferTexture = textureId;
         this.depthBuffer = depthRbId;
@@ -39,7 +41,7 @@ public class VRGuiFramebuffer extends Framebuffer implements IRenderTargetExt {
 
     @Override
     public int iris$getDepthBufferVersion() {
-        return 1;
+        return depthVersion;
     }
 
     @Override
