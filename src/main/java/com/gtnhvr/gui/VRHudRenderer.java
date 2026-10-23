@@ -89,91 +89,26 @@ public final class VRHudRenderer {
         hudFramebuffer.update(fbo, texture, depthRb, width, height);
     }
 
-    /** Capture the HUD on the same logical canvas as GUI screens with its own scoped render state. */
+    /** Capture the HUD into its target through the same scoped pipeline as screen GUIs. */
     public static void begin(int w, int h) {
-        if (capturing) return;
+        if (capturing || !OpenXRRuntime.isSessionRunning()) return;
         checkSize(w, h);
-
         Minecraft mc = Minecraft.getMinecraft();
-        previousFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-        previousMatrixMode = GLStateManager.glGetInteger(GL11.GL_MATRIX_MODE);
-        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        glStatePushed = true;
+        if (mc == null || hudFramebuffer == null) return;
 
-        GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
-        GLStateManager.glPushMatrix();
-        GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
-        GLStateManager.glPushMatrix();
-
-        if (mc != null) {
-            savedMinecraftFramebuffer = OpenXRRuntime.getMinecraftFramebuffer(mc);
-            if (hudFramebuffer != null) {
-                OpenXRRuntime.setMinecraftFramebuffer(mc, hudFramebuffer);
-            }
-            savedDisplayWidth = mc.displayWidth;
-            savedDisplayHeight = mc.displayHeight;
-            previousLogicalResolutionActive = VRGuiRenderer.isLogicalGuiResolutionActive();
-            mc.displayWidth = width;
-            mc.displayHeight = height;
-            VRGuiRenderer.setLogicalGuiResolutionActive(true);
-
-            net.minecraft.client.gui.ScaledResolution scaled =
-                    new net.minecraft.client.gui.ScaledResolution(mc, width, height);
-            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
-            GLStateManager.glLoadIdentity();
-            GLStateManager.glOrtho(
-                    0.0D, scaled.getScaledWidth_double(),
-                    scaled.getScaledHeight_double(), 0.0D,
-                    1000.0D, 3000.0D);
-            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
-            GLStateManager.glLoadIdentity();
-            GLStateManager.glTranslatef(0.0F, 0.0F, -2000.0F);
-        }
-
+        boolean began = VRGuiRenderPipeline.begin(VRGuiRenderPipeline.Pass.HUD,
+                fbo, width, height, false, hudFramebuffer);
+        if (!began) return;
         capturing = true;
-        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GLStateManager.glViewport(0, 0, width, height);
-        GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
-        GLStateManager.glDepthMask(true);
-        GLStateManager.glColorMask(true, true, true, true);
-        GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
-        GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-        GLStateManager.glEnable(GL11.GL_BLEND);
-        GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
-                GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     public static void end() {
         if (!capturing) return;
-        capturing = false;
-        GLStateManager.glFlush();
-
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc != null && savedMinecraftFramebuffer != null) {
-            OpenXRRuntime.setMinecraftFramebuffer(mc, savedMinecraftFramebuffer);
+        try {
+            VRGuiRenderPipeline.end(VRGuiRenderPipeline.Pass.HUD);
+        } finally {
+            capturing = false;
         }
-        savedMinecraftFramebuffer = null;
-        if (mc != null && savedDisplayWidth >= 0 && savedDisplayHeight >= 0) {
-            mc.displayWidth = savedDisplayWidth;
-            mc.displayHeight = savedDisplayHeight;
-        }
-        savedDisplayWidth = -1;
-        savedDisplayHeight = -1;
-        VRGuiRenderer.setLogicalGuiResolutionActive(previousLogicalResolutionActive);
-        previousLogicalResolutionActive = false;
-
-        if (glStatePushed) {
-            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
-            GLStateManager.glPopMatrix();
-            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
-            GLStateManager.glPopMatrix();
-            GLStateManager.glMatrixMode(previousMatrixMode);
-            GLStateManager.glPopAttrib();
-            glStatePushed = false;
-        }
-
-        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
-        previousFbo = 0;
     }
 
     private static final Vector3f currentHudPos = new Vector3f();
