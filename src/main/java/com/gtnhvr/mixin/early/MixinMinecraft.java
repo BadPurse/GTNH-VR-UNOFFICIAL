@@ -1,6 +1,7 @@
 package com.gtnhvr.mixin.early;
 
 import com.gtnhvr.OpenXRRuntime;
+import com.gtnhvr.gui.VRGuiRenderPipeline;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.shader.Framebuffer;
 import org.spongepowered.asm.mixin.Mixin;
@@ -59,6 +60,18 @@ public abstract class MixinMinecraft {
 
     @Inject(method = {"getFramebuffer", "func_147110_a"}, at = @At("HEAD"), cancellable = true)
     private void gtnhvr$getVREyeFramebuffer(CallbackInfoReturnable<Framebuffer> cir) {
+        // A GUI/HUD target has priority over the stereo eye target while a 2D pass is active.
+        // Otherwise a mod asking Minecraft for its framebuffer can accidentally escape the GUI
+        // texture and draw inventory widgets directly into the current eye image.
+        VRGuiRenderPipeline.Pass guiPass = VRGuiRenderPipeline.getActivePass();
+        if (guiPass != null) {
+            Framebuffer guiTarget = VRGuiRenderPipeline.getTargetFramebuffer(guiPass);
+            if (guiTarget != null) {
+                cir.setReturnValue(guiTarget);
+                return;
+            }
+        }
+
         if (OpenXRRuntime.isVRStereoActive()) {
             Framebuffer eyeFb = OpenXRRuntime.getCurrentEyeFramebuffer();
             if (eyeFb != null) {
