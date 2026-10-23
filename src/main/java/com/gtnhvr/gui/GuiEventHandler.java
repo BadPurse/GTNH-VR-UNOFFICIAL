@@ -28,6 +28,8 @@ public final class GuiEventHandler {
         if (registered) return;
         registered = true;
         MinecraftForge.EVENT_BUS.register(INSTANCE);
+        // Forge GUI events and FML tick events are posted on different buses in 1.7.10.
+        cpw.mods.fml.common.FMLCommonHandler.instance().bus().register(INSTANCE);
     }
 
     private static boolean bypassVanillaRedirect = false;
@@ -62,9 +64,7 @@ public final class GuiEventHandler {
 
     @SubscribeEvent
     public void onGuiOpen(net.minecraftforge.client.event.GuiOpenEvent event) {
-        // The vanilla pause screen can receive multiple InitGui events: once at the actual
-        // window resolution and during session startup; logical sizing is now handled centrally.
-        // Keep the exception only while this exact screen remains the requested screen.
+        // Keep the pause-menu bypass scoped to the exact requested screen instance.
         if (bypassVanillaRedirectTarget != null && event.gui != bypassVanillaRedirectTarget) {
             bypassVanillaRedirectTarget = null;
             bypassVanillaRedirect = false;
@@ -107,9 +107,8 @@ public final class GuiEventHandler {
                 return;
             }
 
-            // A targeted bypass must survive every initGui pass for this exact object.
-            // VRGuiRenderer changes the screen to the logical canvas during first draw, which
-            // triggers another initGui; consuming the bypass here redirects that second pass.
+            // Keep a targeted bypass alive if the same screen is initialized again. Virtual
+            // dimensions are now supplied before initGui; the renderer no longer resizes it per frame.
             if (bypassVanillaRedirectTarget != null && event.gui == bypassVanillaRedirectTarget) {
                 return;
             }
@@ -143,7 +142,8 @@ public final class GuiEventHandler {
                 VRVirtualKeyboard.getInstance().showAutoKeyboard(gui);
             } else if (!(gui instanceof net.minecraft.client.gui.GuiChat)
                     && !(gui instanceof net.minecraft.client.gui.inventory.GuiEditSign)
-                    && !(gui instanceof net.minecraft.client.gui.GuiScreenBook)) {
+                    && !(gui instanceof net.minecraft.client.gui.GuiScreenBook)
+                    && !(gui instanceof net.minecraft.client.gui.GuiRepair)) {
                 // Some mod screens reuse themselves and fire InitGui without a GuiOpen event.
                 VRVirtualKeyboard.getInstance().hideAutoKeyboard();
             }
@@ -235,7 +235,7 @@ public final class GuiEventHandler {
         if (event.type == net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType.ALL) {
             Minecraft mc = Minecraft.getMinecraft();
             if (mc != null && mc.theWorld != null && !VRHudRenderer.isCapturing()) {
-                // Fallback only. MixinGuiIngame normally starts capture before ScaledResolution is created.
+                // Fallback for Forge variants that do not pass through the expected render hook.
                 VRHudRenderer.begin(VRGuiRenderer.getCaptureWidth(), VRGuiRenderer.getCaptureHeight());
             }
             return;
