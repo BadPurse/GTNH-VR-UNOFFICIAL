@@ -217,11 +217,8 @@ public final class VRGuiRenderer {
         checkSize(w, h);
         if (capturing) return;
 
-        Minecraft mc = Minecraft.getMinecraft();
-        ensureLogicalGuiScreen(mc);
-        if (guiFramebuffer == null) guiFramebuffer = new VRGuiFramebuffer(width, height);
-        guiFramebuffer.update(fbo, texture, depthRb, width, height);
-
+        // Screen initialization is managed on ClientTick before rendering begins. Never call
+        // setWorldAndResolution from DrawScreenEvent.Pre or from inside a GUI render pass.
         boolean began = VRGuiRenderPipeline.begin(VRGuiRenderPipeline.Pass.SCREEN, inMainMenu);
         if (!began) return;
 
