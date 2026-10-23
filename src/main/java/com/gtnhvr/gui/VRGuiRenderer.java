@@ -261,7 +261,7 @@ public final class VRGuiRenderer {
         return capturing;
     }
 
-    /** True while a GUI screen is being laid out/rendered on the virtual GUI canvas. */
+    /** True while the shared pipeline owns a virtual 2D target. */
     public static boolean isLogicalGuiResolutionActive() {
         return logicalGuiResolutionActive;
     }
@@ -287,8 +287,6 @@ public final class VRGuiRenderer {
         height = 0;
         capturing = false;
         Minecraft mc = Minecraft.getMinecraft();
-        if (!OpenXRRuntime.isSessionRunning()) {
-            restoreDesktopGuiResolution(mc);
-        }
+        if (!OpenXRRuntime.isSessionRunning()) restoreDesktopGuiResolution(mc);
     }
 }
