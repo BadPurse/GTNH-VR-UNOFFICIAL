@@ -1,16 +1,19 @@
 package com.gtnhvr.mixin.early;
 
+import com.gtnhvr.gui.VRGuiTooltipCache;
 import com.gtnhvr.input.VRMouseBridge;
 import net.minecraft.client.gui.inventory.GuiContainerCreative;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
+import java.util.List;
+
 /**
- * GuiContainerCreative (scroll bar) polls Mouse.isButtonDown(0) from drawScreen to detect clicks and drags, which never
- * sees the VR pointer. lwjgl3ify may rewrite org.lwjgl.input.Mouse to org.lwjglx.input.Mouse
- * before or after Mixin runs, so both call owners are redirected (require = 0 keeps the one
- * that is absent from failing the config).
+ * Keeps the creative screen's VR pointer working and avoids regenerating complex modded item
+ * tooltips on every frame while the pointer remains over the same stack.
  */
 @Mixin(GuiContainerCreative.class)
 public abstract class MixinGuiContainerCreative {
@@ -27,5 +30,13 @@ public abstract class MixinGuiContainerCreative {
             require = 0)
     private boolean gtnhvr$vrMouseDownLwjglx(int button) {
         return VRMouseBridge.isButtonDown(button);
+    }
+
+    @Redirect(method = {"renderToolTip", "func_146285_a"},
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/item/ItemStack;getTooltip(Lnet/minecraft/entity/player/EntityPlayer;Z)Ljava/util/List;"),
+            require = 0)
+    private List gtnhvr$cachedCreativeItemTooltip(ItemStack stack, EntityPlayer player, boolean advanced) {
+        return VRGuiTooltipCache.getTooltip(stack, player, advanced);
     }
 }
