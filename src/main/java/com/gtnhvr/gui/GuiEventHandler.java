@@ -52,7 +52,11 @@ public final class GuiEventHandler {
         if (event.phase != cpw.mods.fml.common.gameevent.TickEvent.Phase.END) return;
 
         boolean sessionRunning = com.gtnhvr.OpenXRRuntime.isSessionRunning();
-        if (vrSessionWasRunning && !sessionRunning) {
+        if (!vrSessionWasRunning && sessionRunning) {
+            // If a desktop menu was already open when VR started, normalize that one screen now.
+            // This must happen during the tick, never from DrawScreenEvent.Pre.
+            VRGuiRenderer.ensureLogicalGuiScreen(Minecraft.getMinecraft());
+        } else if (vrSessionWasRunning && !sessionRunning) {
             // A session can end while a screen remains open. Close any owned render scope and
             // restore that screen once, using the physical window resolution again.
             VRGuiRenderer.end();
