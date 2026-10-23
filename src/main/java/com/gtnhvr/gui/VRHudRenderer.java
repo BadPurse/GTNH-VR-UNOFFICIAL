@@ -29,14 +29,7 @@ public final class VRHudRenderer {
     private static int width = 0;
     private static int height = 0;
     private static VRGuiFramebuffer hudFramebuffer = null;
-    private static Framebuffer savedMinecraftFramebuffer = null;
     private static boolean capturing = false;
-    private static boolean glStatePushed = false;
-    private static int previousFbo = 0;
-    private static int previousMatrixMode = GL11.GL_MODELVIEW;
-    private static int savedDisplayWidth = -1;
-    private static int savedDisplayHeight = -1;
-    private static boolean previousLogicalResolutionActive = false;
 
     private VRHudRenderer() {}
 
@@ -292,7 +285,6 @@ public final class VRHudRenderer {
             depthRb = 0;
         }
         hudFramebuffer = null;
-        savedMinecraftFramebuffer = null;
         width = 0;
         height = 0;
         capturing = false;
