@@ -92,17 +92,26 @@ public final class VRHandRenderer {
                 // ---- WORLD STAGE / ITEM OFFSETS SCREEN: Render Solid Player Skin Arms from Visor ----
                 ResourceLocation skin = getPlayerSkin(mc);
 
-                // 1. Left Arm (Player Skin + Offhand Item / Preview Item)
+                // Aim pose is for pointing. Held items and their hand model belong at
+                // the physical grip pose; using the aim origin caused compensating offsets.
+                // Keep aim poses as fallback for runtimes without valid grip tracking.
                 if (handler.isLeftHandTracked()) {
-                    Vector3f leftPos = handler.getLeftHandPos();
-                    Quaternionf leftRot = handler.getLeftHandRot();
+                    Vector3f leftAimPos = handler.getLeftHandPos();
+                    Quaternionf leftAimRot = handler.getLeftHandRot();
+                    Vector3f leftPos = handler.isLogicalGripHandTracked(false)
+                            ? handler.getLogicalGripHandPos(false) : leftAimPos;
+                    Quaternionf leftRot = handler.isLogicalGripHandOrientationTracked(false)
+                            ? handler.getLogicalGripHandRot(false) : leftAimRot;
                     renderSkinArm(leftPos, leftRot, skin, false, mc, isSlim);
                 }
 
-                // 2. Right Arm (Player Skin + Main Hand Item / Preview Item)
                 if (handler.isRightHandTracked()) {
-                    Vector3f rightPos = handler.getRightHandPos();
-                    Quaternionf rightRot = handler.getRightHandRot();
+                    Vector3f rightAimPos = handler.getRightHandPos();
+                    Quaternionf rightAimRot = handler.getRightHandRot();
+                    Vector3f rightPos = handler.isLogicalGripHandTracked(true)
+                            ? handler.getLogicalGripHandPos(true) : rightAimPos;
+                    Quaternionf rightRot = handler.isLogicalGripHandOrientationTracked(true)
+                            ? handler.getLogicalGripHandRot(true) : rightAimRot;
                     renderSkinArm(rightPos, rightRot, skin, true, mc, isSlim);
                 }
             }
