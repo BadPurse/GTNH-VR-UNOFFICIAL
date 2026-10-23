@@ -276,6 +276,9 @@ public final class VRGuiRenderPipeline {
         }
 
         void destroy() {
+            int oldFramebuffer = framebufferId;
+            int oldTexture = textureId;
+            int oldDepth = depthBufferId;
             int restoreFramebuffer = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
             int restoreTexture = GLStateManager.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
             int restoreRenderbuffer = GLStateManager.glGetInteger(GL30.GL_RENDERBUFFER_BINDING);
@@ -286,11 +289,11 @@ public final class VRGuiRenderPipeline {
             framebuffer = null;
 
             GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER,
-                    restoreFramebuffer == framebufferId ? 0 : restoreFramebuffer);
+                    restoreFramebuffer == oldFramebuffer ? 0 : restoreFramebuffer);
             GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER,
-                    restoreRenderbuffer == depthBufferId ? 0 : restoreRenderbuffer);
+                    restoreRenderbuffer == oldDepth ? 0 : restoreRenderbuffer);
             GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D,
-                    restoreTexture == textureId ? 0 : restoreTexture);
+                    restoreTexture == oldTexture ? 0 : restoreTexture);
         }
 
         private void deleteGlResources() {
