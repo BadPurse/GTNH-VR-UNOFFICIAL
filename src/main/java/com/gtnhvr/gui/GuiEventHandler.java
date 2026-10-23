@@ -7,11 +7,9 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiIngameMenu;
 import net.minecraft.client.gui.GuiOptions;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
 
-import java.lang.reflect.Field;
 import java.util.List;
 
 @Lwjgl3Aware
@@ -22,71 +20,6 @@ public final class GuiEventHandler {
     public static final int BUTTON_ID_OPTIONS = 99901;
     public static final int BUTTON_ID_INGAME = 99902;
     public static final int BUTTON_ID_ANGELICA = 99903;
-
-    private static int originalGuiScale = -1;
-    private static boolean reinitializingGui = false;
-
-    private static int guiPixelWidth(Minecraft mc) {
-        return com.gtnhvr.OpenXRRuntime.isSessionRunning()
-                ? VRGuiRenderer.getCaptureWidth() : mc.displayWidth;
-    }
-
-    private static int guiPixelHeight(Minecraft mc) {
-        return com.gtnhvr.OpenXRRuntime.isSessionRunning()
-                ? VRGuiRenderer.getCaptureHeight() : mc.displayHeight;
-    }
-
-    private static final Field FIELD_X_SIZE = findField(GuiContainer.class, "xSize", "field_146999_f");
-    private static final Field FIELD_Y_SIZE = findField(GuiContainer.class, "ySize", "field_147000_g");
-    private static final Field FIELD_GUI_LEFT = findField(GuiContainer.class, "guiLeft", "field_147003_i");
-    private static final Field FIELD_GUI_TOP = findField(GuiContainer.class, "guiTop", "field_147009_r");
-
-    private static Field findField(Class<?> clazz, String... names) {
-        for (String name : names) {
-            try {
-                Field f = clazz.getDeclaredField(name);
-                f.setAccessible(true);
-                return f;
-            } catch (NoSuchFieldException ignored) {}
-        }
-        Class<?> superclass = clazz.getSuperclass();
-        if (superclass != null && superclass != Object.class) {
-            return findField(superclass, names);
-        }
-        return null;
-    }
-
-    private static int getIntField(Field field, Object obj, int def) {
-        if (field != null) {
-            try {
-                return field.getInt(obj);
-            } catch (Throwable ignored) {}
-        }
-        return def;
-    }
-
-    private static void setIntField(Field field, Object obj, int val) {
-        if (field != null) {
-            try {
-                field.setInt(obj, val);
-            } catch (Throwable ignored) {}
-        }
-    }
-
-    private static int computeScaleFactor(Minecraft mc, int guiScaleSetting) {
-        int pixelWidth = guiPixelWidth(mc);
-        int pixelHeight = guiPixelHeight(mc);
-        if (pixelWidth <= 0 || pixelHeight <= 0) return 1;
-        int scale = 1;
-        int k = guiScaleSetting;
-        if (k == 0) {
-            k = 1000;
-        }
-        while (scale < k && pixelWidth / (scale + 1) >= 320 && pixelHeight / (scale + 1) >= 240) {
-            scale++;
-        }
-        return scale;
-    }
 
     private GuiEventHandler() {}
 
@@ -143,36 +76,6 @@ public final class GuiEventHandler {
             keyboard.hideAutoKeyboard();
         }
 
-        // Auto-fit oversized containers (e.g. 200+ slot chests) so they never clip offscreen
-        if (event.gui instanceof GuiContainer) {
-            GuiContainer container = (GuiContainer) event.gui;
-            Minecraft mc = Minecraft.getMinecraft();
-            if (originalGuiScale == -1) {
-                originalGuiScale = mc.gameSettings.guiScale;
-            }
-            int baseSetting = originalGuiScale;
-            int currentScale = computeScaleFactor(mc, baseSetting);
-            int xSize = getIntField(FIELD_X_SIZE, container, 176);
-            int ySize = getIntField(FIELD_Y_SIZE, container, 166);
-
-            if (xSize > 0 && ySize > 0) {
-                int pad = 10;
-                int targetScale = currentScale;
-                while (targetScale > 1 && (guiPixelWidth(mc) / targetScale < xSize + pad || guiPixelHeight(mc) / targetScale < ySize + pad)) {
-                    targetScale--;
-                }
-                if (targetScale < currentScale) {
-                    mc.gameSettings.guiScale = targetScale;
-                } else {
-                    mc.gameSettings.guiScale = originalGuiScale;
-                }
-            }
-        } else {
-            if (originalGuiScale != -1) {
-                Minecraft.getMinecraft().gameSettings.guiScale = originalGuiScale;
-                originalGuiScale = -1;
-            }
-        }
     }
 
     @SubscribeEvent
@@ -266,42 +169,6 @@ public final class GuiEventHandler {
             buttons.add(new GuiButton(BUTTON_ID_ANGELICA, gui.width - 110, 6, 100, 18, text));
         }
 
-        if (gui instanceof GuiContainer) {
-            GuiContainer container = (GuiContainer) gui;
-            if (!reinitializingGui) {
-                Minecraft mc = Minecraft.getMinecraft();
-                int xSize = getIntField(FIELD_X_SIZE, container, 176);
-                int ySize = getIntField(FIELD_Y_SIZE, container, 166);
-                if (xSize > 0 && ySize > 0) {
-                    int curEff = computeScaleFactor(mc, mc.gameSettings.guiScale);
-                    int pad = 10;
-                    int target = curEff;
-                    while (target > 1 && (guiPixelWidth(mc) / target < xSize + pad || guiPixelHeight(mc) / target < ySize + pad)) {
-                        target--;
-                    }
-                    if (target < curEff) {
-                        reinitializingGui = true;
-                        try {
-                            mc.gameSettings.guiScale = target;
-                            net.minecraft.client.gui.ScaledResolution scaled =
-                                    new net.minecraft.client.gui.ScaledResolution(mc, guiPixelWidth(mc), guiPixelHeight(mc));
-                            gui.setWorldAndResolution(mc, scaled.getScaledWidth(), scaled.getScaledHeight());
-                        } finally {
-                            reinitializingGui = false;
-                        }
-                    }
-                }
-            }
-
-            int top = getIntField(FIELD_GUI_TOP, container, 0);
-            int left = getIntField(FIELD_GUI_LEFT, container, 0);
-            if (top < 0) {
-                setIntField(FIELD_GUI_TOP, container, 0);
-            }
-            if (left < 0) {
-                setIntField(FIELD_GUI_LEFT, container, 0);
-            }
-        }
     }
 
     @SubscribeEvent
