@@ -37,49 +37,14 @@ public final class VRHudRenderer {
         if (w <= 0) w = 854;
         if (h <= 0) h = 480;
         if (capturing && (width != w || height != h)) end();
-        if (fbo == 0 || width != w || height != h) {
-            int oldFbo = fbo;
-            int oldTexture = texture;
-            int oldDepthRb = depthRb;
-            int restoreFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-            int restoreTexture = GLStateManager.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-            int restoreRenderbuffer = GLStateManager.glGetInteger(GL30.GL_RENDERBUFFER_BINDING);
 
-            destroy();
-            width = w;
-            height = h;
-
-            fbo = GLStateManager.glGenFramebuffers();
-            texture = GLStateManager.glGenTextures();
-            depthRb = GLStateManager.glGenRenderbuffers();
-
-            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-            GLStateManager.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
-
-            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
-            GLStateManager.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, width, height);
-
-            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-            GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
-            GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
-
-            if (hudFramebuffer == null) {
-                hudFramebuffer = new VRGuiFramebuffer(width, height);
-            }
-            hudFramebuffer.update(fbo, texture, depthRb, width, height);
-
-            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, restoreFbo == oldFbo ? 0 : restoreFbo);
-            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, restoreRenderbuffer == oldDepthRb ? 0 : restoreRenderbuffer);
-            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, restoreTexture == oldTexture ? 0 : restoreTexture);
-        }
-        if (hudFramebuffer == null) {
-            hudFramebuffer = new VRGuiFramebuffer(width, height);
-        }
-        hudFramebuffer.update(fbo, texture, depthRb, width, height);
+        VRGuiRenderPipeline.ensureTarget(VRGuiRenderPipeline.Pass.HUD, w, h);
+        fbo = VRGuiRenderPipeline.getFramebufferId(VRGuiRenderPipeline.Pass.HUD);
+        texture = VRGuiRenderPipeline.getTextureId(VRGuiRenderPipeline.Pass.HUD);
+        depthRb = VRGuiRenderPipeline.getDepthBufferId(VRGuiRenderPipeline.Pass.HUD);
+        width = VRGuiRenderPipeline.getWidth(VRGuiRenderPipeline.Pass.HUD);
+        height = VRGuiRenderPipeline.getHeight(VRGuiRenderPipeline.Pass.HUD);
+        hudFramebuffer = VRGuiRenderPipeline.getTargetFramebuffer(VRGuiRenderPipeline.Pass.HUD);
     }
 
     /** Capture the HUD into its target through the same scoped pipeline as screen GUIs. */
@@ -89,8 +54,7 @@ public final class VRHudRenderer {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc == null || hudFramebuffer == null) return;
 
-        boolean began = VRGuiRenderPipeline.begin(VRGuiRenderPipeline.Pass.HUD,
-                fbo, width, height, false, hudFramebuffer);
+        boolean began = VRGuiRenderPipeline.begin(VRGuiRenderPipeline.Pass.HUD, false);
         if (!began) return;
         capturing = true;
     }
@@ -272,18 +236,10 @@ public final class VRHudRenderer {
 
     public static void destroy() {
         if (capturing) end();
-        if (fbo != 0) {
-            GLStateManager.glDeleteFramebuffers(fbo);
-            fbo = 0;
-        }
-        if (texture != 0) {
-            GLStateManager.glDeleteTextures(texture);
-            texture = 0;
-        }
-        if (depthRb != 0) {
-            GLStateManager.glDeleteRenderbuffers(depthRb);
-            depthRb = 0;
-        }
+        VRGuiRenderPipeline.destroyTarget(VRGuiRenderPipeline.Pass.HUD);
+        fbo = 0;
+        texture = 0;
+        depthRb = 0;
         hudFramebuffer = null;
         width = 0;
         height = 0;
