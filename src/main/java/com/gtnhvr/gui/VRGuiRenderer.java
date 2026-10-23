@@ -56,33 +56,28 @@ public final class VRGuiRenderer {
 
     public static int getCaptureWidth() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (com.gtnhvr.OpenXRRuntime.isSessionRunning()) return VR_GUI_WIDTH;
-        return (mc != null && mc.displayWidth > 0) ? mc.displayWidth : VR_GUI_WIDTH;
+        if (OpenXRRuntime.isSessionRunning()) return VR_GUI_WIDTH;
+        return mc != null && mc.displayWidth > 0 ? mc.displayWidth : VR_GUI_WIDTH;
     }
 
     public static int getCaptureHeight() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (com.gtnhvr.OpenXRRuntime.isSessionRunning()) return VR_GUI_HEIGHT;
-        return (mc != null && mc.displayHeight > 0) ? mc.displayHeight : VR_GUI_HEIGHT;
+        if (OpenXRRuntime.isSessionRunning()) return VR_GUI_HEIGHT;
+        return mc != null && mc.displayHeight > 0 ? mc.displayHeight : VR_GUI_HEIGHT;
     }
 
-    /**
-     * Physical window dimensions used by controller mouse events. These remain the real
-     * lwjgl3ify window dimensions for the entire capture lifetime.
-     */
+    /** The physical window remains physical even while VR GUI targets are active. */
     public static int getPhysicalWindowWidth() {
-        if (savedDisplayWidth > 0) return savedDisplayWidth;
         Minecraft mc = Minecraft.getMinecraft();
         return mc != null && mc.displayWidth > 0 ? mc.displayWidth : VR_GUI_WIDTH;
     }
 
     public static int getPhysicalWindowHeight() {
-        if (savedDisplayHeight > 0) return savedDisplayHeight;
         Minecraft mc = Minecraft.getMinecraft();
         return mc != null && mc.displayHeight > 0 ? mc.displayHeight : VR_GUI_HEIGHT;
     }
 
-    /** Logical scaled dimensions for Minecraft 1.7.10 screens, matching Visor's fixed GUI canvas. */
+    /** Scaled coordinate dimensions of the fixed virtual canvas. */
     public static int getLogicalGuiWidth() {
         Minecraft mc = Minecraft.getMinecraft();
         return mc == null ? VR_GUI_WIDTH
@@ -95,48 +90,49 @@ public final class VRGuiRenderer {
                 : new net.minecraft.client.gui.ScaledResolution(mc, VR_GUI_WIDTH, VR_GUI_HEIGHT).getScaledHeight();
     }
 
-    private static void useLogicalGuiResolution(Minecraft mc) {
-        if (mc == null) return;
-        // This flag is true only while a GUI/HUD render target is active, not during the 3D world pass.
-        logicalGuiResolutionActive = true;
-        if (savedDisplayWidth < 0 || savedDisplayHeight < 0) {
-            savedDisplayWidth = mc.displayWidth;
-            savedDisplayHeight = mc.displayHeight;
-            net.minecraft.client.gui.ScaledResolution sourceScaled =
-                    new net.minecraft.client.gui.ScaledResolution(mc, savedDisplayWidth, savedDisplayHeight);
-            savedScaledGuiWidth = sourceScaled.getScaledWidth();
-            savedScaledGuiHeight = sourceScaled.getScaledHeight();
-        }
-        if (mc.currentScreen != null) {
-            net.minecraft.client.gui.ScaledResolution scaled =
-                    new net.minecraft.client.gui.ScaledResolution(mc, width, height);
-            int logicalWidth = scaled.getScaledWidth();
-            int logicalHeight = scaled.getScaledHeight();
-            boolean newScreen = mc.currentScreen != lastLogicalGuiScreen;
-            boolean targetSizeChanged = logicalWidth != lastLogicalGuiWidth
-                    || logicalHeight != lastLogicalGuiHeight;
+    public static boolean shouldUseVirtualResolution() {
+        return OpenXRRuntime.isSessionRunning();
+    }
 
-            // Initialize each screen once on the logical canvas. Unlike the previous
-            // implementation, do not spoof Minecraft.displayWidth/Height: input events,
-            // Angelica and third-party renderers continue to see the actual window size.
-            if ((newScreen || targetSizeChanged)
-                    && (mc.currentScreen.width != logicalWidth || mc.currentScreen.height != logicalHeight)) {
-                mc.currentScreen.setWorldAndResolution(mc, logicalWidth, logicalHeight);
-            }
-            lastLogicalGuiScreen = mc.currentScreen;
-            lastLogicalGuiWidth = logicalWidth;
-            lastLogicalGuiHeight = logicalHeight;
-        } else {
+    /**
+     * Called from GuiScreen.setWorldAndResolution after the logical dimensions have been applied.
+     * Tracking screen identity prevents reinitializing AE2/NEI and machine screens during drawing.
+     */
+    public static void noteLogicalGuiScreen(net.minecraft.client.gui.GuiScreen screen) {
+        if (!OpenXRRuntime.isSessionRunning()) return;
+        lastLogicalGuiScreen = screen;
+        lastLogicalGuiWidth = screen == null ? -1 : screen.width;
+        lastLogicalGuiHeight = screen == null ? -1 : screen.height;
+    }
+
+    /**
+     * Handles only the one-time transition into VR for a screen which was already open before
+     * the session started. Normal screen transitions get their logical size through
+     * MixinScaledResolution during Minecraft's ordinary setWorldAndResolution call.
+     */
+    public static void ensureLogicalGuiScreen(Minecraft mc) {
+        if (mc == null || !OpenXRRuntime.isSessionRunning()) return;
+        net.minecraft.client.gui.GuiScreen screen = mc.currentScreen;
+        if (screen == null) {
             lastLogicalGuiScreen = null;
             lastLogicalGuiWidth = -1;
             lastLogicalGuiHeight = -1;
+            return;
+        }
+        if (lastLogicalGuiScreen == screen) return;
+
+        int logicalWidth = getLogicalGuiWidth();
+        int logicalHeight = getLogicalGuiHeight();
+        if (screen.width != logicalWidth || screen.height != logicalHeight) {
+            screen.setWorldAndResolution(mc, logicalWidth, logicalHeight);
+        } else {
+            noteLogicalGuiScreen(screen);
         }
     }
 
     /**
-     * If VR was stopped while a screen was open, return that screen to the real desktop
-     * dimensions before its next desktop draw. Visor's logical GUI size must never leak into
-     * a non-VR launch/session.
+     * If VR ends while a virtual screen is open, restore its real desktop layout exactly once.
+     * No Minecraft.displayWidth/Height fields are ever changed by this pipeline.
      */
     public static void restoreDesktopGuiResolution(Minecraft mc) {
         if (mc == null || mc.currentScreen == null) {
@@ -145,7 +141,6 @@ public final class VRGuiRenderer {
             lastLogicalGuiHeight = -1;
             return;
         }
-
         if (lastLogicalGuiScreen == mc.currentScreen) {
             net.minecraft.client.gui.ScaledResolution physical =
                     new net.minecraft.client.gui.ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
@@ -160,50 +155,28 @@ public final class VRGuiRenderer {
         lastLogicalGuiHeight = -1;
     }
 
-    private static void setupLogicalGuiProjection(Minecraft mc) {
-        if (mc == null) return;
-        net.minecraft.client.gui.ScaledResolution scaled =
-                new net.minecraft.client.gui.ScaledResolution(mc, width, height);
-        GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
-        GLStateManager.glLoadIdentity();
-        GLStateManager.glOrtho(
-                0.0D, scaled.getScaledWidth_double(),
-                scaled.getScaledHeight_double(), 0.0D,
-                1000.0D, 3000.0D);
-        GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
-        GLStateManager.glLoadIdentity();
-        GLStateManager.glTranslatef(0.0F, 0.0F, -2000.0F);
-    }
-
-    private static void restoreWindowResolution(Minecraft mc) {
-        savedDisplayWidth = -1;
-        savedDisplayHeight = -1;
-        savedScaledGuiWidth = -1;
-        savedScaledGuiHeight = -1;
-        logicalGuiResolutionActive = false;
-    }
-
-    /** Used by the separate HUD capture to indicate the active logical GUI pass. */
+    /** Marker for code that needs to know whether a virtual 2D pass currently owns the target. */
     public static void setLogicalGuiResolutionActive(boolean active) {
         logicalGuiResolutionActive = active;
     }
 
+    public static boolean isLogicalGuiResolutionActive() {
+        return logicalGuiResolutionActive;
+    }
+
     /**
-     * Minecraft computes drawScreen's hover coordinates before our FBO capture starts.
-     * Scale those already-GUI-space coordinates from the desktop's old ScaledResolution
-     * to the logical VR screen dimensions, without touching the input event queue.
+     * Input coordinates are converted by Minecraft itself because ScaledResolution is virtualized
+     * at construction time. Kept for compatibility with older callers; do not rescale a second time.
      */
     public static int mapMouseXToLogicalScreen(int mouseX, int logicalWidth) {
-        if (!capturing || savedScaledGuiWidth <= 0 || logicalWidth <= 0) return mouseX;
-        return Math.round(mouseX * (logicalWidth / (float) savedScaledGuiWidth));
+        return mouseX;
     }
 
     public static int mapMouseYToLogicalScreen(int mouseY, int logicalHeight) {
-        if (!capturing || savedScaledGuiHeight <= 0 || logicalHeight <= 0) return mouseY;
-        return Math.round(mouseY * (logicalHeight / (float) savedScaledGuiHeight));
+        return mouseY;
     }
 
-    /** Called once at the start of every render tick; allows exactly one clear per frame. */
+    /** Called once at the start of every render tick; allows diagnostics to associate captures. */
     public static void newFrame() {
         frameId++;
     }
@@ -259,82 +232,33 @@ public final class VRGuiRenderer {
     }
 
     public static void begin(int w, int h, boolean inMainMenu) {
+        if (!OpenXRRuntime.isSessionRunning()) return;
         checkSize(w, h);
+        if (capturing) return;
+
         Minecraft mc = Minecraft.getMinecraft();
-        boolean startingCapture = !capturing;
-        if (startingCapture) {
-            previousFbo = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-            previousMatrixMode = GLStateManager.glGetInteger(GL11.GL_MATRIX_MODE);
-            GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-            captureGlStatePushed = true;
+        ensureLogicalGuiScreen(mc);
+        if (guiFramebuffer == null) guiFramebuffer = new VRGuiFramebuffer(width, height);
+        guiFramebuffer.update(fbo, texture, depthRb, width, height);
 
-            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
-            GLStateManager.glPushMatrix();
-            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
-            GLStateManager.glPushMatrix();
-
-            if (mc != null) {
-                savedMinecraftFramebuffer = OpenXRRuntime.getMinecraftFramebuffer(mc);
-                OpenXRRuntime.setMinecraftFramebuffer(mc, guiFramebuffer);
-                useLogicalGuiResolution(mc);
-                setupLogicalGuiProjection(mc);
-            }
-        }
+        boolean began = VRGuiRenderPipeline.begin(VRGuiRenderPipeline.Pass.SCREEN,
+                fbo, width, height, inMainMenu, guiFramebuffer);
+        if (!began) return;
 
         capturing = true;
-        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GLStateManager.glViewport(0, 0, width, height);
-
-        // Never inherit a scissor rectangle from the desktop/world/Angelica render pass.
-        // Individual GUI widgets can enable their own clipping during this capture.
-        GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
-
-        // A nested begin must not erase pixels already drawn by GuiScreen / NEI.
-        if (startingCapture || clearedFrameId != frameId || clearedAsMenu != inMainMenu) {
-            GLStateManager.glDepthMask(true);
-            GLStateManager.glColorMask(true, true, true, true);
-            if (inMainMenu) GLStateManager.glClearColor(0.06F, 0.07F, 0.10F, 1.0F);
-            else GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
-            GLStateManager.glClearDepth(1.0D);
-            GLStateManager.glClearStencil(0);
-            GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_STENCIL_BUFFER_BIT);
-            clearedFrameId = frameId;
-            clearedAsMenu = inMainMenu;
-        }
-
-        GLStateManager.glColorMask(true, true, true, true);
-        GLStateManager.glEnable(GL11.GL_BLEND);
-        GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
-                GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        clearedFrameId = frameId;
+        clearedAsMenu = inMainMenu;
     }
 
     public static void end() {
         if (!capturing) return;
-
-        capturing = false;
-        GLStateManager.glColorMask(true, true, true, true);
-        GLStateManager.glFlush();
-
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc != null && savedMinecraftFramebuffer != null) {
-            OpenXRRuntime.setMinecraftFramebuffer(mc, savedMinecraftFramebuffer);
-            savedMinecraftFramebuffer = null;
-        }
-        restoreWindowResolution(mc);
-
-        if (captureGlStatePushed) {
-            GLStateManager.glMatrixMode(GL11.GL_MODELVIEW);
-            GLStateManager.glPopMatrix();
-            GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
-            GLStateManager.glPopMatrix();
-            GLStateManager.glMatrixMode(previousMatrixMode);
-            GLStateManager.glPopAttrib();
+        try {
+            VRGuiRenderPipeline.end(VRGuiRenderPipeline.Pass.SCREEN);
+        } finally {
+            capturing = false;
+            previousFbo = 0;
             captureGlStatePushed = false;
         }
-
-        // FBO bindings are not included in glPushAttrib.
-        GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo);
-        previousFbo = 0;
     }
 
     public static int getTextureId() {
@@ -381,7 +305,8 @@ public final class VRGuiRenderer {
         previousFbo = 0;
         captureGlStatePushed = false;
         Minecraft mc = Minecraft.getMinecraft();
-        restoreWindowResolution(mc);
-        savedMinecraftFramebuffer = null;
+        lastLogicalGuiScreen = null;
+        lastLogicalGuiWidth = -1;
+        lastLogicalGuiHeight = -1;
     }
 }
