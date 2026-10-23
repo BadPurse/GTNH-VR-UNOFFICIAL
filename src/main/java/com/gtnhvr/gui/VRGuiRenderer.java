@@ -86,9 +86,27 @@ public final class VRGuiRenderer {
      */
     public static void noteLogicalGuiScreen(net.minecraft.client.gui.GuiScreen screen) {
         if (!OpenXRRuntime.isSessionRunning()) return;
-        lastLogicalGuiScreen = screen;
-        lastLogicalGuiWidth = screen == null ? -1 : screen.width;
-        lastLogicalGuiHeight = screen == null ? -1 : screen.height;
+
+        if (screen == null) {
+            lastLogicalGuiScreen = null;
+            lastLogicalGuiWidth = -1;
+            lastLogicalGuiHeight = -1;
+            return;
+        }
+
+        int expectedWidth = getLogicalGuiWidth();
+        int expectedHeight = getLogicalGuiHeight();
+        if (screen.width == expectedWidth && screen.height == expectedHeight) {
+            lastLogicalGuiScreen = screen;
+            lastLogicalGuiWidth = expectedWidth;
+            lastLogicalGuiHeight = expectedHeight;
+        } else {
+            // Do not mark a screen as normalized if a third-party init path supplied desktop
+            // dimensions. ensureLogicalGuiScreen will correct this one time before drawing.
+            lastLogicalGuiScreen = null;
+            lastLogicalGuiWidth = -1;
+            lastLogicalGuiHeight = -1;
+        }
     }
 
     /**
@@ -105,14 +123,25 @@ public final class VRGuiRenderer {
             lastLogicalGuiHeight = -1;
             return;
         }
-        if (lastLogicalGuiScreen == screen) return;
 
         int logicalWidth = getLogicalGuiWidth();
         int logicalHeight = getLogicalGuiHeight();
+        if (lastLogicalGuiScreen == screen
+                && lastLogicalGuiWidth == logicalWidth
+                && lastLogicalGuiHeight == logicalHeight) {
+            return;
+        }
+
+        // Remember the intended dimensions before calling into mod GUI initialization, which may
+        // post events or cause a nested render callback. A correctly initialized screen will be
+        // confirmed by noteLogicalGuiScreen at the end of setWorldAndResolution.
+        lastLogicalGuiScreen = null;
+        lastLogicalGuiWidth = logicalWidth;
+        lastLogicalGuiHeight = logicalHeight;
         if (screen.width != logicalWidth || screen.height != logicalHeight) {
             screen.setWorldAndResolution(mc, logicalWidth, logicalHeight);
         } else {
-            noteLogicalGuiScreen(screen);
+            lastLogicalGuiScreen = screen;
         }
     }
 
