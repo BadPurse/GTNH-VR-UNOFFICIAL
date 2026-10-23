@@ -7,17 +7,18 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.shader.Framebuffer;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL30;
 
 /**
- * Owns the OpenGL/framebuffer scope for every 2D VR GUI pass.
+ * Single owner of the VR 2D render-target registry and its OpenGL scopes.
  *
- * <p>The important invariant is that Minecraft.displayWidth/displayHeight always remain the
- * physical window dimensions. GUI sizing is virtualized at ScaledResolution construction time;
- * render passes only bind a target, install its projection and restore the previous GL state.</p>
+ * <p>Screen GUIs and the in-game HUD have separate texture targets, but share the same lifecycle:
+ * allocate/resize, bind, render on a logical ScaledResolution canvas, then restore the exact
+ * previous target and GL state. The physical Minecraft window dimensions are never changed.</p>
  *
- * <p>This mirrors Visor's separation between overlay render targets and the overlay manager:
- * neither a screen renderer nor a HUD renderer may independently mutate global window state.</p>
+ * <p>This is the Minecraft 1.7.10 equivalent of Visor's GUI target manager and overlay render
+ * pass. The screen/HUD facades expose textures and pose rendering; they do not own GL resources.</p>
  */
 @Lwjgl3Aware
 public final class VRGuiRenderPipeline {
@@ -25,6 +26,9 @@ public final class VRGuiRenderPipeline {
         SCREEN,
         HUD
     }
+
+    private static final Target SCREEN_TARGET = new Target();
+    private static final Target HUD_TARGET = new Target();
 
     private static Pass activePass;
     private static int previousFramebufferId;
@@ -38,15 +42,69 @@ public final class VRGuiRenderPipeline {
 
     private VRGuiRenderPipeline() {}
 
+    private static Target getTarget(Pass pass) {
+        if (pass == Pass.SCREEN) return SCREEN_TARGET;
+        if (pass == Pass.HUD) return HUD_TARGET;
+        throw new IllegalArgumentException("Unknown VR GUI render pass: " + pass);
+    }
+
+    /** Allocates or resizes a target once, outside the target's drawing body. */
+    public static void ensureTarget(Pass pass, int width, int height) {
+        if (width <= 0) width = 854;
+        if (height <= 0) height = 480;
+        Target target = getTarget(pass);
+        if (target.isSize(width, height)) return;
+        if (activePass == pass) end(pass);
+        target.ensureSize(width, height);
+    }
+
+    public static int getFramebufferId(Pass pass) {
+        return getTarget(pass).framebufferId;
+    }
+
+    public static int getTextureId(Pass pass) {
+        return getTarget(pass).textureId;
+    }
+
+    public static int getDepthBufferId(Pass pass) {
+        return getTarget(pass).depthBufferId;
+    }
+
+    public static int getWidth(Pass pass) {
+        return getTarget(pass).width;
+    }
+
+    public static int getHeight(Pass pass) {
+        return getTarget(pass).height;
+    }
+
+    public static VRGuiFramebuffer getTargetFramebuffer(Pass pass) {
+        return getTarget(pass).framebuffer;
+    }
+
+    public static void destroyTarget(Pass pass) {
+        if (activePass == pass) end(pass);
+        getTarget(pass).destroy();
+    }
+
     /**
-     * Starts a scoped GUI pass. Returns false rather than taking ownership of an already-active
-     * pass, so a nested Forge/mod callback cannot silently replace the target of its caller.
+     * Begins the selected render target. A nested mod callback cannot replace the target already
+     * owned by its caller; callers must end their own pass in the matching lifecycle hook.
      */
-    public static boolean begin(Pass pass, int framebufferId, int width, int height,
-                                boolean opaqueMenuBackground, Framebuffer target) {
-        if (pass == null || activePass != null || width <= 0 || height <= 0) {
+    public static boolean begin(Pass pass, boolean opaqueMenuBackground) {
+        if (pass == null || activePass != null) return false;
+        Target target = getTarget(pass);
+        if (target.framebufferId == 0 || target.framebuffer == null
+                || target.width <= 0 || target.height <= 0) {
             return false;
         }
+        return begin(pass, target.framebufferId, target.width, target.height,
+                opaqueMenuBackground, target.framebuffer);
+    }
+
+    private static boolean begin(Pass pass, int framebufferId, int width, int height,
+                                 boolean opaqueMenuBackground, Framebuffer target) {
+        if (pass == null || activePass != null || width <= 0 || height <= 0) return false;
 
         Minecraft mc = Minecraft.getMinecraft();
         activePass = pass;
@@ -87,8 +145,7 @@ public final class VRGuiRenderPipeline {
             GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT
                     | GL11.GL_STENCIL_BUFFER_BIT);
 
-            ScaledResolution scaled = mc == null
-                    ? null : new ScaledResolution(mc, width, height);
+            ScaledResolution scaled = mc == null ? null : new ScaledResolution(mc, width, height);
             double logicalWidth = scaled == null ? width : scaled.getScaledWidth_double();
             double logicalHeight = scaled == null ? height : scaled.getScaledHeight_double();
 
@@ -112,9 +169,7 @@ public final class VRGuiRenderPipeline {
 
     /** Restores the exact framebuffer, target pointer, matrices and GL attributes saved by begin. */
     public static void end(Pass pass) {
-        if (activePass == null || activePass != pass) {
-            return;
-        }
+        if (activePass == null || activePass != pass) return;
 
         Minecraft mc = Minecraft.getMinecraft();
         try {
@@ -139,12 +194,15 @@ public final class VRGuiRenderPipeline {
                     attribPushed = false;
                 }
             } finally {
-                GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFramebufferId);
-                VRGuiRenderer.setLogicalGuiResolutionActive(previousLogicalResolutionActive);
-                previousMinecraftFramebuffer = null;
-                hadMinecraftInstance = false;
-                previousFramebufferId = 0;
-                activePass = null;
+                try {
+                    GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFramebufferId);
+                } finally {
+                    VRGuiRenderer.setLogicalGuiResolutionActive(previousLogicalResolutionActive);
+                    previousMinecraftFramebuffer = null;
+                    hadMinecraftInstance = false;
+                    previousFramebufferId = 0;
+                    activePass = null;
+                }
             }
         }
     }
@@ -155,5 +213,99 @@ public final class VRGuiRenderPipeline {
 
     public static Pass getActivePass() {
         return activePass;
+    }
+
+    /** One shared GL resource implementation used by the screen and HUD target facades. */
+    private static final class Target {
+        private int framebufferId;
+        private int textureId;
+        private int depthBufferId;
+        private int width;
+        private int height;
+        private VRGuiFramebuffer framebuffer;
+
+        boolean isSize(int w, int h) {
+            return framebufferId != 0 && width == w && height == h;
+        }
+
+        void ensureSize(int w, int h) {
+            if (isSize(w, h)) return;
+
+            int oldFramebuffer = framebufferId;
+            int oldTexture = textureId;
+            int oldDepth = depthBufferId;
+            int restoreFramebuffer = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+            int restoreTexture = GLStateManager.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            int restoreRenderbuffer = GLStateManager.glGetInteger(GL30.GL_RENDERBUFFER_BINDING);
+
+            deleteGlResources();
+            width = w;
+            height = h;
+
+            framebufferId = GLStateManager.glGenFramebuffers();
+            textureId = GLStateManager.glGenTextures();
+            depthBufferId = GLStateManager.glGenRenderbuffers();
+
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+            GLStateManager.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8,
+                    width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+            GLStateManager.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+
+            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthBufferId);
+            GLStateManager.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH24_STENCIL8, width, height);
+
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebufferId);
+            GLStateManager.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
+                    GL11.GL_TEXTURE_2D, textureId, 0);
+            GLStateManager.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT,
+                    GL30.GL_RENDERBUFFER, depthBufferId);
+
+            if (framebuffer == null) framebuffer = new VRGuiFramebuffer(width, height);
+            framebuffer.update(framebufferId, textureId, depthBufferId, width, height);
+
+            // Never leave a deleted target bound when resizing while another pass is active.
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER,
+                    restoreFramebuffer == oldFramebuffer ? 0 : restoreFramebuffer);
+            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER,
+                    restoreRenderbuffer == oldDepth ? 0 : restoreRenderbuffer);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D,
+                    restoreTexture == oldTexture ? 0 : restoreTexture);
+        }
+
+        void destroy() {
+            int restoreFramebuffer = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+            int restoreTexture = GLStateManager.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            int restoreRenderbuffer = GLStateManager.glGetInteger(GL30.GL_RENDERBUFFER_BINDING);
+
+            deleteGlResources();
+            width = 0;
+            height = 0;
+            framebuffer = null;
+
+            GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER,
+                    restoreFramebuffer == framebufferId ? 0 : restoreFramebuffer);
+            GLStateManager.glBindRenderbuffer(GL30.GL_RENDERBUFFER,
+                    restoreRenderbuffer == depthBufferId ? 0 : restoreRenderbuffer);
+            GLStateManager.glBindTexture(GL11.GL_TEXTURE_2D,
+                    restoreTexture == textureId ? 0 : restoreTexture);
+        }
+
+        private void deleteGlResources() {
+            if (framebufferId != 0) {
+                GLStateManager.glDeleteFramebuffers(framebufferId);
+                framebufferId = 0;
+            }
+            if (textureId != 0) {
+                GLStateManager.glDeleteTextures(textureId);
+                textureId = 0;
+            }
+            if (depthBufferId != 0) {
+                GLStateManager.glDeleteRenderbuffers(depthBufferId);
+                depthBufferId = 0;
+            }
+        }
     }
 }
