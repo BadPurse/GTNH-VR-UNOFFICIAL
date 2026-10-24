@@ -188,7 +188,6 @@ public final class VRGuiRenderPipeline {
             profilerSectionStarted = true;
 
             GLStateManager.glPushAttrib(GUI_PASS_ATTRIB_MASK);
-            VRGuiProfiler.attribPush();
             attribPushed = true;
 
             GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
