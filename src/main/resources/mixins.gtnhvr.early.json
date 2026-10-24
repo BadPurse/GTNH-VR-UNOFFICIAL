@@ -24,6 +24,7 @@
     "MixinItemRenderer",
     "MixinModelBipedRemoteVRArms",
     "MixinLWJGLXDisplay",
+    "MixinLWJGLXMouse",
     "MixinLWJGLXGL11Alpha",
     "MixinLWJGLXGL14Alpha",
     "MixinMinecraft",
