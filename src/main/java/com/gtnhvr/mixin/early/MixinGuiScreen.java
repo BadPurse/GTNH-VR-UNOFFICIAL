@@ -56,6 +56,18 @@ public abstract class MixinGuiScreen {
         VRGuiRenderer.endLogicalResolutionScope(mc);
     }
 
+    @ModifyVariable(method = {"drawScreen", "func_73863_a"},
+            at = @At("HEAD"), argsOnly = true, ordinal = 0, require = 0)
+    private int gtnhvr$mapDesktopMouseX(int mouseX) {
+        return VRGuiRenderer.mapDesktopMouseXToLogicalScreen(mouseX);
+    }
+
+    @ModifyVariable(method = {"drawScreen", "func_73863_a"},
+            at = @At("HEAD"), argsOnly = true, ordinal = 1, require = 0)
+    private int gtnhvr$mapDesktopMouseY(int mouseY) {
+        return VRGuiRenderer.mapDesktopMouseYToLogicalScreen(mouseY);
+    }
+
     @Inject(method = {"initGui", "func_73866_w_"}, at = @At("HEAD"))
     private void gtnhvr$closeKeyboardForUnrelatedScreen(CallbackInfo ci) {
         com.gtnhvr.gui.VRVirtualKeyboard.getInstance().onGuiOpen((GuiScreen) (Object) this);
