@@ -26,6 +26,11 @@ public final class VRGuiRenderer {
     private static boolean logicalGuiResolutionActive = false;
     private static int mouseInputScopeDepth = 0;
     private static long frameId = 0L;
+    private static final int GUI_CAPTURE_FPS = Integer.getInteger("gtnhvr.guiCaptureFps", 60);
+    private static final long GUI_CAPTURE_INTERVAL_NANOS = GUI_CAPTURE_FPS > 0
+            ? 1_000_000_000L / GUI_CAPTURE_FPS : 0L;
+    private static long lastCaptureUpdateNanos;
+    private static net.minecraft.client.gui.GuiScreen lastCaptureUpdateScreen;
 
     // A scoped stack keeps Minecraft's display dimensions, ScaledResolution, Display and GL
     // viewport/scissor calculations in the same coordinate space during GUI init and drawing.
@@ -334,6 +339,30 @@ public final class VRGuiRenderer {
 
     public static int mapMouseYToLogicalScreen(int mouseY, int logicalHeight) {
         return mouseY;
+    }
+
+    /**
+     * When a GUI is open, cap expensive GUI capture updates without changing the HMD/world rate.
+     * The last complete FBO image remains visible on skipped frames. Set
+     * -Dgtnhvr.guiCaptureFps=0 to disable the cap; default is 60 updates/second.
+     */
+    public static boolean shouldUpdateCaptureForScreen(net.minecraft.client.gui.GuiScreen screen) {
+        if (!OpenXRRuntime.isSessionRunning() || screen == null || GUI_CAPTURE_INTERVAL_NANOS <= 0L) {
+            lastCaptureUpdateScreen = null;
+            lastCaptureUpdateNanos = 0L;
+            return true;
+        }
+
+        long now = System.nanoTime();
+        if (screen != lastCaptureUpdateScreen || lastCaptureUpdateNanos == 0L
+                || now - lastCaptureUpdateNanos >= GUI_CAPTURE_INTERVAL_NANOS) {
+            lastCaptureUpdateScreen = screen;
+            lastCaptureUpdateNanos = now;
+            return true;
+        }
+
+        VRGuiProfiler.guiCaptureSkipped();
+        return false;
     }
 
     /** Called once at the start of every render tick; allows diagnostics to associate captures. */
