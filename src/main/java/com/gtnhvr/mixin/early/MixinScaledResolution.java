@@ -1,43 +1,27 @@
 package com.gtnhvr.mixin.early;
 
 import com.gtnhvr.OpenXRRuntime;
-import com.gtnhvr.gui.VRGuiRenderer;
-import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
+import com.gtnhvr.gui.VRGuiProfiler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Keeps Minecraft's logical GUI coordinate space independent of the physical lwjgl3ify window.
+ * Diagnostic-only hook for ScaledResolution construction.
  *
- * <p>Vanilla and Forge create ScaledResolution objects in dozens of GUI, HUD, inventory and mod
- * paths. Overriding the explicit dimensions here gives those callers the same virtual canvas,
- * without lying to Angelica or other code that reads Minecraft.displayWidth/displayHeight.</p>
+ * Do not rewrite constructor arguments globally: arbitrary mods depend on the supplied pixel
+ * space for scissor rectangles, viewports, model previews and mouse handling. Virtual dimensions
+ * are now applied only to explicit GUI initialization and render scopes.
  */
-@Lwjgl3Aware
 @Mixin(ScaledResolution.class)
 public abstract class MixinScaledResolution {
-    @ModifyVariable(
-            method = "<init>(Lnet/minecraft/client/Minecraft;II)V",
-            at = @At("HEAD"),
-            argsOnly = true,
-            ordinal = 0,
-            require = 0)
-    private static int gtnhvr$useVirtualGuiWidth(int originalWidth) {
-        if (!OpenXRRuntime.isSessionRunning()) return originalWidth;
-        return VRGuiRenderer.getCaptureWidth();
-    }
-
-    @ModifyVariable(
-            method = "<init>(Lnet/minecraft/client/Minecraft;II)V",
-            at = @At("HEAD"),
-            argsOnly = true,
-            ordinal = 1,
-            require = 0)
-    private static int gtnhvr$useVirtualGuiHeight(int originalHeight) {
-        if (!OpenXRRuntime.isSessionRunning()) return originalHeight;
-        return VRGuiRenderer.getCaptureHeight();
+    @Inject(method = "<init>(Lnet/minecraft/client/Minecraft;II)V", at = @At("TAIL"), require = 0)
+    private void gtnhvr$countScaledResolution(Minecraft mc, int width, int height, CallbackInfo ci) {
+        if (OpenXRRuntime.isSessionRunning()) {
+            VRGuiProfiler.scaledResolutionCreated();
+        }
     }
 }
