@@ -152,8 +152,12 @@ public final class VRHudRenderer {
         float halfW = hudWidth * 0.5F;
         float halfH = hudWidth * aspect * 0.5F;
 
-        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushAttrib(VRGuiRenderPipeline.getOverlayAttribMask());
         GLStateManager.glPushMatrix();
+        VRGuiProfiler.Section compositeSection = eyeIndex == 0
+                ? VRGuiProfiler.Section.HUD_COMPOSITE_LEFT
+                : VRGuiProfiler.Section.HUD_COMPOSITE_RIGHT;
+        VRGuiProfiler.beginSection(compositeSection);
 
         try {
             GLStateManager.glDisable(GL11.GL_CULL_FACE);
@@ -213,8 +217,12 @@ public final class VRHudRenderer {
             GLStateManager.glDisable(GL11.GL_ALPHA_TEST);
 
         } finally {
-            GLStateManager.glPopMatrix();
-            GLStateManager.glPopAttrib();
+            try {
+                GLStateManager.glPopMatrix();
+                GLStateManager.glPopAttrib();
+            } finally {
+                VRGuiProfiler.endSection(compositeSection);
+            }
         }
     }
 
