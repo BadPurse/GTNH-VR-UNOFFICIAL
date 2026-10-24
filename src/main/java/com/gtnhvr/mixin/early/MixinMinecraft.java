@@ -3,15 +3,40 @@ package com.gtnhvr.mixin.early;
 import com.gtnhvr.OpenXRRuntime;
 import com.gtnhvr.gui.VRGuiRenderPipeline;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.shader.Framebuffer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Minecraft.class)
 public abstract class MixinMinecraft {
+
+    /**
+     * Raw mouse event pixels and the GUI's logical screen size must use one pixel space.
+     * This redirect gives the whole input queue a temporary, exception-safe virtual resolution;
+     * Mouse getter mixins scale physical event coordinates while the scope is active.
+     */
+    @Redirect(method = {"runTick", "func_71407_l"},
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/GuiScreen;handleInput()V"),
+            require = 0)
+    private void gtnhvr$withVirtualMouseCoordinates(GuiScreen screen) {
+        if (!OpenXRRuntime.isSessionRunning()) {
+            screen.handleInput();
+            return;
+        }
+        Minecraft mc = (Minecraft) (Object) this;
+        com.gtnhvr.gui.VRGuiRenderer.beginMouseInputScope(mc);
+        try {
+            screen.handleInput();
+        } finally {
+            com.gtnhvr.gui.VRGuiRenderer.endMouseInputScope(mc);
+        }
+    }
 
     @Inject(method = {"setIngameFocus", "func_71381_h"}, at = @At("HEAD"), require = 0)
     private void gtnhvr$onSetIngameFocus(CallbackInfo ci) {
