@@ -408,7 +408,12 @@ public final class OpenXRRuntime {
                 GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
                 GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
-                renderer.renderWorld(partialTicks, finishTimeNano);
+                com.gtnhvr.gui.VRGuiProfiler.beginSection(com.gtnhvr.gui.VRGuiProfiler.Section.EYE_WORLD_LEFT);
+                try {
+                    renderer.renderWorld(partialTicks, finishTimeNano);
+                } finally {
+                    com.gtnhvr.gui.VRGuiProfiler.endSection(com.gtnhvr.gui.VRGuiProfiler.Section.EYE_WORLD_LEFT);
+                }
 
                 renderStereoOverlays(0, mc, hmdPos, hmdRot, screenTex, screenW, screenH, partialTicks);
 
@@ -440,7 +445,12 @@ public final class OpenXRRuntime {
                 GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
                 GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
-                renderer.renderWorld(partialTicks, finishTimeNano);
+                com.gtnhvr.gui.VRGuiProfiler.beginSection(com.gtnhvr.gui.VRGuiProfiler.Section.EYE_WORLD_RIGHT);
+                try {
+                    renderer.renderWorld(partialTicks, finishTimeNano);
+                } finally {
+                    com.gtnhvr.gui.VRGuiProfiler.endSection(com.gtnhvr.gui.VRGuiProfiler.Section.EYE_WORLD_RIGHT);
+                }
 
                 renderStereoOverlays(1, mc, hmdPos, hmdRot, screenTex, screenW, screenH, partialTicks);
 

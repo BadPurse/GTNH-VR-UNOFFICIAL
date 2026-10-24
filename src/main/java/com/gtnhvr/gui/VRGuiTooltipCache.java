@@ -37,6 +37,7 @@ public final class VRGuiTooltipCache {
             return stack.getTooltip(player, advanced);
         }
 
+        VRGuiProfiler.tooltipRequest();
         NBTTagCompound tag = stack.getTagCompound();
         int tagHash = tag == null ? 0 : tag.hashCode();
         Object item = stack.getItem();
@@ -49,13 +50,16 @@ public final class VRGuiTooltipCache {
                     player, world, advanced) && now - entry.createdAt < MAX_AGE_NANOS) {
                 CACHE.remove(i);
                 CACHE.add(entry);
+                VRGuiProfiler.tooltipCacheHit();
                 // GuiScreen may recolor lines; GuiContainerCreative may append a tab label.
                 // A copy prevents those per-screen edits from contaminating cached base data.
                 return new ArrayList(entry.tooltip);
             }
         }
 
+        long generationStarted = System.nanoTime();
         List generated = stack.getTooltip(player, advanced);
+        VRGuiProfiler.tooltipCacheMiss(System.nanoTime() - generationStarted);
         List snapshot = generated == null ? Collections.emptyList() : new ArrayList(generated);
         CACHE.add(new Entry(item, stack.getItemDamage(), tag, tagHash, player, world,
                 advanced, now, snapshot));

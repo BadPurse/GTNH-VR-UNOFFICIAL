@@ -381,8 +381,12 @@ public final class VRVirtualScreen {
         float resizeBottom = barCenterY - handleSide;
         float resizeTop = barCenterY + handleSide;
 
-        GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GLStateManager.glPushAttrib(VRGuiRenderPipeline.getOverlayAttribMask());
         GLStateManager.glPushMatrix();
+        VRGuiProfiler.Section compositeSection = eyeIndex == 0
+                ? VRGuiProfiler.Section.SCREEN_COMPOSITE_LEFT
+                : VRGuiProfiler.Section.SCREEN_COMPOSITE_RIGHT;
+        VRGuiProfiler.beginSection(compositeSection);
 
         try {
             GLStateManager.glDisable(GL11.GL_CULL_FACE);
@@ -479,8 +483,12 @@ public final class VRVirtualScreen {
             }
 
         } finally {
-            GLStateManager.glPopMatrix();
-            GLStateManager.glPopAttrib();
+            try {
+                GLStateManager.glPopMatrix();
+                GLStateManager.glPopAttrib();
+            } finally {
+                VRGuiProfiler.endSection(compositeSection);
+            }
         }
 
         // A custom game-screen overlay uses the same live GUI texture but its own saved pose/scale.

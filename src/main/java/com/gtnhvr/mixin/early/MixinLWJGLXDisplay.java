@@ -23,17 +23,16 @@ public abstract class MixinLWJGLXDisplay {
     }
 
     /**
-     * Visor keeps GUI rendering on its own fixed GUI canvas by overriding Window's
-     * pixel dimensions during the GUI render phase. In 1.7.10/LWJGL3ify the equivalent
-     * is Display.getWidth/getHeight. Do not affect game rendering or desktop input:
-     * these values change only while VRGuiRenderer is laying out/rendering a screen.
+     * Expose the active virtual target dimensions only during a scoped GUI lifecycle.
+     * In 1.7.10/LWJGL3ify the equivalent of Window.getWidth/getHeight is Display.getWidth/
+     * getHeight. World rendering and ordinary desktop input always see physical dimensions.
      */
     @Inject(method = "getWidth", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private static void gtnhvr$virtualGuiWidth(CallbackInfoReturnable<Integer> cir) {
         if (com.gtnhvr.gui.VRGuiRenderer.isLogicalGuiResolutionActive()) {
-            int width = com.gtnhvr.gui.VRHudRenderer.isCapturing()
-                    ? com.gtnhvr.gui.VRHudRenderer.getWidth()
-                    : com.gtnhvr.gui.VRGuiRenderer.getWidth();
+            int width = com.gtnhvr.gui.VRGuiRenderPipeline.getActiveTargetWidth();
+            if (width <= 0) width = com.gtnhvr.gui.VRGuiRenderer.getCaptureWidth();
+            if (com.gtnhvr.gui.VRHudRenderer.isCapturing()) width = com.gtnhvr.gui.VRHudRenderer.getWidth();
             if (width > 0) {
                 cir.setReturnValue(width);
             }
@@ -43,9 +42,9 @@ public abstract class MixinLWJGLXDisplay {
     @Inject(method = "getHeight", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private static void gtnhvr$virtualGuiHeight(CallbackInfoReturnable<Integer> cir) {
         if (com.gtnhvr.gui.VRGuiRenderer.isLogicalGuiResolutionActive()) {
-            int height = com.gtnhvr.gui.VRHudRenderer.isCapturing()
-                    ? com.gtnhvr.gui.VRHudRenderer.getHeight()
-                    : com.gtnhvr.gui.VRGuiRenderer.getHeight();
+            int height = com.gtnhvr.gui.VRGuiRenderPipeline.getActiveTargetHeight();
+            if (height <= 0) height = com.gtnhvr.gui.VRGuiRenderer.getCaptureHeight();
+            if (com.gtnhvr.gui.VRHudRenderer.isCapturing()) height = com.gtnhvr.gui.VRHudRenderer.getHeight();
             if (height > 0) {
                 cir.setReturnValue(height);
             }

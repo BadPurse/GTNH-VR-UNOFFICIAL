@@ -4,6 +4,8 @@ import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnhvr.gui.VRGuiRenderer;
 import com.gtnhvr.gui.VRHotbarRenderer;
 import com.gtnhvr.gui.VRHudRenderer;
+import com.gtnhvr.gui.VRGuiRenderPipeline;
+import com.gtnhvr.gui.VRGuiProfiler;
 import org.lwjgl.opengl.GL11;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -20,6 +22,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Pseudo
 @Mixin(targets = "com.gtnewhorizons.angelica.glsm.GLStateManager")
 public abstract class MixinGLStateManagerAlpha {
+
+    @Inject(method = "glPushAttrib", at = @At("HEAD"), remap = false, require = 0)
+    private static void gtnhvr$countAttribPush(int mask, CallbackInfo ci) {
+        VRGuiProfiler.attribPush();
+    }
+
+    @Inject(method = "glEnable", at = @At("HEAD"), remap = false, require = 0)
+    private static void gtnhvr$lazyStencilClear(int capability, CallbackInfo ci) {
+        if (capability == GL11.GL_STENCIL_TEST) {
+            VRGuiRenderPipeline.prepareStencilForGuiUse();
+        }
+    }
 
     @Inject(method = "glBlendFunc", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private static void gtnhvr$alphaSafeBlend(int srcFactor, int dstFactor, CallbackInfo ci) {
