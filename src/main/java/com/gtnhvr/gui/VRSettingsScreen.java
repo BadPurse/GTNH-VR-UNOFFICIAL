@@ -545,11 +545,21 @@ public class VRSettingsScreen extends GuiScreen {
     }
 
     public static void enableScissor(Minecraft mc, int guiX, int guiY, int guiW, int guiH, int screenW, int screenH) {
-        if (mc == null || screenW <= 0 || screenH <= 0 || mc.displayWidth <= 0 || mc.displayHeight <= 0) return;
-        int sx = guiX * mc.displayWidth / screenW;
-        int sy = (screenH - (guiY + guiH)) * mc.displayHeight / screenH;
-        int sw = Math.max(1, guiW * mc.displayWidth / screenW);
-        int sh = Math.max(1, guiH * mc.displayHeight / screenH);
+        if (mc == null || screenW <= 0 || screenH <= 0) return;
+
+        // Scissor is in framebuffer pixels, not desktop pixels. During the VR pass the active
+        // target may be 1920x1341 (or another aspect-preserving size) even if the desktop is
+        // 2388x1668. Using mc.displayWidth here made the clip rectangle miss the GUI content.
+        int targetWidth = VRGuiRenderPipeline.getActiveTargetWidth();
+        int targetHeight = VRGuiRenderPipeline.getActiveTargetHeight();
+        if (targetWidth <= 0) targetWidth = VRGuiRenderer.getCaptureWidth();
+        if (targetHeight <= 0) targetHeight = VRGuiRenderer.getCaptureHeight();
+        if (targetWidth <= 0 || targetHeight <= 0) return;
+
+        int sx = (int) ((long) guiX * targetWidth / screenW);
+        int sy = (int) ((long) (screenH - (guiY + guiH)) * targetHeight / screenH);
+        int sw = Math.max(1, (int) ((long) guiW * targetWidth / screenW));
+        int sh = Math.max(1, (int) ((long) guiH * targetHeight / screenH));
         GLStateManager.glEnable(GL11.GL_SCISSOR_TEST);
         GLStateManager.glScissor(sx, sy, sw, sh);
     }
