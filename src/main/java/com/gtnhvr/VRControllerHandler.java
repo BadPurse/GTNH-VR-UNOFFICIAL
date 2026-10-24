@@ -1102,10 +1102,8 @@ public final class VRControllerHandler {
             screen.setCursorUV(screenUV.x, screenUV.y, true);
             screen.setLastHitPoint(screenHitPoint);
 
-            // Keep the controller cursor in physical window pixels. Minecraft's normal
-            // mouse-event calculation maps those pixels into the virtual GUI coordinates because
-            // ScaledResolution is virtualized centrally; applying another transform here would
-            // double-scale clicks and break inventories or machine widgets.
+            // Keep the controller cursor in physical window pixels. The scoped VR GUI input and
+            // draw-screen hooks transform it into target/logical coordinates exactly once.
             int cursorW = com.gtnhvr.gui.VRGuiRenderer.getPhysicalWindowWidth();
             int cursorH = com.gtnhvr.gui.VRGuiRenderer.getPhysicalWindowHeight();
             float curU = Math.max(0.0F, Math.min(1.0F, screenUV.x));
