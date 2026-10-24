@@ -26,6 +26,12 @@ public final class VRGuiRenderer {
     private static boolean logicalGuiResolutionActive = false;
     private static long frameId = 0L;
 
+    // A scoped stack keeps Minecraft's display dimensions, ScaledResolution, Display and GL
+    // viewport/scissor calculations in the same coordinate space during GUI init and drawing.
+    // The oldest entry always preserves the real physical window size for pointer conversion.
+    private static final java.util.ArrayDeque<ResolutionScope> RESOLUTION_SCOPES =
+            new java.util.ArrayDeque<>();
+
     private static VRGuiFramebuffer guiFramebuffer = null;
 
     // Remember the last screen initialized for the logical canvas. Some third-party screens
@@ -35,45 +41,124 @@ public final class VRGuiRenderer {
     private static int lastLogicalGuiWidth = -1;
     private static int lastLogicalGuiHeight = -1;
 
-    // Same fixed GUI target as Visor's VRGuiManagerImpl. The screen canvas must not
-    // inherit the desktop aspect ratio or the custom 2388x1668 default, which is not 16:9.
+    // Keep a crisp reference width but derive height from the real window aspect ratio.
+    // This preserves one uniform pixel scale for 16:9, 16:10, 4:3 and ultrawide displays.
     private static final int VR_GUI_WIDTH = 1920;
-    private static final int VR_GUI_HEIGHT = 1080;
+    private static final int VR_GUI_FALLBACK_HEIGHT = 1080;
 
     public static int getCaptureWidth() {
         Minecraft mc = Minecraft.getMinecraft();
         if (OpenXRRuntime.isSessionRunning()) return VR_GUI_WIDTH;
-        return mc != null && mc.displayWidth > 0 ? mc.displayWidth : VR_GUI_WIDTH;
+        int physicalWidth = getPhysicalWindowWidth();
+        return physicalWidth > 0 ? physicalWidth : VR_GUI_WIDTH;
     }
 
     public static int getCaptureHeight() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (OpenXRRuntime.isSessionRunning()) return VR_GUI_HEIGHT;
-        return mc != null && mc.displayHeight > 0 ? mc.displayHeight : VR_GUI_HEIGHT;
+        if (OpenXRRuntime.isSessionRunning()) {
+            int physicalWidth = getPhysicalWindowWidth();
+            int physicalHeight = getPhysicalWindowHeight();
+            if (physicalWidth > 0 && physicalHeight > 0) {
+                return Math.max(1, Math.round(VR_GUI_WIDTH * (physicalHeight / (float) physicalWidth)));
+            }
+            return VR_GUI_FALLBACK_HEIGHT;
+        }
+        int physicalHeight = getPhysicalWindowHeight();
+        return physicalHeight > 0 ? physicalHeight : VR_GUI_FALLBACK_HEIGHT;
     }
 
-    /** The physical window remains physical even while VR GUI targets are active. */
+    /** The actual desktop/window dimensions, even while a logical GUI scope is active. */
     public static int getPhysicalWindowWidth() {
+        ResolutionScope outermost = RESOLUTION_SCOPES.peekLast();
+        if (outermost != null && outermost.displayWidth > 0) return outermost.displayWidth;
         Minecraft mc = Minecraft.getMinecraft();
         return mc != null && mc.displayWidth > 0 ? mc.displayWidth : VR_GUI_WIDTH;
     }
 
     public static int getPhysicalWindowHeight() {
+        ResolutionScope outermost = RESOLUTION_SCOPES.peekLast();
+        if (outermost != null && outermost.displayHeight > 0) return outermost.displayHeight;
         Minecraft mc = Minecraft.getMinecraft();
-        return mc != null && mc.displayHeight > 0 ? mc.displayHeight : VR_GUI_HEIGHT;
+        return mc != null && mc.displayHeight > 0 ? mc.displayHeight : VR_GUI_FALLBACK_HEIGHT;
     }
 
-    /** Scaled coordinate dimensions of the fixed virtual canvas. */
+    /**
+     * Temporarily switches only GUI initialization/rendering to the active virtual target.
+     * Nested scopes restore the dimensions and logical-resolution flag they found on entry.
+     */
+    public static void beginLogicalResolutionScope(Minecraft mc, int targetWidth, int targetHeight) {
+        if (mc == null || targetWidth <= 0 || targetHeight <= 0) return;
+        RESOLUTION_SCOPES.push(new ResolutionScope(mc, mc.displayWidth, mc.displayHeight,
+                logicalGuiResolutionActive));
+        mc.displayWidth = targetWidth;
+        mc.displayHeight = targetHeight;
+        logicalGuiResolutionActive = true;
+    }
+
+    public static void endLogicalResolutionScope(Minecraft mc) {
+        if (RESOLUTION_SCOPES.isEmpty()) return;
+        ResolutionScope scope = RESOLUTION_SCOPES.pop();
+        Minecraft targetMc = scope.minecraft != null ? scope.minecraft : mc;
+        if (targetMc != null) {
+            targetMc.displayWidth = scope.displayWidth;
+            targetMc.displayHeight = scope.displayHeight;
+        }
+        logicalGuiResolutionActive = scope.previousLogicalResolutionActive;
+    }
+
+    private static final class ResolutionScope {
+        private final Minecraft minecraft;
+        private final int displayWidth;
+        private final int displayHeight;
+        private final boolean previousLogicalResolutionActive;
+
+        private ResolutionScope(Minecraft minecraft, int displayWidth, int displayHeight,
+                                boolean previousLogicalResolutionActive) {
+            this.minecraft = minecraft;
+            this.displayWidth = displayWidth;
+            this.displayHeight = displayHeight;
+            this.previousLogicalResolutionActive = previousLogicalResolutionActive;
+        }
+    }
+
+    /** Scaled coordinate dimensions of the virtual canvas, using its physical-window aspect. */
     public static int getLogicalGuiWidth() {
         Minecraft mc = Minecraft.getMinecraft();
         return mc == null ? VR_GUI_WIDTH
-                : new net.minecraft.client.gui.ScaledResolution(mc, VR_GUI_WIDTH, VR_GUI_HEIGHT).getScaledWidth();
+                : new net.minecraft.client.gui.ScaledResolution(mc, getCaptureWidth(), getCaptureHeight()).getScaledWidth();
     }
 
     public static int getLogicalGuiHeight() {
         Minecraft mc = Minecraft.getMinecraft();
-        return mc == null ? VR_GUI_HEIGHT
-                : new net.minecraft.client.gui.ScaledResolution(mc, VR_GUI_WIDTH, VR_GUI_HEIGHT).getScaledHeight();
+        return mc == null ? VR_GUI_FALLBACK_HEIGHT
+                : new net.minecraft.client.gui.ScaledResolution(mc, getCaptureWidth(), getCaptureHeight()).getScaledHeight();
+    }
+
+    /** Physical logical dimensions used only to remap desktop mouse coordinates to a VR screen. */
+    public static int getPhysicalScaledGuiWidth() {
+        int width = getPhysicalWindowWidth();
+        int height = getPhysicalWindowHeight();
+        return getPhysicalScaledGuiDimension(width, height);
+    }
+
+    public static int getPhysicalScaledGuiHeight() {
+        int width = getPhysicalWindowWidth();
+        int height = getPhysicalWindowHeight();
+        return getPhysicalScaledGuiDimension(height, width);
+    }
+
+    private static int getPhysicalScaledGuiDimension(int primary, int secondary) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || primary <= 0 || secondary <= 0) return Math.max(1, primary);
+        int limit = mc.gameSettings == null ? 0 : mc.gameSettings.guiScale;
+        if (limit == 0) limit = 1000;
+        int factor = 1;
+        while (factor < limit
+                && getPhysicalWindowWidth() / (factor + 1) >= 320
+                && getPhysicalWindowHeight() / (factor + 1) >= 240) {
+            factor++;
+        }
+        return Math.max(1, (int) Math.ceil(primary / (double) factor));
     }
 
     public static boolean shouldUseVirtualResolution() {
