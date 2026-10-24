@@ -35,10 +35,27 @@ public final class VRGuiRenderPipeline {
     private static int previousMatrixMode = GL11.GL_MODELVIEW;
     private static Framebuffer previousMinecraftFramebuffer;
     private static boolean hadMinecraftInstance;
-    private static boolean previousLogicalResolutionActive;
     private static boolean attribPushed;
     private static boolean projectionPushed;
     private static boolean modelViewPushed;
+    private static boolean resolutionScopePushed;
+    private static boolean profilerSectionStarted;
+    private static boolean stencilClearPending;
+
+    // Arbitrary modded GUI code can touch texture, lighting, fog, blend, depth, stencil,
+    // scissor and viewport state. Do not ask Angelica to snapshot unrelated evaluator/list/
+    // pixel-transfer/accumulation state on every open GUI frame.
+    private static final int GUI_PASS_ATTRIB_MASK =
+            GL11.GL_COLOR_BUFFER_BIT | GL11.GL_CURRENT_BIT | GL11.GL_DEPTH_BUFFER_BIT
+            | GL11.GL_ENABLE_BIT | GL11.GL_FOG_BIT | GL11.GL_HINT_BIT
+            | GL11.GL_LIGHTING_BIT | GL11.GL_LINE_BIT | GL11.GL_POINT_BIT
+            | GL11.GL_POLYGON_BIT | GL11.GL_SCISSOR_BIT | GL11.GL_STENCIL_BUFFER_BIT
+            | GL11.GL_TEXTURE_BIT | GL11.GL_TRANSFORM_BIT | GL11.GL_VIEWPORT_BIT;
+
+    // The two textured VR quads touch only these attributes (their matrices are pushed separately).
+    private static final int OVERLAY_ATTRIB_MASK =
+            GL11.GL_COLOR_BUFFER_BIT | GL11.GL_CURRENT_BIT | GL11.GL_DEPTH_BUFFER_BIT
+            | GL11.GL_ENABLE_BIT | GL11.GL_TEXTURE_BIT;
 
     private VRGuiRenderPipeline() {}
 
@@ -82,9 +99,53 @@ public final class VRGuiRenderPipeline {
         return getTarget(pass).framebuffer;
     }
 
+    public static int getActiveTargetWidth() {
+        return activePass == null ? 0 : getTarget(activePass).width;
+    }
+
+    public static int getActiveTargetHeight() {
+        return activePass == null ? 0 : getTarget(activePass).height;
+    }
+
+    public static int getGuiPassAttribMask() {
+        return GUI_PASS_ATTRIB_MASK;
+    }
+
+    public static int getOverlayAttribMask() {
+        return OVERLAY_ATTRIB_MASK;
+    }
+
+    public static void prepareStencilForGuiUse() {
+        if (activePass == null || !stencilClearPending) return;
+        // Stencil contents need clearing only if a widget actually uses stencil this pass.
+        stencilClearPending = false;
+        boolean scissorEnabled = false;
+        int oldStencilMask = -1;
+        try {
+            scissorEnabled = GLStateManager.glIsEnabled(GL11.GL_SCISSOR_TEST);
+            oldStencilMask = GLStateManager.glGetInteger(GL11.GL_STENCIL_WRITEMASK);
+            GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
+            GLStateManager.glStencilMask(-1);
+            GLStateManager.glClearStencil(0);
+            GLStateManager.glClear(GL11.GL_STENCIL_BUFFER_BIT);
+        } catch (Throwable ignored) {
+            // Keep a third-party GUI from crashing if a driver does not expose stencil state.
+        } finally {
+            try {
+                GLStateManager.glStencilMask(oldStencilMask);
+            } catch (Throwable ignored) {}
+            if (scissorEnabled) {
+                try {
+                    GLStateManager.glEnable(GL11.GL_SCISSOR_TEST);
+                } catch (Throwable ignored) {}
+            }
+        }
+    }
+
     public static void destroyTarget(Pass pass) {
         if (activePass == pass) end(pass);
         getTarget(pass).destroy();
+        VRGuiProfiler.destroyQueries();
     }
 
     /**
@@ -107,17 +168,27 @@ public final class VRGuiRenderPipeline {
         if (pass == null || activePass != null || width <= 0 || height <= 0) return false;
 
         Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null) return false;
         previousFramebufferId = GLStateManager.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
         previousMatrixMode = GLStateManager.glGetInteger(GL11.GL_MATRIX_MODE);
-        hadMinecraftInstance = mc != null;
+        hadMinecraftInstance = true;
         // Read the old pointer before marking a pass active so MixinMinecraft cannot return the
         // target we are about to bind as though it were the old Minecraft framebuffer.
-        previousMinecraftFramebuffer = mc == null ? null : OpenXRRuntime.getMinecraftFramebuffer(mc);
-        previousLogicalResolutionActive = VRGuiRenderer.isLogicalGuiResolutionActive();
+        previousMinecraftFramebuffer = OpenXRRuntime.getMinecraftFramebuffer(mc);
         activePass = pass;
 
         try {
-            GLStateManager.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            // The capture target owns dimensions only for this scoped GUI/HUD pass. They are
+            // restored on every exit, including a nested setWorldAndResolution call.
+            VRGuiRenderer.beginLogicalResolutionScope(mc, width, height);
+            resolutionScopePushed = true;
+            VRGuiProfiler.Section section = pass == Pass.SCREEN
+                    ? VRGuiProfiler.Section.SCREEN_CAPTURE : VRGuiProfiler.Section.HUD_CAPTURE;
+            VRGuiProfiler.beginSection(section);
+            profilerSectionStarted = true;
+
+            GLStateManager.glPushAttrib(GUI_PASS_ATTRIB_MASK);
+            VRGuiProfiler.attribPush();
             attribPushed = true;
 
             GLStateManager.glMatrixMode(GL11.GL_PROJECTION);
@@ -134,6 +205,7 @@ public final class VRGuiRenderPipeline {
             GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebufferId);
             GLStateManager.glViewport(0, 0, width, height);
             GLStateManager.glDisable(GL11.GL_SCISSOR_TEST);
+            GLStateManager.glDisable(GL11.GL_STENCIL_TEST);
             GLStateManager.glDepthMask(true);
             GLStateManager.glColorMask(true, true, true, true);
 
@@ -143,9 +215,10 @@ public final class VRGuiRenderPipeline {
                 GLStateManager.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
             }
             GLStateManager.glClearDepth(1.0D);
-            GLStateManager.glClearStencil(0);
-            GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT
-                    | GL11.GL_STENCIL_BUFFER_BIT);
+            // Stencil is lazily cleared the first time a GUI actually enables stencil testing.
+            // This avoids a full stencil-buffer clear for ordinary inventory/menu frames.
+            GLStateManager.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+            stencilClearPending = true;
 
             ScaledResolution scaled = mc == null ? null : new ScaledResolution(mc, width, height);
             double logicalWidth = scaled == null ? width : scaled.getScaledWidth_double();
@@ -161,7 +234,6 @@ public final class VRGuiRenderPipeline {
             GLStateManager.glEnable(GL11.GL_BLEND);
             GLStateManager.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
                     GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            VRGuiRenderer.setLogicalGuiResolutionActive(true);
             return true;
         } catch (RuntimeException | Error failure) {
             end(pass);
@@ -199,11 +271,24 @@ public final class VRGuiRenderPipeline {
                 try {
                     GLStateManager.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFramebufferId);
                 } finally {
-                    VRGuiRenderer.setLogicalGuiResolutionActive(previousLogicalResolutionActive);
-                    previousMinecraftFramebuffer = null;
-                    hadMinecraftInstance = false;
-                    previousFramebufferId = 0;
-                    activePass = null;
+                    try {
+                        if (resolutionScopePushed) {
+                            VRGuiRenderer.endLogicalResolutionScope(mc);
+                            resolutionScopePushed = false;
+                        }
+                    } finally {
+                        if (profilerSectionStarted) {
+                            VRGuiProfiler.endSection(pass == Pass.SCREEN
+                                    ? VRGuiProfiler.Section.SCREEN_CAPTURE
+                                    : VRGuiProfiler.Section.HUD_CAPTURE);
+                            profilerSectionStarted = false;
+                        }
+                        stencilClearPending = false;
+                        previousMinecraftFramebuffer = null;
+                        hadMinecraftInstance = false;
+                        previousFramebufferId = 0;
+                        activePass = null;
+                    }
                 }
             }
         }
