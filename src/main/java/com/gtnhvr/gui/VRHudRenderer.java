@@ -30,8 +30,39 @@ public final class VRHudRenderer {
     private static int height = 0;
     private static VRGuiFramebuffer hudFramebuffer = null;
     private static boolean capturing = false;
+    private static final int HUD_CAPTURE_FPS = Integer.getInteger("gtnhvr.guiHudCaptureFps", 30);
+    private static final long HUD_CAPTURE_INTERVAL_NANOS = HUD_CAPTURE_FPS > 0
+            ? 1_000_000_000L / HUD_CAPTURE_FPS : 0L;
+    private static long lastHudUpdateNanos;
+    private static net.minecraft.client.gui.GuiScreen lastHudUpdateScreen;
 
     private VRHudRenderer() {}
+
+    /**
+     * The HUD contents change slowly while a menu/inventory is open. Avoid repeatedly drawing
+     * the full Forge HUD into its FBO during those menu frames. World rendering is never throttled.
+     * Set -Dgtnhvr.guiHudCaptureFps=0 to disable; default is 30 updates/second.
+     */
+    public static boolean shouldUpdateHudWhileScreenOpen() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (!OpenXRRuntime.isSessionRunning() || mc == null || mc.currentScreen == null
+                || HUD_CAPTURE_INTERVAL_NANOS <= 0L) {
+            lastHudUpdateScreen = null;
+            lastHudUpdateNanos = 0L;
+            return true;
+        }
+
+        long now = System.nanoTime();
+        if (mc.currentScreen != lastHudUpdateScreen || lastHudUpdateNanos == 0L
+                || now - lastHudUpdateNanos >= HUD_CAPTURE_INTERVAL_NANOS) {
+            lastHudUpdateScreen = mc.currentScreen;
+            lastHudUpdateNanos = now;
+            return true;
+        }
+
+        VRGuiProfiler.hudCaptureSkipped();
+        return false;
+    }
 
     public static void checkSize(int w, int h) {
         if (w <= 0) w = 854;
