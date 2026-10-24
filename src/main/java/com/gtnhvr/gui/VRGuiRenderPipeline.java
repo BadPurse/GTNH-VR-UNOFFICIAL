@@ -15,7 +15,8 @@ import org.lwjgl.opengl.GL30;
  *
  * <p>Screen GUIs and the in-game HUD have separate texture targets, but share the same lifecycle:
  * allocate/resize, bind, render on a logical ScaledResolution canvas, then restore the exact
- * previous target and GL state. The physical Minecraft window dimensions are never changed.</p>
+ * previous target, GL state and physical window dimensions. Virtual dimensions exist only inside
+ * explicit, exception-safe render/input scopes.</p>
  *
  * <p>This is the Minecraft 1.7.10 equivalent of Visor's GUI target manager and overlay render
  * pass. The screen/HUD facades expose textures and pose rendering; they do not own GL resources.</p>
