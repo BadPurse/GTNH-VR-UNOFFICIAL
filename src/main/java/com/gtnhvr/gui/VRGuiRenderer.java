@@ -254,8 +254,8 @@ public final class VRGuiRenderer {
 
     /**
      * Handles only the one-time transition into VR for a screen which was already open before
-     * the session started. Normal screen transitions get their logical size through
-     * MixinScaledResolution during Minecraft's ordinary setWorldAndResolution call.
+     * the session started. Normal screen transitions get their logical size through the scoped
+     * setWorldAndResolution argument overrides in MixinGuiScreen.
      */
     public static void ensureLogicalGuiScreen(Minecraft mc) {
         if (mc == null || !OpenXRRuntime.isSessionRunning()) return;
