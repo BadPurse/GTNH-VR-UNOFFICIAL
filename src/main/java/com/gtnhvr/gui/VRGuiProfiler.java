@@ -16,6 +16,8 @@ public final class VRGuiProfiler {
     public enum Section {
         SCREEN_CAPTURE,
         HUD_CAPTURE,
+        EYE_WORLD_LEFT,
+        EYE_WORLD_RIGHT,
         SCREEN_COMPOSITE_LEFT,
         SCREEN_COMPOSITE_RIGHT,
         HUD_COMPOSITE_LEFT,
@@ -193,11 +195,14 @@ public final class VRGuiProfiler {
         if (now - lastLogNanos < LOG_INTERVAL_NANOS) return;
         pollGpuResults();
         LOGGER.info("GUI profiler (5s): screen GPU/CPU={} ms/{} ms, HUD={} ms/{} ms, " +
+                        "eye-world L/R GPU/CPU={} / {} ms, {} / {} ms; " +
                         "composite L/R screen={} / {} ms HUD={} / {} ms; " +
                         "ScaledResolution={}, setWorldAndResolution={}, tooltips={} hit={} miss={} " +
                         "generation={} ms, glPushAttrib={} (GPU values are completed-sample averages)",
                 gpuMs(Section.SCREEN_CAPTURE), cpuMs(Section.SCREEN_CAPTURE),
                 gpuMs(Section.HUD_CAPTURE), cpuMs(Section.HUD_CAPTURE),
+                gpuMs(Section.EYE_WORLD_LEFT), cpuMs(Section.EYE_WORLD_LEFT),
+                gpuMs(Section.EYE_WORLD_RIGHT), cpuMs(Section.EYE_WORLD_RIGHT),
                 gpuMs(Section.SCREEN_COMPOSITE_LEFT), gpuMs(Section.SCREEN_COMPOSITE_RIGHT),
                 gpuMs(Section.HUD_COMPOSITE_LEFT), gpuMs(Section.HUD_COMPOSITE_RIGHT),
                 scaledResolutionCount, screenInitializationCount, tooltipRequestCount,
