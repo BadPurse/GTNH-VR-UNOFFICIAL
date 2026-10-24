@@ -42,29 +42,31 @@ public final class VRGuiRenderer {
     private static int lastLogicalGuiWidth = -1;
     private static int lastLogicalGuiHeight = -1;
 
-    // Keep a crisp reference width but derive height from the real window aspect ratio.
-    // This preserves one uniform pixel scale for 16:9, 16:10, 4:3 and ultrawide displays.
-    private static final int VR_GUI_WIDTH = 1920;
+    // Maximum target width. Resolution is uniformly downscaled only when the desktop window
+    // exceeds this width; small windows are never upscaled. Height follows the actual window
+    // aspect ratio, so 4:3, 16:10 and ultrawide GUIs do not get letterboxed or distorted.
+    private static final int VR_GUI_MAX_WIDTH = 1920;
     private static final int VR_GUI_FALLBACK_HEIGHT = 1080;
 
     public static int getCaptureWidth() {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (OpenXRRuntime.isSessionRunning()) return VR_GUI_WIDTH;
         int physicalWidth = getPhysicalWindowWidth();
-        return physicalWidth > 0 ? physicalWidth : VR_GUI_WIDTH;
+        if (OpenXRRuntime.isSessionRunning()) {
+            return Math.max(1, Math.min(VR_GUI_MAX_WIDTH,
+                    physicalWidth > 0 ? physicalWidth : VR_GUI_MAX_WIDTH));
+        }
+        return physicalWidth > 0 ? physicalWidth : VR_GUI_MAX_WIDTH;
     }
 
     public static int getCaptureHeight() {
-        Minecraft mc = Minecraft.getMinecraft();
+        int physicalWidth = getPhysicalWindowWidth();
+        int physicalHeight = getPhysicalWindowHeight();
         if (OpenXRRuntime.isSessionRunning()) {
-            int physicalWidth = getPhysicalWindowWidth();
-            int physicalHeight = getPhysicalWindowHeight();
             if (physicalWidth > 0 && physicalHeight > 0) {
-                return Math.max(1, Math.round(VR_GUI_WIDTH * (physicalHeight / (float) physicalWidth)));
+                // width/physicalWidth is the single uniform scale s, clamped to s <= 1 above.
+                return Math.max(1, Math.round(getCaptureWidth() * (physicalHeight / (float) physicalWidth)));
             }
             return VR_GUI_FALLBACK_HEIGHT;
         }
-        int physicalHeight = getPhysicalWindowHeight();
         return physicalHeight > 0 ? physicalHeight : VR_GUI_FALLBACK_HEIGHT;
     }
 
