@@ -151,6 +151,8 @@ public final class VRGuiProfiler {
                 try {
                     if (GL15.glGetQueryObjecti(state.queryIds[slot], GL15.GL_QUERY_RESULT_AVAILABLE) == 0) continue;
                     state.latestNanos = GL33.glGetQueryObjectui64(state.queryIds[slot], GL15.GL_QUERY_RESULT);
+                    state.windowNanos += Math.max(0L, state.latestNanos);
+                    state.windowSamples++;
                     state.pending[slot] = false;
                 } catch (Throwable ignored) {
                     timerQueriesSupported = false;
@@ -193,7 +195,7 @@ public final class VRGuiProfiler {
         LOGGER.info("GUI profiler (5s): screen GPU/CPU={} ms/{} ms, HUD={} ms/{} ms, " +
                         "composite L/R screen={} / {} ms HUD={} / {} ms; " +
                         "ScaledResolution={}, setWorldAndResolution={}, tooltips={} hit={} miss={} " +
-                        "generation={} ms, glPushAttrib={} (GPU values are latest completed samples)",
+                        "generation={} ms, glPushAttrib={} (GPU values are completed-sample averages)",
                 gpuMs(Section.SCREEN_CAPTURE), cpuMs(Section.SCREEN_CAPTURE),
                 gpuMs(Section.HUD_CAPTURE), cpuMs(Section.HUD_CAPTURE),
                 gpuMs(Section.SCREEN_COMPOSITE_LEFT), gpuMs(Section.SCREEN_COMPOSITE_RIGHT),
@@ -211,6 +213,10 @@ public final class VRGuiProfiler {
         attribPushCount = 0L;
         java.util.Arrays.fill(cpuWindowNanos, 0L);
         java.util.Arrays.fill(cpuWindowSamples, 0L);
+        for (GpuSection state : GPU) {
+            state.windowNanos = 0L;
+            state.windowSamples = 0L;
+        }
     }
 
     private static double cpuMs(Section section) {
@@ -221,8 +227,10 @@ public final class VRGuiProfiler {
 
     private static String gpuMs(Section section) {
         if (!timerQueriesSupported || !timerSupportChecked) return "n/a";
-        long nanos = GPU[section.ordinal()].latestNanos;
-        return nanos < 0L ? "n/a" : String.format(java.util.Locale.ROOT, "%.3f", nanos / 1_000_000.0D);
+        GpuSection state = GPU[section.ordinal()];
+        if (state.windowSamples <= 0L) return "n/a";
+        double averageNanos = state.windowNanos / (double) state.windowSamples;
+        return String.format(java.util.Locale.ROOT, "%.3f", averageNanos / 1_000_000.0D);
     }
 
     /** Releases timer-query objects when the VR GUI targets are destroyed. */
@@ -245,5 +253,7 @@ public final class VRGuiProfiler {
         private final boolean[] pending = new boolean[QUERY_RING_SIZE];
         private int nextSlot;
         private long latestNanos = -1L;
+        private long windowNanos;
+        private long windowSamples;
     }
 }
