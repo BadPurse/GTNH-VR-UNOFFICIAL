@@ -50,6 +50,8 @@ public final class VRGuiProfiler {
     private static long tooltipMissCount;
     private static long tooltipGenerationNanos;
     private static long attribPushCount;
+    private static long guiCaptureSkippedCount;
+    private static long hudCaptureSkippedCount;
 
     static {
         for (int i = 0; i < GPU.length; i++) GPU[i] = new GpuSection();
@@ -190,6 +192,14 @@ public final class VRGuiProfiler {
         if (ENABLED) attribPushCount++;
     }
 
+    public static void guiCaptureSkipped() {
+        if (ENABLED) guiCaptureSkippedCount++;
+    }
+
+    public static void hudCaptureSkipped() {
+        if (ENABLED) hudCaptureSkippedCount++;
+    }
+
     private static void logIfDue() {
         long now = System.nanoTime();
         if (now - lastLogNanos < LOG_INTERVAL_NANOS) return;
@@ -198,7 +208,8 @@ public final class VRGuiProfiler {
                         "eye-world L/R GPU/CPU={} / {} ms, {} / {} ms; " +
                         "composite L/R screen={} / {} ms HUD={} / {} ms; " +
                         "ScaledResolution={}, setWorldAndResolution={}, tooltips={} hit={} miss={} " +
-                        "generation={} ms, glPushAttrib={} (GPU values are completed-sample averages)",
+                        "generation={} ms, glPushAttrib={}, skipped captures GUI/HUD={}/{} " +
+                        "(GPU values are completed-sample averages)",
                 gpuMs(Section.SCREEN_CAPTURE), cpuMs(Section.SCREEN_CAPTURE),
                 gpuMs(Section.HUD_CAPTURE), cpuMs(Section.HUD_CAPTURE),
                 gpuMs(Section.EYE_WORLD_LEFT), cpuMs(Section.EYE_WORLD_LEFT),
@@ -207,7 +218,7 @@ public final class VRGuiProfiler {
                 gpuMs(Section.HUD_COMPOSITE_LEFT), gpuMs(Section.HUD_COMPOSITE_RIGHT),
                 scaledResolutionCount, screenInitializationCount, tooltipRequestCount,
                 tooltipHitCount, tooltipMissCount, tooltipGenerationNanos / 1_000_000.0D,
-                attribPushCount);
+                attribPushCount, guiCaptureSkippedCount, hudCaptureSkippedCount);
         lastLogNanos = now;
         scaledResolutionCount = 0L;
         screenInitializationCount = 0L;
@@ -216,6 +227,8 @@ public final class VRGuiProfiler {
         tooltipMissCount = 0L;
         tooltipGenerationNanos = 0L;
         attribPushCount = 0L;
+        guiCaptureSkippedCount = 0L;
+        hudCaptureSkippedCount = 0L;
         java.util.Arrays.fill(cpuWindowNanos, 0L);
         java.util.Arrays.fill(cpuWindowSamples, 0L);
         for (GpuSection state : GPU) {
