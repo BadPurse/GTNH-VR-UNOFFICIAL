@@ -24,7 +24,7 @@ public abstract class MixinMinecraft {
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/client/gui/GuiScreen;handleInput()V"),
             require = 0)
-    private void gtnhvr$withVirtualMouseCoordinates(GuiScreen screen) {
+    private void gtnhvr$withVirtualMouseCoordinates(GuiScreen screen) throws java.io.IOException {
         if (!OpenXRRuntime.isSessionRunning()) {
             screen.handleInput();
             return;
