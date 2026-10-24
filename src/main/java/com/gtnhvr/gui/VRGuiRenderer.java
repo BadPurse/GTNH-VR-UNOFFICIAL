@@ -24,6 +24,7 @@ public final class VRGuiRenderer {
     private static int height = 0;
     private static boolean capturing = false;
     private static boolean logicalGuiResolutionActive = false;
+    private static int mouseInputScopeDepth = 0;
     private static long frameId = 0L;
 
     // A scoped stack keeps Minecraft's display dimensions, ScaledResolution, Display and GL
@@ -104,6 +105,55 @@ public final class VRGuiRenderer {
             targetMc.displayHeight = scope.displayHeight;
         }
         logicalGuiResolutionActive = scope.previousLogicalResolutionActive;
+    }
+
+    /**
+     * Wraps all GUI input in a temporary virtual pixel space. Mouse getter mixins scale each raw
+     * physical event to the same target dimensions that mc.displayWidth/Height expose here.
+     * The caller must use try/finally so a mod's exception cannot leak these dimensions.
+     */
+    public static void beginMouseInputScope(Minecraft mc) {
+        if (mc == null || !OpenXRRuntime.isSessionRunning()) return;
+        beginLogicalResolutionScope(mc, getCaptureWidth(), getCaptureHeight());
+        mouseInputScopeDepth++;
+    }
+
+    public static void endMouseInputScope(Minecraft mc) {
+        if (mouseInputScopeDepth <= 0) return;
+        mouseInputScopeDepth--;
+        endLogicalResolutionScope(mc);
+    }
+
+    public static int mapPhysicalMouseEventXToLogicalCanvas(int eventX) {
+        if (!OpenXRRuntime.isSessionRunning() || !logicalGuiResolutionActive) return eventX;
+        int physicalWidth = getPhysicalWindowWidth();
+        int targetWidth = getCaptureWidth();
+        if (physicalWidth <= 0 || targetWidth <= 0) return eventX;
+        return Math.round(eventX * (targetWidth / (float) physicalWidth));
+    }
+
+    public static int mapPhysicalMouseEventYToLogicalCanvas(int eventY) {
+        if (!OpenXRRuntime.isSessionRunning() || !logicalGuiResolutionActive) return eventY;
+        int physicalHeight = getPhysicalWindowHeight();
+        int targetHeight = getCaptureHeight();
+        if (physicalHeight <= 0 || targetHeight <= 0) return eventY;
+        return Math.round(eventY * (targetHeight / (float) physicalHeight));
+    }
+
+    public static int mapDesktopMouseXToLogicalScreen(int mouseX) {
+        if (!OpenXRRuntime.isSessionRunning() || capturing) return mouseX;
+        int physicalWidth = getPhysicalScaledGuiWidth();
+        int logicalWidth = getLogicalGuiWidth();
+        if (physicalWidth <= 0 || logicalWidth <= 0) return mouseX;
+        return Math.round(mouseX * (logicalWidth / (float) physicalWidth));
+    }
+
+    public static int mapDesktopMouseYToLogicalScreen(int mouseY) {
+        if (!OpenXRRuntime.isSessionRunning() || capturing) return mouseY;
+        int physicalHeight = getPhysicalScaledGuiHeight();
+        int logicalHeight = getLogicalGuiHeight();
+        if (physicalHeight <= 0 || logicalHeight <= 0) return mouseY;
+        return Math.round(mouseY * (logicalHeight / (float) physicalHeight));
     }
 
     private static final class ResolutionScope {
@@ -240,7 +290,7 @@ public final class VRGuiRenderer {
 
     /**
      * If VR ends while a virtual screen is open, restore its real desktop layout exactly once.
-     * No Minecraft.displayWidth/Height fields are ever changed by this pipeline.
+     * Display dimensions are changed only inside explicit resolution scopes and restored on exit.
      */
     public static void restoreDesktopGuiResolution(Minecraft mc) {
         if (mc == null || mc.currentScreen == null) {
